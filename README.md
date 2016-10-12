@@ -1,7 +1,7 @@
 ### ABOUT
 growt (GrowTable) is a header only library implementing a concurrent growing hash table.  There are different variants depending on the use case. See explanation below.
 
-Using the supplied cmake build system you can compile an example file (example/example.cpp) and a multitude of different tests/benchmarks. These were also used to generate the plots displayed in our scientific publication => GROWTarXiv (slightly outdated).
+Using the supplied cmake build system you can compile an example file (example/example.cpp) and a multitude of different tests/benchmarks. These were also used to generate the plots displayed in our scientific publication => https://arxiv.org/abs/1601.04017 (slightly outdated).
 
 
 ### USAGE OF THIRD PARTY CODE
@@ -19,7 +19,9 @@ This package can be used all on its own (see example.cpp and ...test.cpp).  Howe
 - Folly - ```folly::AtomicHashMap```
 
 
-### BUILD NOTES
+### BUILD NOTES]
+Tested using current versions of g++.
+
 ##### Easy build without third party code
 
 ```bash
@@ -133,7 +135,7 @@ where growing is done by a dedicated pool of growing threads. Similar to `uaGrow
 combining the thread pool of `paGrow` with the synchronized growing approach of `usGrow`.
 
 All growing variants can also be built using the `TSXCircular` table instead of `Circular`.
-For a more in-depth description of our growing variants, check out our paper (GROWTarXiv).
+For a more in-depth description of our growing variants, check out our paper (https://arxiv.org/abs/1601.04017).
 
 ##### Our tests and Benchmarks
 All generated tests (`make` recipes) have the same name structure.
