@@ -236,9 +236,34 @@ private:
     void inc_inserted();
     void inc_deleted();
 
-    alignas(64) int  updates;
-    alignas(64) int  inserted;
-    alignas(64) int  deleted;
+    class LocalCount
+    {
+    public:
+        alignas(64) int  updates;
+        alignas(64) int  inserted;
+        alignas(64) int  deleted;
+        LocalCount() : updates(0), inserted(0), deleted(0) {}
+        LocalCount(LocalCount&& rhs)
+            : updates(rhs.updates), inserted(rhs.inserted), deleted(rhs.deleted)
+        {
+            rhs.updates = 0;
+            rhs.inserted = 0;
+            rhs.deleted = 0;
+        }
+        LocalCount& operator=(LocalCount&& rhs)
+        {
+            updates  = rhs.updates;
+            inserted = rhs.inserted;
+            deleted  = rhs.deleted;
+            rhs.updates  = 0;
+            rhs.inserted = 0;
+            rhs.deleted  = 0;
+            return *this;
+        }
+        LocalCount(const LocalCount&) = delete;
+        LocalCount& operator=(const LocalCount&) = delete;
+    };
+    std::unique_ptr<LocalCount> counts;
 };
 
 
@@ -246,7 +271,7 @@ template<class GrowTableData>
 GrowTableHandle<GrowTableData>::GrowTableHandle(GrowTableData &data)
     : gtData(data), local_worker(data), local_exclusion(data, local_worker),
       max_fill_factor(0.666),
-      inserted(0), deleted(0)
+      counts(new LocalCount())
 {
     //INITIALIZE STRATEGY DEPENDENT DATA MEMBERS
     local_exclusion.init();
@@ -258,7 +283,7 @@ GrowTableHandle<GrowTableData>::GrowTableHandle(Parent_t      &parent)
     : gtData(*(parent.gtData)), local_worker(*(parent.gtData)),
       local_exclusion(*(parent.gtData), local_worker),
       max_fill_factor(0.666),
-      inserted(0), deleted(0)
+      counts(new LocalCount())
 {
     //INITIALIZE STRATEGY DEPENDENT DATA MEMBERS
     local_exclusion.init();
@@ -272,9 +297,7 @@ GrowTableHandle<GrowTableData>::GrowTableHandle(GrowTableHandle&& source) :
     local_worker(std::move(source.local_worker)),
     local_exclusion(std::move(source.local_exclusion)),
     max_fill_factor(source.max_fill_factor),
-    updates(source.updates),
-    inserted(source.inserted),
-    deleted(source.deleted)
+    counts(std::move(source.counts))
 {
 
 };
@@ -286,9 +309,7 @@ GrowTableHandle<GrowTableData>& GrowTableHandle<GrowTableData>::operator=(GrowTa
     local_worker(std::move(source.local_worker));
     local_exclusion(std::move(source.local_exclusion));
     max_fill_factor(source.max_fill_factor);
-    updates(source.updates);
-    inserted(source.inserted);
-    deleted(source.deleted);
+    counts(source.counts);
 };
 
 
@@ -296,6 +317,7 @@ GrowTableHandle<GrowTableData>& GrowTableHandle<GrowTableData>::operator=(GrowTa
 template<class GrowTableData>
 GrowTableHandle<GrowTableData>::~GrowTableHandle()
 {
+    update_numbers();
     local_worker   .deinit();
     local_exclusion.deinit();
 }
@@ -545,14 +567,14 @@ inline ReturnCode GrowTableHandle<GrowTableData>::remove(const Key& k)
 template<class GrowTableData>
 inline void GrowTableHandle<GrowTableData>::update_numbers()
 {
-    updates = 0;
+    counts->updates = 0;
 
-    gtData.dummies.fetch_add(deleted,std::memory_order_relaxed);
-    deleted   = 0;
+    gtData.dummies.fetch_add(counts->deleted,std::memory_order_relaxed);
+    counts->deleted   = 0;
 
-    auto temp = gtData.elements.fetch_add(inserted, std::memory_order_relaxed);
-    temp     += inserted;
-    inserted  = 0;
+    auto temp         = gtData.elements.fetch_add(counts->inserted, std::memory_order_relaxed);
+    temp             += counts->inserted;
+    counts->inserted  = 0;
 
     if (temp  > getTable()->size*max_fill_factor)
     {
@@ -565,8 +587,8 @@ inline void GrowTableHandle<GrowTableData>::update_numbers()
 template<class GrowTableData>
 inline void GrowTableHandle<GrowTableData>::inc_inserted()
 {
-    ++inserted;
-    if (++updates > 64)
+    ++counts->inserted;
+    if (++counts->updates > 64)
     {
         update_numbers();
     }
@@ -575,8 +597,8 @@ inline void GrowTableHandle<GrowTableData>::inc_inserted()
 template<class GrowTableData>
 inline void GrowTableHandle<GrowTableData>::inc_deleted()
 {
-    ++deleted;
-    if (++updates > 64)
+    ++counts->deleted;
+    if (++counts->updates > 64)
     {
         update_numbers();
     }
