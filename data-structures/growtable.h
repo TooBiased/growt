@@ -19,6 +19,7 @@
 #define GROWTABLE_H
 
 #include "data-structures/returnelement.h"
+#include "utils/concurrentptrarray.h"
 
 #include <atomic>
 #include <memory>
@@ -104,6 +105,10 @@ public:
     {
         return Handle(*gtData);
     }
+    
+    size_t element_count_approx() { return gtData->element_count_approx(); }
+    size_t element_count_unsafe() { return gtData->element_count_unsafe(); }
+    
 };
 
 
@@ -133,7 +138,7 @@ public:
     friend Handle;
 
     GrowTableData(size_t size_)
-        : global_exclusion(size_), global_worker(),
+        : global_exclusion(size_), global_worker(), handle_ptr(64),
           elements(0), dummies(0)
     { }
 
@@ -141,18 +146,40 @@ public:
     GrowTableData& operator=(const GrowTableData& source) = delete;
     ~GrowTableData() = default;
 
+    size_t element_count_unsafe();
+    size_t element_count_approx();
 private:
+    
     // DATA+FUNCTIONS FOR MIGRATION STRATEGIES
     typename ExclusionStrat_t::global_data_t global_exclusion;
     typename WorkerStrat_t   ::global_data_t global_worker;
+    
+    ConcurrentPtrArray<Handle> handle_ptr;
 
     // APPROXIMATE COUNTS
     alignas(64) std::atomic_int elements;
     alignas(64) std::atomic_int dummies;
 };
 
+template <typename Parent>
+size_t GrowTableData<Parent>::element_count_unsafe()
+{
+    return elements.load()
+        - dummies.load()
+        + handle_ptr.forall([](Handle* h, size_t res)
+                             {
+                                 size_t temp = res;
+                                 temp += h->counts.inserted;
+                                 temp -= h->counts.deleted;
+                                 return temp;
+                             });
+}
 
-
+template <typename Parent>
+size_t GrowTableData<Parent>::element_count_approx()
+{
+    return elements.load() - dummies.load();
+}
 
 // HANDLE OBJECTS EVERY THREAD HAS TO CREATE ONE HANDLE (THEY CANNOT BE SHARED)
 template<class GrowTableData>
@@ -165,6 +192,8 @@ private:
     using ExclusionStrat_t = typename GrowTableData::ExclusionStrat_t;
     using HashPtrRef_t     = typename ExclusionStrat_t::HashPtrRef;
     using InternElement_t  = typename GrowTableData::SeqTable_t::InternElement_t;
+
+    friend GrowTableData;
 
 public:
     using Element          = ReturnElement;
@@ -195,10 +224,14 @@ public:
     ReturnCode    update_unsafe(const Key k, const Data d, F f);
     template <class F>
     ReturnCode    insertOrUpdate_unsafe(const Key k, const Data d, F f);
+    
+    size_t element_count_approx() { return gtData.element_count_approx(); }
+    size_t element_count_unsafe() { return gtData.element_count_unsafe(); }
 
 private:
     // DATA+FUNCTIONS FOR MIGRATION STRATEGIES
     GrowTableData& gtData;
+    size_t handle_id;
     typename WorkerStrat_t   ::local_data_t local_worker;
     typename ExclusionStrat_t::local_data_t local_exclusion;
 
@@ -230,7 +263,7 @@ private:
     ReturnCode insertOrUpdate_unsafe(const InternElement_t & e, F f);
 
     double max_fill_factor;
-
+    
     // LOCAL COUNTERS FOR SIZE ESTIMATION WITH SOME PADDING FOR
     // REDUCING CACHE EFFECTS
     void update_numbers();
@@ -266,7 +299,7 @@ private:
         LocalCount(const LocalCount&) = delete;
         LocalCount& operator=(const LocalCount&) = delete;
     };
-    std::unique_ptr<LocalCount> counts;
+    LocalCount counts;
 };
 
 
@@ -274,8 +307,10 @@ template<class GrowTableData>
 GrowTableHandle<GrowTableData>::GrowTableHandle(GrowTableData &data)
     : gtData(data), local_worker(data), local_exclusion(data, local_worker),
       max_fill_factor(0.666),
-      counts(new LocalCount())
+      counts()
 {
+    handle_id = gtData.handle_ptr.push_back(this);
+    
     //INITIALIZE STRATEGY DEPENDENT DATA MEMBERS
     local_exclusion.init();
     local_worker   .init(local_exclusion);
@@ -286,8 +321,10 @@ GrowTableHandle<GrowTableData>::GrowTableHandle(Parent_t      &parent)
     : gtData(*(parent.gtData)), local_worker(*(parent.gtData)),
       local_exclusion(*(parent.gtData), local_worker),
       max_fill_factor(0.666),
-      counts(new LocalCount())
+      counts()
 {
+    handle_id = gtData.handle_ptr.push_back(this);
+    
     //INITIALIZE STRATEGY DEPENDENT DATA MEMBERS
     local_exclusion.init();
     local_worker   .init(local_exclusion);
@@ -296,13 +333,14 @@ GrowTableHandle<GrowTableData>::GrowTableHandle(Parent_t      &parent)
 
 template<class GrowTableData>
 GrowTableHandle<GrowTableData>::GrowTableHandle(GrowTableHandle&& source) :
-    gtData(source.gtData),
+    gtData(source.gtData), handle_id(source.handle_id),
     local_worker(std::move(source.local_worker)),
     local_exclusion(std::move(source.local_exclusion)),
     max_fill_factor(source.max_fill_factor),
     counts(std::move(source.counts))
 {
-
+    gtData.handle_ptr.update(handle_id, this);
+    source.handle_id = std::numeric_limits<size_t>::max();
 };
 
 template<class GrowTableData>
@@ -313,6 +351,10 @@ GrowTableHandle<GrowTableData>& GrowTableHandle<GrowTableData>::operator=(GrowTa
     local_exclusion(std::move(source.local_exclusion));
     max_fill_factor(source.max_fill_factor);
     counts(source.counts);
+    
+    handle_id = source.handle_id;
+    gtData.handle_ptr.update(handle_id, this);
+    source.handle_id = std::numeric_limits<size_t>::max();
 };
 
 
@@ -321,6 +363,9 @@ template<class GrowTableData>
 GrowTableHandle<GrowTableData>::~GrowTableHandle()
 {
     update_numbers();
+    if (handle_id < std::numeric_limits<size_t>::max())
+        gtData.handle_ptr.remove(handle_id);
+    
     local_worker   .deinit();
     local_exclusion.deinit();
 }
@@ -570,14 +615,14 @@ inline ReturnCode GrowTableHandle<GrowTableData>::remove(const Key& k)
 template<class GrowTableData>
 inline void GrowTableHandle<GrowTableData>::update_numbers()
 {
-    counts->updates = 0;
+    counts.updates  = 0;
 
-    gtData.dummies.fetch_add(counts->deleted,std::memory_order_relaxed);
-    counts->deleted   = 0;
+    gtData.dummies.fetch_add(counts.deleted,std::memory_order_relaxed);
+    counts.deleted  = 0;
 
-    auto temp         = gtData.elements.fetch_add(counts->inserted, std::memory_order_relaxed);
-    temp             += counts->inserted;
-    counts->inserted  = 0;
+    auto temp       = gtData.elements.fetch_add(counts.inserted, std::memory_order_relaxed);
+    temp           += counts.inserted;
+    counts.inserted = 0;
 
     if (temp  > getTable()->size*max_fill_factor)
     {
@@ -590,8 +635,8 @@ inline void GrowTableHandle<GrowTableData>::update_numbers()
 template<class GrowTableData>
 inline void GrowTableHandle<GrowTableData>::inc_inserted()
 {
-    ++counts->inserted;
-    if (++counts->updates > 64)
+    ++counts.inserted;
+    if (++counts.updates > 64)
     {
         update_numbers();
     }
@@ -600,8 +645,8 @@ inline void GrowTableHandle<GrowTableData>::inc_inserted()
 template<class GrowTableData>
 inline void GrowTableHandle<GrowTableData>::inc_deleted()
 {
-    ++counts->deleted;
-    if (++counts->updates > 64)
+    ++counts.deleted;
+    if (++counts.updates > 64)
     {
         update_numbers();
     }
