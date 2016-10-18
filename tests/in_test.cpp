@@ -221,6 +221,8 @@ int test_in_stages(size_t p, size_t id, size_t n, size_t cap, size_t it)
         ThreadType::out (malloc_count_current(), 14);
         #endif
 
+        //ThreadType::out (hash.element_count_unsafe(), 10);
+        //ThreadType::out (hash.element_count_approx(), 10);
         ThreadType() << std::endl;
         if (ThreadType::is_main) errors.store(0);
 

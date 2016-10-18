@@ -229,9 +229,9 @@ char*              BasePoolAllocator<T,S>::pool_buffer = nullptr;
 template<typename T, typename S>
 tbb::fixed_pool*   BasePoolAllocator<T,S>::pool        = nullptr;
 
-template<typename T>
+template<typename T = char>
 using     PoolAllocator = BasePoolAllocator<T,BaseAllocator::Malloc>;
-template<typename T>
+template<typename T = char>
 using HTLBPoolAllocator = BasePoolAllocator<T,BaseAllocator::HugePageAlloc>;
 
 }
