@@ -22,6 +22,7 @@
 
 #include <atomic>
 #include <memory>
+#include <iostream>
 
 namespace growt {
 
@@ -236,13 +237,15 @@ private:
     void inc_inserted();
     void inc_deleted();
 
-    class LocalCount
+    class alignas(64) LocalCount
     {
     public:
-        alignas(64) int  updates;
-        alignas(64) int  inserted;
-        alignas(64) int  deleted;
-        LocalCount() : updates(0), inserted(0), deleted(0) {}
+        int  updates;
+        int  inserted;
+        int  deleted;
+        LocalCount() : updates(0), inserted(0), deleted(0)
+        {  }
+
         LocalCount(LocalCount&& rhs)
             : updates(rhs.updates), inserted(rhs.inserted), deleted(rhs.deleted)
         {
