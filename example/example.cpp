@@ -10,7 +10,7 @@
 //////////////////////////////////////////////////////////////
 // USING definitions.h (possibly slower compilation)
 #include "data-structures/definitions.h"
-using Table_t = growt::uaGrow<murmur2_hasher, growt::AlignedAllocator>;
+using Table_t = growt::uaGrow<murmur2_hasher, growt::AlignedAllocator<> >;
 
 //////////////////////////////////////////////////////////////
 // EQUAL RESULT without definitions.h (possibly faster compilation)
@@ -22,7 +22,7 @@ using Table_t = growt::uaGrow<murmur2_hasher, growt::AlignedAllocator>;
 // #include "data-structures/growtable.h"
 // using Table_t = growt::GrowTable<growt::Circular<growt::MarkableElement,
 //                                                  murmur2_hasher,
-//                                                  growt::AlignedAllocator<growt::MarkableElement> >,
+//                                                  growt::AlignedAllocator<> >,
 //                                  growt::WStratUser,
 //                                  growt::EStratAsync>
 //////////////////////////////////////////////////////////////

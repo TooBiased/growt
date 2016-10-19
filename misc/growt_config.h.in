@@ -1,0 +1,20 @@
+/*******************************************************************************
+ * misc/growt_config.h(.in)
+ *
+ * This file is used to set some compile time constants that depend on settings
+ * in the CMake build system
+ *
+ * Part of Project growt - https://github.com/TooBiased/growt.git
+ *
+ * Copyright (C) 2015-2016 Tobias Maier <t.maier@kit.edu>
+ *
+ * All rights reserved. Published under the BSD-2 license in the LICENSE file.
+ ******************************************************************************/
+
+#ifndef GROWT_CONFIG_H
+#define GROWT_CONFIG_H
+
+#define GROWT_MEMPOOL_SIZE 1024ull*1024ull*1024ull*@GROWT_ALLOCATOR_POOL_SIZE@
+#define GROWT_MAX_FILL      @GROWT_MAX_FILL@ // not used yet
+
+#endif

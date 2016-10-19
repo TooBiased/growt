@@ -29,7 +29,7 @@ struct NumaAlloc
 };
 }
 
-template<typename T>
+template<typename T = char>
 using NUMAPoolAllocator = BasePoolAllocator<T,BaseAllocator::NumaAlloc>;
 }
 

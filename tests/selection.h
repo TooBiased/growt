@@ -1,3 +1,4 @@
+
 /*******************************************************************************
  * tests/selection.h
  *
@@ -45,7 +46,7 @@
 #include "data-structures/simpleelement.h"
 #include "data-structures/seqcircular.h"
 #define HASHTYPE growt::SeqCircular<growt::SimpleElement, HASHFCT, \
-                                    ALLOCATOR<growt::SimpleElement> >
+                                    ALLOCATOR<> >
 #endif // SEQUENTIAL
 
 
@@ -55,14 +56,14 @@
 #include "data-structures/simpleelement.h"
 #include "data-structures/circular.h"
 #define HASHTYPE growt::Circular<growt::SimpleElement, HASHFCT, \
-                                 ALLOCATOR<growt::SimpleElement> >
+                                 ALLOCATOR<> >
 #endif // FOLKLORE
 
 #ifdef XFOLKLORE
 #include "data-structures/simpleelement.h"
 #include "data-structures/tsxcircular.h"
 #define HASHTYPE growt::TSXCircular<growt::SimpleElement, HASHFCT, \
-                                    ALLOCATOR<growt::SimpleElement> >
+                                    ALLOCATOR<> >
 #endif // XFOLKLORE
 
 
@@ -76,7 +77,7 @@
 #include "data-structures/growtable.h"
 #define HASHTYPE growt::GrowTable<growt::Circular<growt::MarkableElement, \
                                                   HASHFCT, \
-                                                  ALLOCATOR<growt::MarkableElement> >, \
+                                                  ALLOCATOR<> >, \
                                   growt::WStratUser, growt::EStratAsync>
 #endif // UAGROW
 
@@ -88,7 +89,7 @@
 #include "data-structures/growtable.h"
 #define HASHTYPE growt::GrowTable<growt::Circular<growt::MarkableElement, \
                                                   HASHFCT, \
-                                                  ALLOCATOR<growt::MarkableElement> >, \
+                                                  ALLOCATOR<> >, \
                                   growt::WStratPool, growt::EStratAsync>
 #endif // PAGROW
 
@@ -100,7 +101,7 @@
 #include "data-structures/growtable.h"
 #define HASHTYPE growt::GrowTable<growt::Circular<growt::SimpleElement, \
                                                   HASHFCT, \
-                                                  ALLOCATOR<growt::SimpleElement> >, \
+                                                  ALLOCATOR<> >, \
                                   growt::WStratUser, growt::EStratSync>
 #endif // USGROW
 
@@ -112,7 +113,7 @@
 #include "data-structures/growtable.h"
 #define HASHTYPE growt::GrowTable<growt::Circular<growt::SimpleElement, \
                                                   HASHFCT, \
-                                                  ALLOCATOR<growt::SimpleElement> >, \
+                                                  ALLOCATOR<> >, \
                                   growt::WStratPool, growt::EStratSync>
 #endif // PSGROW
 
@@ -124,7 +125,7 @@
 #include "data-structures/growtable.h"
 #define HASHTYPE growt::GrowTable<growt::Circular<growt::SimpleElement, \
                                                   HASHFCT, \
-                                                  ALLOCATOR<growt::SimpleElement> >, \
+                                                  ALLOCATOR<> >, \
                                   growt::WStratUser, growt::EStratSyncNUMA>
 #endif // USNGROW
 
@@ -136,7 +137,7 @@
 #include "data-structures/growtable.h"
 #define HASHTYPE growt::GrowTable<growt::Circular<growt::SimpleElement, \
                                                   HASHFCT, \
-                                                  ALLOCATOR<growt::SimpleElement> >, \
+                                                  ALLOCATOR<> >, \
                                   growt::WStratPool, growt::EStratSyncNUMA>
 #endif // PSNGROW
 
@@ -151,7 +152,7 @@
 #include "data-structures/growtable.h"
 #define HASHTYPE growt::GrowTable<growt::TSXCircular<growt::MarkableElement, \
                                                      HASHFCT, \
-                                                     ALLOCATOR<growt::MarkableElement> >, \
+                                                     ALLOCATOR<> >, \
                                   growt::WStratUser, growt::EStratAsync>
 #endif // UAXGROW
 
@@ -163,7 +164,7 @@
 #include "data-structures/growtable.h"
 #define HASHTYPE growt::GrowTable<growt::TSXCircular<growt::MarkableElement, \
                                                      HASHFCT, \
-                                                     ALLOCATOR<growt::MarkableElement> >, \
+                                                     ALLOCATOR<> >, \
                                   growt::WStratPool, growt::EStratAsync>
 #endif // PAXGROW
 
@@ -175,7 +176,7 @@
 #include "data-structures/growtable.h"
 #define HASHTYPE growt::GrowTable<growt::TSXCircular<growt::SimpleElement, \
                                                      HASHFCT, \
-                                                     ALLOCATOR<growt::SimpleElement> >, \
+                                                     ALLOCATOR<> >, \
                                   growt::WStratUser, growt::EStratSync>
 #endif // USXGROW
 
@@ -187,7 +188,7 @@
 #include "data-structures/growtable.h"
 #define HASHTYPE growt::GrowTable<growt::TSXCircular<growt::SimpleElement, \
                                                      HASHFCT, \
-                                                     ALLOCATOR<growt::SimpleElement> >, \
+                                                     ALLOCATOR<> >, \
                                   growt::WStratPool, growt::EStratSync>
 #endif // PSXGROW
 
@@ -199,7 +200,7 @@
 #include "data-structures/growtable.h"
 #define HASHTYPE growt::GrowTable<growt::TSXCircular<growt::SimpleElement, \
                                                      HASHFCT, \
-                                                     ALLOCATOR<growt::SimpleElement> >, \
+                                                     ALLOCATOR<> >, \
                                   growt::WStratUser, growt::EStratSyncNUMA>
 #endif // USNXGROW
 
@@ -211,7 +212,7 @@
 #include "data-structures/growtable.h"
 #define HASHTYPE growt::GrowTable<growt::TSXCircular<growt::SimpleElement, \
                                                      HASHFCT, \
-                                                     ALLOCATOR<growt::SimpleElement> >, \
+                                                     ALLOCATOR<> >, \
                                   growt::WStratPool, growt::EStratSyncNUMA>
 #endif // PSNXGROW
 

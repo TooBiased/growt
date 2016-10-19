@@ -30,7 +30,7 @@ class Circular
 {
 private:
     using This_t          = Circular<E,HashFct,A,MaDis,MiSt>;
-    using Allocator_t     = A;
+    using Allocator_t     = typename A::template rebind<E>::other;
 
     template <class> friend class GrowTableHandle;
 

@@ -27,36 +27,36 @@
 
 namespace growt {
 
-template<class HashFct = std::hash<typename SimpleElement::Key>, template<typename> class Allocator = std::allocator>
-using folklore    = TSXCircular<SimpleElement, HashFct, Allocator<SimpleElement> >;
+template<class HashFct = std::hash<typename SimpleElement::Key>, class Allocator = std::allocator<E> >
+using folklore    = TSXCircular<SimpleElement, HashFct, Allocator>;
 
 
-template<class E, class HashFct = std::hash<E>, template<typename> class Allocator = std::allocator>
-using NoGrow      = TSXCircular<E, HashFct, Allocator<E> >;
+template<class E, class HashFct = std::hash<E>, class Allocator = std::allocator<E> >
+using NoGrow      = TSXCircular<E, HashFct, Allocator>;
 
-template<class                    HashFct    = std::hash<typename MarkableElement::Key>,
-         template<typename> class Allocator  = std::allocator>
+template<class HashFct    = std::hash<typename MarkableElement::Key>,
+         class Allocator  = std::allocator<char> >
 using uaxGrow  = GrowTable<NoGrow<MarkableElement, HashFct, Allocator>, WStratUser, EStratAsync>;
 
-template<class                    HashFct    = std::hash<typename SimpleElement::Key>,
-         template<typename> class Allocator  = std::allocator>
+template<class HashFct    = std::hash<typename SimpleElement::Key>,
+         class Allocator  = std::allocator<char> >
 using usxGrow  = GrowTable<NoGrow<MarkableElement, HashFct, Allocator>, WStratUser, EStratSync>;
 
-template<class                    HashFct    = std::hash<typename SimpleElement::Key>,
-         template<typename> class Allocator  = std::allocator>
+template<class HashFct    = std::hash<typename SimpleElement::Key>,
+         class Allocator  = std::allocator<char> >
 using usnxGrow = GrowTable<NoGrow<MarkableElement, HashFct, Allocator>, WStratUser, EStratSyncNUMA>;
 
 
-template<class                    HashFct    = std::hash<typename MarkableElement::Key>,
-         template<typename> class Allocator  = std::allocator>
+template<class HashFct    = std::hash<typename MarkableElement::Key>,
+         class Allocator  = std::allocator<char> >
 using paxGrow  = GrowTable<NoGrow<MarkableElement, HashFct, Allocator>, WStratPool, EStratAsync>;
 
-template<class                    HashFct    = std::hash<typename SimpleElement::Key>,
-         template<typename> class Allocator  = std::allocator>
+template<class HashFct    = std::hash<typename SimpleElement::Key>,
+         class Allocator  = std::allocator<char> >
 using psxGrow  = GrowTable<NoGrow<MarkableElement, HashFct, Allocator>, WStratPool, EStratSync>;
 
-template<class                    HashFct   = std::hash<typename SimpleElement::Key>,
-         template<typename> class Allocator = std::allocator>
+template<class HashFct   = std::hash<typename SimpleElement::Key>,
+         class Allocator = std::allocator<char> >
 using psnxGrow = GrowTable<NoGrow<MarkableElement, HashFct, Allocator>, WStratPool, EStratSyncNUMA>;
 
 }
