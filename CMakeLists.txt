@@ -38,7 +38,7 @@ option(GROWT_BUILD_TBB
 option(GROWT_BUILD_JUNCTION
   "(optional) builds tests for junction tables (Linear, Grampa, Leapfrog)!" OFF)
 
-set(GROWT_ALLOCATOR ALIGNED CACHE STRING
+set(GROWT_ALLOCATOR NUMA_POOL CACHE STRING
   "Specifies the used allocator (only relevant for our tables)!")
 set_property(CACHE GROWT_ALLOCATOR PROPERTY STRINGS ALIGNED POOL NUMA_POOL HTLB_POOL)
 
@@ -58,6 +58,9 @@ if (GROWT_BUILD_ALL_THIRD_PARTIES)
   set(GROWT_BUILD_TBB      ON)
   set(GROWT_BUILD_JUNCTION ON)
 endif()
+
+###TEMPORARY
+set (GROWT_MAX_FILL 0.6)
 
 
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y -msse4.2 -mcx16 -Wall -Wextra -O3 -g")
@@ -116,6 +119,20 @@ if (USE_TBB_MEMPOOL OR GROWT_BUILD_TBB)
     if (USE_TBB_MEMPOOL)
       set(ALLOC_LIB ${TBB_LIBRARIES})
     endif()
+  endif()
+endif()
+
+if (GROWT_ALLOCATOR STREQUAL NUMA_POOL)
+  find_package(NUMA)
+  if (NOT NUMA_FOUND)
+    message(STATUS "Cannot find libnuma. "
+      "Therefore, a normal pool allocator will be used!")
+    set(GROWT_ALLOCATOR POOL)
+  else()
+    include_directories(SYSTEM &{NUMA_INCLUDE_DIRS})
+    #message(STATUS "${NUMA_LIBRARIES}")
+    link_directories(${NUMA_LIBRARY_DIRS})
+    set(ALLOC_LIB ${ALLOC_LIB} ${NUMA_LIBRARIES})
   endif()
 endif()
 
@@ -180,6 +197,9 @@ if (GROWT_HASHFCT STREQUAL MURMUR3)
   endif()
 endif()
 
+configure_file ("misc/growt_config.h.in" "${PROJECT_BINARY_DIR}/growt_config.h")
+include_directories(${PROJECT_BINARY_DIR})
+
 foreach(t in agg co mix del)
   message(STATUS "create ${t}_test targets")
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${t}_tests)
@@ -188,7 +208,11 @@ foreach(t in agg co mix del)
     string(TOUPPER ${h} hu)
 
     add_executable(${t}_${h} tests/${t}_test.cpp)
-    target_compile_definitions(${t}_${h}   PRIVATE -D ${hu}  -D ${GROWT_HASHFCT} ${GROWT_ALLOCATOR})
+    target_compile_definitions(${t}_${h}
+      PRIVATE -D ${hu}
+      -D ${GROWT_HASHFCT}
+      -D ${GROWT_ALLOCATOR}
+      -D GROWT_USE_CONFIG)
     target_link_libraries(${t}_${h} ${TEST_DEP_LIBRARIES} ${ALLOC_LIB})
   endforeach()
 

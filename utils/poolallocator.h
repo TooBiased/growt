@@ -31,6 +31,12 @@
 //#include "numa.h"
 #include <iostream>
 
+#ifdef GROWT_USE_CONFIG
+#include "growt_config.h"
+#else
+#define GROWT_MEMPOOL_SIZE 1024ull*1024ull*1024ull*2
+#endif
+
 namespace growt {
 
 namespace BaseAllocator
@@ -214,14 +220,9 @@ public:
 };
 
 // Initialization of static member variables
-#ifdef POOL_SIZE
-#warning "used pool size will be POOL_SIZE GiB"
+
 template<typename T, typename S>
-const size_t       BasePoolAllocator<T,S>::default_pool_size = 1024ull*1024ull*1024ull*POOL_SIZE;
-#else
-template<typename T, typename S>
-const size_t       BasePoolAllocator<T,S>::default_pool_size = 1024ull*1024ull*1024ull*2ull;
-#endif
+const size_t       BasePoolAllocator<T,S>::default_pool_size = GROWT_MEMPOOL_SIZE;
 template<typename T, typename S>
 std::atomic_size_t BasePoolAllocator<T,S>::initialized(0);
 template<typename T, typename S>
