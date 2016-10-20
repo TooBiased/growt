@@ -26,6 +26,9 @@ endif()
 option(GROWT_BUILD_TSX
   "(optional) builds tests using TSX optimized hash tables." OFF)
 
+option(GTOWT_BUILD_ALTERNATE_VARIANT
+  "(optional) builds another variant of our synchroneously growing hash tables (usnGrow and psnGrow)." OFF)
+
 option(GROWT_BUILD_ALL_THIRD_PARTIES
   "(optional) builds tests for third party hash tables." ON)
 
@@ -38,7 +41,7 @@ option(GROWT_BUILD_TBB
 option(GROWT_BUILD_JUNCTION
   "(optional) builds tests for junction tables (Linear, Grampa, Leapfrog)!" OFF)
 
-set(GROWT_ALLOCATOR NUMA_POOL CACHE STRING
+set(GROWT_ALLOCATOR ALIGNED CACHE STRING
   "Specifies the used allocator (only relevant for our tables)!")
 set_property(CACHE GROWT_ALLOCATOR PROPERTY STRINGS ALIGNED POOL NUMA_POOL HTLB_POOL)
 
@@ -59,13 +62,25 @@ if (GROWT_BUILD_ALL_THIRD_PARTIES)
   set(GROWT_BUILD_JUNCTION ON)
 endif()
 
-###TEMPORARY
+###TEMPORARY (CURRENTLY NOT USED)
 set (GROWT_MAX_FILL 0.6)
 
 
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y -msse4.2 -mcx16 -Wall -Wextra -O3 -g")
 include_directories(.)
 set(HASHLIST "sequential;folklore;uaGrow;usGrow;paGrow;psGrow")
+
+if (GTOWT_BUILD_ALTERNATE_VARIANT)
+  set(HASHLIST "${HASHLIST};usnGrow;psnGrow")
+endif()
+
+if (GROWT_ALLOCATOR STREQUAL POOL OR
+    GROWT_ALLOCATOR STREQUAL NUMA_POOL OR
+    GROWT_ALLOCATOR STREQUAL HTLB_POOL)
+  set (USE_TBB_MEMPOOL ON)
+endif()
+
+
 
 # find pthread
 find_package(Threads REQUIRED)
@@ -79,18 +94,13 @@ target_link_libraries(example ${TEST_DEP_LIBRARIES})
 
 
 
-
-
-if (GROWT_ALLOCATOR STREQUAL POOL OR
-    GROWT_ALLOCATOR STREQUAL NUMA_POOL OR
-    GROWT_ALLOCATOR STREQUAL HTLB_POOL)
-  set (USE_TBB_MEMPOOL ON)
-endif()
-
-# build additional tables when cxx is enabled
+# build additional tables when tsx is enabled
 if (GROWT_BUILD_TSX)
   set (HASHLIST "${HASHLIST};xfolklore;uaxGrow;usxGrow;paxGrow;psxGrow")
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mrtm")
+  if (GROWT_BUILD_ALTERNATE_VARIANT)
+    set(HASHLIST "${HASHLIST};usnxGrow;psnxGrow")
+  endif()
 endif()
 
 # if necessary find tbb
@@ -98,7 +108,7 @@ if (USE_TBB_MEMPOOL OR GROWT_BUILD_TBB)
   find_package(TBB)
 
   if (NOT TBB_FOUND)
-    message(STATUS "Intel TBB not found. "
+    message("Intel TBB not found. "
       "memPool cannot be used and TBB-Tests cannot be created!")
     set(GROWT_BUILD_TBB OFF)
     if (USE_TBB_MEMPOOL)
@@ -106,7 +116,7 @@ if (USE_TBB_MEMPOOL OR GROWT_BUILD_TBB)
       set(GROWT_ALLOCATOR ALIGNED)
     endif()
   elseif(TBB_INTERFACE_VERSION LESS 8000)
-    message(STATUS "Intel TBB ${TBB_INTERFACE_VERSION} is too old. "
+    message("Intel TBB ${TBB_INTERFACE_VERSION} is too old. "
       "ThreadPool cannot be used and TBB-Tests cannot be created!")
     set(GROWT_BUILD_TBB OFF)
     if (USE_TBB_MEMPOOL)
@@ -114,7 +124,7 @@ if (USE_TBB_MEMPOOL OR GROWT_BUILD_TBB)
       set(GROWT_ALLOCATOR ALIGNED)
     endif()
   else()
-    include_directories(SYSTEM ${TBB_INCLUDE_DIRS})
+    include_directories(STATUS ${TBB_INCLUDE_DIRS})
     link_directories(${TBB_LIBRARY_DIRS})
     if (USE_TBB_MEMPOOL)
       set(ALLOC_LIB ${TBB_LIBRARIES})
@@ -125,7 +135,7 @@ endif()
 if (GROWT_ALLOCATOR STREQUAL NUMA_POOL)
   find_package(NUMA)
   if (NOT NUMA_FOUND)
-    message(STATUS "Cannot find libnuma. "
+    message("Cannot find libnuma. "
       "Therefore, a normal pool allocator will be used!")
     set(GROWT_ALLOCATOR POOL)
   else()
@@ -139,7 +149,7 @@ endif()
 if (GROWT_BUILD_CUCKOO)
   find_package(Cuckoo)
   if (NOT CUCKOO_FOUND)
-    message(STATUS "Cannot find libcuckoo. "
+    message("Cannot find libcuckoo. "
       "Therefore, Cuckoo-Tests cannot be created!")
     set(GROWT_BUILD_CUCKOO OFF)
   else()
@@ -154,7 +164,7 @@ if(GROWT_BUILD_FOLLY)
     link_directories(${FOLLY_LIBRARY_DIRS})
     set(folly_lib ${FOLLY_LIBRARIES})
   else()
-    message(STATUS "Cannot find Folly. "
+    message("Cannot find Folly. "
       "Therefore, Folly-Tests cannot be created!")
     set(GROWT_BUILD_FOLLY OFF)
   endif()
@@ -172,7 +182,7 @@ if (GROWT_BUILD_JUNCTION)
     message(STATUS "Looking for junction -- found")
   else()
     message(STATUS "Looking for junction -- not found")
-    message(STATUS "Cannot find junction root directory. "
+    message("Cannot find junction root directory. "
       "Therefore, Junction-Tests cannot be created!")
     set(GROWT_BUILD_JUNCTION OFF)
   endif()
@@ -183,7 +193,7 @@ if (GROWT_HASHFCT STREQUAL XXHASH)
   if (XXHASH_FOUND)
     include_directories(${XXHASH_INCLUDE_DIRS})
   else()
-    message(STATUS "Cannot find xxHash. Use MURMUR2 instead.")
+    message("Cannot find xxHash. Use MURMUR2 instead.")
     set(GROWT_HASHFCT MURMUR2)
   endif()
 endif()
@@ -193,14 +203,14 @@ if (GROWT_HASHFCT STREQUAL MURMUR3)
   if (SMHASHER_FOUND)
     include_directories(${SMHASHER_INCLUDE_DIRS})
   else()
-    message(STATUS "Cannot find SMHasher which implements MURMUR3. Use MURMUR2 instead.")
+    message("Cannot find SMHasher which implements MURMUR3. Use MURMUR2 instead.")
   endif()
 endif()
 
 configure_file ("misc/growt_config.h.in" "${PROJECT_BINARY_DIR}/growt_config.h")
 include_directories(${PROJECT_BINARY_DIR})
 
-foreach(t in agg co mix del)
+foreach(t in agg co mix del handle_stuff_stress)
   message(STATUS "create ${t}_test targets")
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${t}_tests)
 
