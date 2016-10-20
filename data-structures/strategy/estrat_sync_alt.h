@@ -1,6 +1,6 @@
 /*******************************************************************************
  * data-structures/strategy/estrat_sync_alt.h
- * 
+ *
  * see below
  *
  * Part of Project growt - https://github.com/TooBiased/growt.git
@@ -39,7 +39,7 @@
  *     - migrate()    (called by the worker strategy to execute the migration.
  *                     Done here to ensure the table is not concurrently freed.)
  *
- * This specific strategy uses a synchronized growing approach, where table 
+ * This specific strategy uses a synchronized growing approach, where table
  * updates and growing steps cannot coexist to do this some flags are used
  * (they are stored in the blobal data object). They will be set during each
  * operation on the table. Since the growing is synchronized, storing
@@ -53,13 +53,13 @@ template<class Table_t> size_t blockwise_migrate(Table_t source, Table_t target)
 
 template <class Parent>
 class EStratSyncNUMA
-{    
+{
 public:
     using SeqTable_t    = typename Parent::SeqTable_t;
     using HashPtrRef    = SeqTable_t*;
 
     class local_data_t;
-    
+
     // STORED AT THE GLOBAL OBJECT
     //  - ATOMIC POINTERS TO BOTH CURRENT AND TARGET TABLE
     //  - POINTERS TO ALL HANDLES (TO FIND THE LOCAL FLAGS)
@@ -67,7 +67,7 @@ public:
     {
     public:
         #define max_sim_threads 256
-        
+
         global_data_t(size_t size_) : currently_growing(0), handle_id(0)
         {
             auto temp = new SeqTable_t(size_);
@@ -95,7 +95,7 @@ public:
             constexpr HandleFlags(): table_op(0), migrating(0) { }
         };
 
-        
+
         alignas(64) HashPtr g_table_r;
         /*same*/    HashPtr g_table_w;
         /*same*/    std::atomic_size_t currently_growing;
@@ -119,11 +119,11 @@ public:
                     else --i;
                 }
             }
-            std::length_error("Exceeded predefined maximum of simultaneously registered threads (256)!");
+            throw std::length_error("Exceeded predefined maximum of simultaneously registered threads (256)!");
             // unreachable
             return -1;
         }
-        
+
     };
 
     class local_data_t
@@ -136,7 +136,7 @@ public:
             : parent(parent), global(parent.global_exclusion), worker_strat(wstrat),
               id(global.registerHandle(&(this->flags))), epoch(0)
         {   }
-        
+
         local_data_t(const local_data_t& source) = delete;
         local_data_t& operator=(const local_data_t& source) = delete;
 
@@ -159,11 +159,14 @@ public:
                 rhs.id = max_sim_threads;
             }
         }
-        
+
         local_data_t& operator=(local_data_t&& rhs)
         {
+            if (this == &rhs) return;
+
             this->~local_data_t();
             new (this) local_data_t(rhs);
+            return *this;
         }
 
         ~local_data_t()
@@ -171,7 +174,7 @@ public:
             // was this moved from?!
             if (id < max_sim_threads)
             {
-                
+
                 Flag_t* temp = &(this->flags);
                 if (global.handle_flags[id].compare_exchange_strong(temp, nullptr))
                 {
@@ -201,19 +204,19 @@ public:
         size_t           epoch;
 
         Flag_t flags;
-        
+
     public:
         inline HashPtrRef getTable()
         {
-            flags.table_op.store(1, std::memory_order_release);
-            
-            if (global.currently_growing.load(std::memory_order_acquire))
+            flags.table_op.store(1);//, std::memory_order_release);
+
+            if (global.currently_growing.load()) //std::memory_order_acquire))
             {
                 rlsTable();
                 helpGrow();
                 return getTable();
             }
-            auto temp = global.g_table_r.load(std::memory_order_acquire);
+            auto temp = global.g_table_r.load(); //std::memory_order_acquire);
             epoch = temp->version;
             return temp;
         }
@@ -221,7 +224,7 @@ public:
         inline void rlsTable()
         {
             //own_flag = 0;
-            flags.table_op.store(0, std::memory_order_release);
+            flags.table_op.store(0); //, std::memory_order_release);
         }
 
         void grow()
@@ -233,25 +236,25 @@ public:
             // STAGE 1 GENERATE TABLE AND SWAP IT INTO NEXT
             if (! changeStage<false>(stage, 1u)) { helpGrow(); return; }
 
-            auto t_cur   = global.g_table_r.load(std::memory_order_acquire);
+            auto t_cur   = global.g_table_r.load();//std::memory_order_acquire);
             auto t_next  = new SeqTable_t(//t_cur->size << 1, t_cur->version+1);
                         SeqTable_t::resize(t_cur->size,
-                            parent.elements.load(std::memory_order_acquire),
-                            parent.dummies.load(std::memory_order_acquire)),
+                                           parent.elements.load(),//std::memory_order_acquire),
+                                           parent.dummies.load()),//std::memory_order_acquire)),
                         t_cur->version+1);
 
             waitForTableOp();
 
             if (! global.g_table_w.compare_exchange_strong(t_cur,
-                                                           t_next,
-                                                           std::memory_order_release))
+                                                           t_next))//,
+                //std::memory_order_release))
             {
                 delete t_next;
                 std::logic_error("Inconsistent state: next_table already replaced (at beginning of grow)!");
                 return;
             }
-            parent.elements.store(0, std::memory_order_release);
-            parent.dummies.store(0, std::memory_order_release);
+                        parent.elements.store(0);//, std::memory_order_release);
+                        parent.dummies.store(0);//, std::memory_order_release);
 
             // STAGE 2 ALL THREADS CAN ENTER THE MIGRATION
             if (! changeStage(stage, 2u)) return;
@@ -265,8 +268,8 @@ public:
             waitForMigration();
 
             if (! global.g_table_r.compare_exchange_strong(t_cur,
-                                                           t_next,
-                                                           std::memory_order_release))
+                                                           t_next))//,
+                //std::memory_order_release))
             {
                 std::logic_error("Inconsistent state: cur_table already replaced (at end of a grow)!");
                 return;
@@ -283,14 +286,14 @@ public:
             worker_strat.execute_migration(*this, epoch);
 
                 //wait till growmaster replaced the current table
-            while (global.currently_growing.load(std::memory_order_acquire));
+            while (global.currently_growing.load()) { } //std::memory_order_acquire)) { }
         }
 
         inline size_t migrate()
         {
             // enter migration()
-            while (global.currently_growing.load(std::memory_order_acquire) == 1);
-            flags.migrating.store(2, std::memory_order_release);
+            while (global.currently_growing.load() == 1) { } //}std::memory_order_acquire) == 1) { }
+            flags.migrating.store(2);//, std::memory_order_release);
 
             // getCurr() and getNext()
             auto curr = global.g_table_r.load(std::memory_order_acquire);
@@ -298,15 +301,15 @@ public:
 
             if (curr->version >= next->version)
             {
-                flags.migrating.store(0, std::memory_order_release);
+                flags.migrating.store(0);//, std::memory_order_release);
 
                 return next->version;
             }
-            parent.elements.fetch_add(blockwise_migrate(curr, next),
-                                      std::memory_order_release);
+            parent.elements.fetch_add(blockwise_migrate(curr, next));//,
+            //std::memory_order_release);
 
             // leave_migration();
-            flags.migrating.store(0, std::memory_order_release);
+            flags.migrating.store(0);//, std::memory_order_release);
 
             return next->version;
         }
@@ -316,8 +319,8 @@ public:
         inline bool changeStage(size_t& stage, size_t next)
         {
             auto result = global.currently_growing
-                    .compare_exchange_strong(stage, next,
-                                             std::memory_order_acq_rel);
+                .compare_exchange_strong(stage, next);//,
+            //std::memory_order_acq_rel);
             if (result)
             {
                 stage = next;
@@ -331,26 +334,26 @@ public:
 
         inline void waitForTableOp()
         {
-            auto end = global.handle_id.load(std::memory_order_acquire);
+            auto end = global.handle_id.load();//std::memory_order_acquire);
             for (size_t i = 0; i < end; ++i)
             {
-                auto flags_ptr = global.handle_flags[i].load(std::memory_order_acquire);
+                auto flags_ptr = global.handle_flags[i].load();//std::memory_order_acquire);
                 if (flags_ptr)
                 {
-                    while (flags_ptr->table_op.load(std::memory_order_acquire));
+                    while (flags_ptr->table_op.load()) { } //}std::memory_order_acquire)) { }
                 }
             }
         }
 
         inline void waitForMigration()
         {
-            auto end = global.handle_id.load(std::memory_order_acquire);
+            auto end = global.handle_id.load();//std::memory_order_acquire);
             for (size_t i = 0; i < end; ++i)
             {
-                auto flags_ptr = global.handle_flags[i].load(std::memory_order_acquire);
+                auto flags_ptr = global.handle_flags[i].load();//std::memory_order_acquire);
                 if (flags_ptr)
                 {
-                    while (flags_ptr->migrating.load(std::memory_order_acquire));
+                    while (flags_ptr->migrating.load()) { } //}std::memory_order_acquire)) { }
                 }
             }
         }

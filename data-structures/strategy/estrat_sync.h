@@ -1,6 +1,6 @@
 /*******************************************************************************
  * data-structures/strategy/estrat_sync.h
- * 
+ *
  * see below
  *
  * Part of Project growt - https://github.com/TooBiased/growt.git
@@ -36,7 +36,7 @@
  *     - migrate()    (called by the worker strategy to execute the migration.
  *                     Done here to ensure the table is not concurrently freed.)
  *
- * This specific strategy uses a synchronized growing approach, where table 
+ * This specific strategy uses a synchronized growing approach, where table
  * updates and growing steps cannot coexist to do this some flags are used
  * (they are stored in the blobal data object). They will be set during each
  * operation on the table. Since the growing is synchronized, storing
@@ -60,7 +60,7 @@ public:
 
 
     class local_data_t;
-    
+
     // STORED AT THE GLOBAL OBJECT
     //  - ATOMIC POINTERS TO BOTH CURRENT AND TARGET TABLE
     //  - FLAGS FOR ALL HANDLES (currently in critical section?/growing step?)
@@ -68,7 +68,7 @@ public:
     {
     public:
         #define max_sim_threads 256
-        
+
         global_data_t(size_t size_) : currently_growing(0), handle_id(0)
         {
             auto temp = new SeqTable_t(size_);
@@ -98,7 +98,7 @@ public:
             constexpr HandleFlags() : in_use(0), table_op(0), migrating(0) { }
         };
 
-        
+
         // align to cache line
         alignas(64) std::atomic_size_t currently_growing;
         /*same*/    std::atomic_size_t handle_id;
@@ -144,11 +144,31 @@ public:
         local_data_t(const local_data_t& source) = delete;
         local_data_t& operator=(const local_data_t& source) = delete;
 
-        local_data_t(local_data_t&& source) = default;
-        local_data_t& operator=(local_data_t&& source) = default;
+        local_data_t(local_data_t&& source)
+            : parent(source.parent), global(source.global),
+              worker_strat(source.worker_strat), id(source.id), epoch(source.epoch),
+              flags(source.flags)
+        {
+            source.id = std::numeric_limits<size_t>::max();
+            if ( flags.table_op.load()  ||
+                 flags.migrating.load()  ) std::cout << "wtf" << std::endl;
+        }
+        //=default;
+
+        local_data_t& operator=(local_data_t&& source)
+        {
+            if (this == &source) return *this;
+
+            this->~local_data_t();
+            new (this) local_data_t(std::move(source));
+            return *this;
+        }
+        //= default;
 
         ~local_data_t()
         {
+            if (id == std::numeric_limits<size_t>::max()) return;
+
             flags.table_op.store(0);
             flags.migrating.store(0);
             flags.in_use.store(0);
@@ -156,7 +176,7 @@ public:
 
         inline void init() { }
         inline void deinit() { }
-        
+
     private:
         Parent& parent;
         global_data_t& global;
@@ -169,7 +189,7 @@ public:
         //std::atomic_size_t& own_flag;
         //std::atomic_size_t& mig_flag;
 
-    public:    
+    public:
         inline HashPtrRef getTable()
         {
             //own_flag = 1;
@@ -190,7 +210,7 @@ public:
         {
             flags.table_op.store(0, std::memory_order_release);
         }
-        
+
         void grow()
         {
             rlsTable();
@@ -253,7 +273,7 @@ public:
             while (global.currently_growing.load(std::memory_order_acquire));
         }
 
-        
+
         inline size_t migrate()
         {
             // enter_migration();
@@ -269,7 +289,7 @@ public:
             {
                 // leave_migration();
                 flags.migrating.store(0, std::memory_order_release);
-                
+
                 return next->version;
             }
             parent.elements.fetch_add(blockwise_migrate(curr, next),
@@ -308,7 +328,7 @@ public:
                              .table_op.load(std::memory_order_acquire));
             }
         }
-        
+
         inline void waitForMigration()
         {
             auto end = global.handle_id.load(std::memory_order_acquire);
