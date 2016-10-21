@@ -252,7 +252,7 @@ public:
 
             parent.elements.store(parent.grow_count.load(std::memory_order_acquire),
                                   std::memory_order_release);
-            parent.dummies.stroe(0, std::memory_order_release);
+            parent.dummies.store(0, std::memory_order_release);
             parent.grow_count.store(0, std::memory_order_release);
 
             if (! global.g_table_r.compare_exchange_strong(t_cur,

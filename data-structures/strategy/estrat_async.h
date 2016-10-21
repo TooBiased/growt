@@ -154,10 +154,6 @@ public:
                     global.g_table_w = w_table;
                     global.g_epoch_w.store(w_table->version,
                                            std::memory_order_release);
-                    //parent.elements.store(0,
-                    //                       std::memory_order_release);
-                    //parent.dummies.store(0,
-                    //                       std::memory_order_release);
                 }
             }
 

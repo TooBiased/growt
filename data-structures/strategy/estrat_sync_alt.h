@@ -92,7 +92,7 @@ public:
             std::atomic_size_t table_op;
             std::atomic_size_t migrating;
 
-            constexpr HandleFlags(): table_op(0), migrating(0) { }
+            constexpr HandleFlags() : table_op(0), migrating(0) { }
         };
 
 
@@ -119,7 +119,7 @@ public:
                     else --i;
                 }
             }
-            throw std::length_error("Exceeded predefined maximum of simultaneously registered threads (256)!");
+            std::length_error("Exceeded predefined maximum of simultaneously registered threads (256)!");
             // unreachable
             return -1;
         }
