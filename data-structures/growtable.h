@@ -139,7 +139,7 @@ public:
 
     GrowTableData(size_t size_)
         : global_exclusion(size_), global_worker(), handle_ptr(64),
-          elements(0), dummies(0)
+          elements(0), dummies(0), grow_count(0)
     { }
 
     GrowTableData(const GrowTableData& source) = delete;
@@ -161,20 +161,22 @@ private:
     // APPROXIMATE COUNTS
     alignas(64) std::atomic_int elements;
     alignas(64) std::atomic_int dummies;
+    alignas(64) std::atomic_int grow_count;
 };
 
 template <typename Parent>
 size_t GrowTableData<Parent>::element_count_unsafe()
 {
-    return elements.load()
-        - dummies.load()
-        + handle_ptr.forall([](Handle* h, size_t res)
-                             {
-                                 size_t temp = res;
-                                 temp += h->counts.inserted;
-                                 temp -= h->counts.deleted;
-                                 return temp;
-                             });
+    int temp = elements.load();
+    temp -= dummies.load();
+    temp += handle_ptr.forall([](Handle* h, int res)
+                              {
+                                  int temp = res;
+                                  temp += h->counts.inserted;
+                                  temp -= h->counts.deleted;
+                                  return temp;
+                              });
+    return temp;
 }
 
 template <typename Parent>

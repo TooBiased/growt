@@ -253,8 +253,8 @@ public:
                 std::logic_error("Inconsistent state: next_table already replaced (at beginning of grow)!");
                 return;
             }
-                        parent.elements.store(0);//, std::memory_order_release);
-                        parent.dummies.store(0);//, std::memory_order_release);
+            //parent.elements.store(0);//, std::memory_order_release);
+            //parent.dummies.store(0);//, std::memory_order_release);
 
             // STAGE 2 ALL THREADS CAN ENTER THE MIGRATION
             if (! changeStage(stage, 2u)) return;
@@ -266,6 +266,11 @@ public:
             if (! changeStage(stage, 3u)) return;
 
             waitForMigration();
+
+            parent.elements.store(parent.grow_count.load(std::memory_order_acquire),
+                                  std::memory_order_release);
+            parent.dummies.store(0, std::memory_order_release);
+            parent.grow_count(0, std::memory_order_release);
 
             if (! global.g_table_r.compare_exchange_strong(t_cur,
                                                            t_next))//,
@@ -305,7 +310,7 @@ public:
 
                 return next->version;
             }
-            parent.elements.fetch_add(blockwise_migrate(curr, next));//,
+            parent.grow_count.fetch_add(blockwise_migrate(curr, next));//,
             //std::memory_order_release);
 
             // leave_migration();

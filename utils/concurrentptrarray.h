@@ -26,7 +26,7 @@ private:
     using ElementPtr  = T*;
     using ElementAPtr = std::atomic<T*>;
     using Allocator_t = typename Alloc::template rebind<ElementAPtr>::other;
-    
+
     std::atomic_int    reader;
 public:
     std::atomic_size_t size;
@@ -42,7 +42,7 @@ public:
         }
         data.store(temp);
     }
-    
+
     ~ConcurrentPtrArray()
     {
         // locking is unnecessary because there should not be remaining accesses)
@@ -60,7 +60,7 @@ public:
         // lock rhs
         // (prob unnecessary because using the old structure will be undefined)
         rhs.lockWriter();
-        
+
         size.store(rhs.size.load());
         capacity.store(rhs.size.load());
         data.store(rhs.data.load());
@@ -74,14 +74,14 @@ public:
     ConcurrentPtrArray& operator=(ConcurrentPtrArray&& rhs)
     {
         //Lock both lhs and rhsstructures
-        
+
         // lock rhs
         // (prob unnecessary because using it concurrently will be undefined)
         rhs.lockWriter();
         // lock lhs
         // (prob unnecessary because using it concurrently will be undefined)
         lockWriter();
-                
+
         size_t cap = capacity.load();
         if (cap)
         {
@@ -95,7 +95,7 @@ public:
         rhs.unlockWriter();
     }
 
-    
+
     size_t push_back(Element_t* e)
     {
         lockReader();
@@ -114,7 +114,7 @@ public:
                 }
             }
         }
-        
+
         size_t pos = size.fetch_add(1, std::memory_order_acq_rel);
         if      (pos < tcap)
         {
@@ -133,7 +133,7 @@ public:
         {
             unlockReader();
             lockWriter();
-            
+
             // assumption: nobody else has grown in the meantime!
             auto newdata = allocator.allocate(tcap<<1);
             for (size_t i = 0; i < tcap; ++i)
@@ -156,14 +156,14 @@ public:
         else
         {
             unlockReader();
-            
+
             //wait till grown
             while (capacity.load(std::memory_order_acquire) < pos)
             { /*wait*/ }
 
             //reacquire reader lock
             lockReader();
-            
+
             if (initCell(data.load(std::memory_order_acquire)[pos], e))
             {
                 unlockReader();
@@ -185,24 +185,24 @@ public:
     void update(size_t index, Element_t* e)
     {
         lockReader();
-        
+
         auto tdata = data.load();
         tdata[index].store(e);
 
         unlockReader();
-        
+
         // wait until there are no readers once (== rcu grace period)
         //  => afterwards the old value can be deleted
         while (reader.load(std::memory_order_acquire))
         { /* wait */ }
-        
+
         return;
     }
 
     // should have a () operator looking like:
     //  =>  size_t operator=(ElementPtr, size_t);
     template < class F >
-    size_t forall(const F& f)
+    int forall(const F& f)
     {
         //acquire reader lock
         while (true)
@@ -215,8 +215,8 @@ public:
         size_t tsize  = size.load();
         auto   tdata  = data.load();
 
-        size_t res = 0;
-        
+        int res = 0;
+
         for (size_t i = 0; i < tsize; ++i)
         {
             ElementPtr curr = tdata[i].load();
@@ -224,7 +224,7 @@ public:
             res = f(curr, res);
         }
 
-        
+
         //release reader lock
         reader.fetch_sub(1, std::memory_order_acq_rel);
         return res;
@@ -233,7 +233,7 @@ public:
 private:
     Allocator_t allocator;
 
-    std::atomic<ElementAPtr*> data; 
+    std::atomic<ElementAPtr*> data;
 
     bool initCell(ElementAPtr& atomic, ElementPtr e)
     {
@@ -265,7 +265,7 @@ private:
 
     void unlockReader()
     {
-        reader.fetch_sub(1, std::memory_order_acq_rel);     
+        reader.fetch_sub(1, std::memory_order_acq_rel);
     }
 
     void unlockWriter()
