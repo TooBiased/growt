@@ -27,7 +27,7 @@
 
 namespace growt {
 
-template<class HashFct = std::hash<typename SimpleElement::Key>, class Allocator = std::allocator<E> >
+template<class HashFct = std::hash<typename SimpleElement::Key>, class Allocator = std::allocator<char> >
 using folklore    = TSXCircular<SimpleElement, HashFct, Allocator>;
 
 

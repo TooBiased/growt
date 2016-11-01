@@ -38,7 +38,7 @@ option(GROWT_BUILD_TBB
 option(GROWT_BUILD_JUNCTION
   "(optional) builds tests for junction tables (Linear, Grampa, Leapfrog)!" OFF)
 
-set(GROWT_ALLOCATOR NUMA_POOL CACHE STRING
+set(GROWT_ALLOCATOR ALIGNED CACHE STRING
   "Specifies the used allocator (only relevant for our tables)!")
 set_property(CACHE GROWT_ALLOCATOR PROPERTY STRINGS ALIGNED POOL NUMA_POOL HTLB_POOL)
 
