@@ -16,8 +16,9 @@
 #include "utils/hashfct.h"
 #include "utils/test_coordination.h"
 #include "utils/thread_basics.h"
-
 #include "utils/commandline.h"
+
+#include "example/update_fcts.h"
 
 #include <random>
 
@@ -124,7 +125,7 @@ int update(Hash& hash, size_t n, size_t val)
         [&hash, &err, val](size_t i)
         {
             auto key = keys[i];
-            if (! successful(hash.update(key, val, Overwrite()))) ++ err;
+            if (! successful(hash.update(key, val, growt::example::Overwrite()))) ++ err;
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);
@@ -146,7 +147,7 @@ int insertOrIncrement(Hash& hash, size_t n, size_t p)
         {
             auto key = bitmask &
                 __builtin_ia32_crc32di(34390210450981235ull,i*12037459812355ull);
-            if (! successful(hash.insertOrUpdate(key+2, 1, Increment())))
+            if (! successful(hash.insertOrUpdate(key+2, 1, growt::example::Increment())))
             {
                 ++ err;
             }

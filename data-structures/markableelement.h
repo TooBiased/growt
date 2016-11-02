@@ -74,6 +74,8 @@ public:
                       const MarkableElement & desired,
                             F f);
 
+    inline bool operator==(MarkableElement& other) { return (key == other.key); }
+    inline bool operator!=(MarkableElement& other) { return (key != other.key); }
 
     inline ReturnElement getReturn() const
     {  return ReturnElement(getKey(), getData());  }
@@ -138,7 +140,7 @@ inline bool MarkableElement::CAS( MarkableElement & expected,
                                            desired.as128i());
 }
 
-bool MarkableElement::atomicDelete(const MarkableElement & expected)
+inline bool MarkableElement::atomicDelete(const MarkableElement & expected)
 {
     auto temp = expected;
     temp.key = BITMASK;

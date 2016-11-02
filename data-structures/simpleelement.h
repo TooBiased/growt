@@ -75,8 +75,8 @@ public:
                             F f);
 
 
-    bool operator==(SimpleElement& other) { return (key == other.key); }
-    bool operator!=(SimpleElement& other) { return (key != other.key); }
+    inline bool operator==(SimpleElement& other) { return (key == other.key); }
+    inline bool operator!=(SimpleElement& other) { return (key != other.key); }
 
     inline ReturnElement getReturn() const {  return ReturnElement(getKey(), getData()); }
     inline operator ReturnElement() { return ReturnElement(getKey(), getData());  }
@@ -115,17 +115,17 @@ SimpleElement & SimpleElement::operator=(const SimpleElement & e)
 
 
 
-bool SimpleElement::isEmpty() const { return key == 0; }
-bool SimpleElement::isDeleted() const { return key == BITMASK; }
-bool SimpleElement::isMarked() const { return false; }
-bool SimpleElement::compareKey(const Key & k) const { return key == k; }
-bool SimpleElement::atomicMark(SimpleElement&) { return true; }
-SimpleElement::Key SimpleElement::getKey() const { return key;  }
-SimpleElement::Data SimpleElement::getData() const { return data; }
+inline bool SimpleElement::isEmpty() const { return key == 0; }
+inline bool SimpleElement::isDeleted() const { return key == BITMASK; }
+inline bool SimpleElement::isMarked() const { return false; }
+inline bool SimpleElement::compareKey(const Key & k) const { return key == k; }
+inline bool SimpleElement::atomicMark(SimpleElement&) { return true; }
+inline SimpleElement::Key SimpleElement::getKey() const { return key;  }
+inline SimpleElement::Data SimpleElement::getData() const { return data; }
 
 
 
-bool SimpleElement::CAS(SimpleElement & expected,
+inline bool SimpleElement::CAS(SimpleElement & expected,
                   const SimpleElement & desired)
 {
     return __sync_bool_compare_and_swap_16(& as128i(),
@@ -133,7 +133,7 @@ bool SimpleElement::CAS(SimpleElement & expected,
                                            desired.as128i());
 }
 
-bool SimpleElement::atomicDelete(const SimpleElement & expected)
+inline bool SimpleElement::atomicDelete(const SimpleElement & expected)
 {
     auto temp = expected;
     temp.key = BITMASK;
@@ -194,7 +194,7 @@ struct TAtomic<false>
 
 
 template<class F>
-bool SimpleElement::atomicUpdate(SimpleElement & expected,
+inline bool SimpleElement::atomicUpdate(SimpleElement & expected,
                            const SimpleElement & desired,
                                             F f)
 {
@@ -204,7 +204,7 @@ bool SimpleElement::atomicUpdate(SimpleElement & expected,
 
 
 template<class F>
-bool SimpleElement::nonAtomicUpdate(SimpleElement &,
+inline bool SimpleElement::nonAtomicUpdate(SimpleElement &,
                               const SimpleElement & desired,
                                     F f)
 {
@@ -215,10 +215,10 @@ bool SimpleElement::nonAtomicUpdate(SimpleElement &,
 
 
 
-int128_t       & SimpleElement::as128i()
+inline int128_t       & SimpleElement::as128i()
 { return *reinterpret_cast<int128_t *>(this); }
 
-const int128_t & SimpleElement::as128i() const
+inline const int128_t & SimpleElement::as128i() const
 { return *reinterpret_cast<const int128_t *>(this); }
 
 }

@@ -19,6 +19,8 @@
 #include "utils/thread_basics.h"
 #include "utils/commandline.h"
 
+#include "example/update_fcts.h"
+
 #include <random>
 
 #ifdef MALLOC_COUNT
@@ -96,7 +98,7 @@ int aggregate(Hash& hash, size_t n)
                      [&hash, &err](size_t i)
         {
             auto key = keys[i];
-            if (! successful(hash.insertOrUpdate(key, 1, Increment()))) ++err;
+            if (! successful(hash.insertOrUpdate(key, 1, growt::example::Increment()))) ++err;
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);

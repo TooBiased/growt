@@ -19,6 +19,8 @@
 #include "utils/thread_basics.h"
 #include "utils/commandline.h"
 
+#include "example/update_fcts.h"
+
 #include <random>
 
 /*
@@ -134,7 +136,7 @@ int update_contended(Hash& hash, size_t n)
         {
             auto key = keys[i];
 
-            if (! successful(hash.update(key, i+2, Overwrite()))) ++err;
+            if (! successful(hash.update(key, i+2, growt::example::Overwrite()))) ++err;
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);
