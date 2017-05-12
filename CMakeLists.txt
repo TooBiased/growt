@@ -210,6 +210,8 @@ endif()
 configure_file ("misc/growt_config.h.in" "${PROJECT_BINARY_DIR}/growt_config.h")
 include_directories(${PROJECT_BINARY_DIR})
 
+#add_executable(malloc malloc_count.c)
+
 foreach(t in agg co mix del handle_stuff_stress)
   message(STATUS "create ${t}_test targets")
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${t}_tests)

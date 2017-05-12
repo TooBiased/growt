@@ -54,11 +54,11 @@ template<class Parent>
 class EStratAsync
 {
 public:
-    using SeqTable_t    = typename Parent::SeqTable_t;
-    using HashPtrRef    = std::shared_ptr<SeqTable_t>&;
-    using HashPtr = std::shared_ptr<SeqTable_t>;
+    using BaseTable_t   = typename Parent::BaseTable_t;
+    using HashPtrRef    = std::shared_ptr<BaseTable_t>&;
+    using HashPtr       = std::shared_ptr<BaseTable_t>;
 
-    static_assert(std::is_same<typename SeqTable_t::InternElement_t, MarkableElement>::value,
+    static_assert(std::is_same<typename BaseTable_t::value_intern, MarkableElement>::value,
                   "Asynchroneous migration can only be chosen with MarkableElement!!!" );
 
     class local_data_t;
@@ -72,7 +72,7 @@ public:
     public:
         global_data_t(size_t size_) : g_epoch_r(0), g_epoch_w(0), n_helper(0)
         {
-            g_table_r = g_table_w = std::make_shared<SeqTable_t>(size_);
+            g_table_r = g_table_w = std::make_shared<BaseTable_t>(size_);
         }
         global_data_t(const global_data_t& source) = delete;
         global_data_t& operator=(const global_data_t& source) = delete;
@@ -121,7 +121,7 @@ public:
         WorkerStratL&  worker_strat;
 
         size_t epoch;
-        std::shared_ptr<SeqTable_t> table;
+        std::shared_ptr<BaseTable_t> table;
 
 
     public:
@@ -139,14 +139,14 @@ public:
 
         void grow()
         {
-            //std::shared_ptr<SeqTable_t> w_table;
+            //std::shared_ptr<BaseTable_t> w_table;
             { // should be atomic (therefore locked)
                 std::lock_guard<std::mutex> lock(global.grow_mutex);
                 if (global.g_table_w->version == table->version)
                 {
                     // first one to get here allocates new table
-                    auto w_table = std::make_shared<SeqTable_t>(
-                       SeqTable_t::resize(table->size,
+                    auto w_table = std::make_shared<BaseTable_t>(
+                       BaseTable_t::resize(table->capacity,
                            parent.elements.load(std::memory_order_acquire),
                            parent.dummies.load(std::memory_order_acquire)),
                        table->version+1);

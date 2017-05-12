@@ -35,11 +35,11 @@ namespace growt {
 class MarkableElement
 {
 public:
-    typedef uint64_t Key;
-    typedef uint64_t Data;
+    typedef uint64_t key_type;
+    typedef uint64_t mapped_type;
 
     MarkableElement();
-    MarkableElement(Key k, Data d);
+    MarkableElement(key_type k, mapped_type d);
     MarkableElement(const MarkableElement &e);
     MarkableElement & operator=(const MarkableElement & e);
     MarkableElement(MarkableElement &&e);
@@ -50,16 +50,16 @@ public:
     static MarkableElement getDeleted()
     { return MarkableElement( (1ull<<63)-1ull, 0 ); }
 
-    Key  key;
-    Data data;
+    key_type  key;
+    mapped_type data;
 
-    bool isEmpty() const;
+    bool isEmpty()   const;
     bool isDeleted() const;
-    bool isMarked() const;
-    bool compareKey(const Key & k) const;
+    bool isMarked()  const;
+    bool compareKey(const key_type & k) const;
     bool atomicMark(MarkableElement& expected);
-    Key  getKey() const;
-    Data getData() const;
+    key_type    getKey() const;
+    mapped_type getData() const;
     bool CAS(      MarkableElement & expected,
              const MarkableElement & desired);
 
@@ -94,7 +94,7 @@ private:
 
 
 inline MarkableElement::MarkableElement() { }
-inline MarkableElement::MarkableElement(Key k, Data d) : key(k), data(d) { }
+inline MarkableElement::MarkableElement(key_type k, mapped_type d) : key(k), data(d) { }
 
 
 // Roman used: _mm_loadu_ps Think about using
@@ -120,9 +120,9 @@ inline MarkableElement::MarkableElement(MarkableElement &&e)
 inline bool MarkableElement::isEmpty() const   { return (key & BITMASK) == 0; }
 inline bool MarkableElement::isDeleted() const { return (key & BITMASK) == BITMASK; }
 inline bool MarkableElement::isMarked() const  { return (key & MARKED_BIT); }
-inline bool MarkableElement::compareKey(const Key & k) const { return (key & BITMASK) == k; }
-inline MarkableElement::Key  MarkableElement::getKey() const { return (key != BITMASK) ? (key & BITMASK) : 0; }
-inline MarkableElement::Data MarkableElement::getData() const { return data; }
+inline bool MarkableElement::compareKey(const key_type & k) const { return (key & BITMASK) == k; }
+inline MarkableElement::key_type    MarkableElement::getKey()  const { return (key != BITMASK) ? (key & BITMASK) : 0; }
+inline MarkableElement::mapped_type MarkableElement::getData() const { return data; }
 
 
 inline bool MarkableElement::atomicMark(MarkableElement& expected)
@@ -164,7 +164,7 @@ inline bool MarkableElement::atomicUpdate(MarkableElement & expected,
                                     const MarkableElement & desired,
                                           F f)
 {
-    Data td = expected.data;
+    mapped_type td = expected.data;
     f(td, desired.key, desired.data);
     return CAS(expected, MarkableElement(desired.key, td));
 
