@@ -53,10 +53,10 @@ template <class Parent>
 class EStratSync
 {
 public:
-    using SeqTable_t    = typename Parent::SeqTable_t;
+    using BaseTable_t   = typename Parent::BaseTable_t;
     using WorkerStratL  = typename Parent::WorkerStrat_t::local_data_t;
-    using HashPtr       = std::atomic<SeqTable_t*>;
-    using HashPtrRef    = SeqTable_t*;
+    using HashPtr       = std::atomic<BaseTable_t*>;
+    using HashPtrRef    = BaseTable_t*;
 
 
     class local_data_t;
@@ -71,7 +71,7 @@ public:
 
         global_data_t(size_t size_) : currently_growing(0), handle_id(0)
         {
-            auto temp = new SeqTable_t(size_);
+            auto temp = new BaseTable_t(size_);
             g_table_r.store( temp, std::memory_order_relaxed );
             g_table_w.store( temp, std::memory_order_relaxed );
             //for (size_t i = 0; i<max_sim_threads; ++i)
@@ -221,8 +221,8 @@ public:
             if (! changeStage<false>(stage, 1u)) { helpGrow(); return; }
 
             auto t_cur   = global.g_table_r.load(std::memory_order_acquire);
-            auto t_next  = new SeqTable_t(//t_cur->size << 1, t_cur->version+1);
-                        SeqTable_t::resize(t_cur->size,
+            auto t_next  = new BaseTable_t(//t_cur->size << 1, t_cur->version+1);
+                        BaseTable_t::resize(t_cur->capacity,
                             parent.elements.load(std::memory_order_acquire),
                             parent.dummies.load(std::memory_order_acquire)),
                         t_cur->version+1);

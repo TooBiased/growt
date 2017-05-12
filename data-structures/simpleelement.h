@@ -33,11 +33,11 @@ namespace growt {
 class SimpleElement
 {
 public:
-    typedef uint64_t Key;
-    typedef uint64_t Data;
+    typedef uint64_t key_type;
+    typedef uint64_t mapped_type;
 
     SimpleElement();
-    SimpleElement(Key k, Data d);
+    SimpleElement(key_type k, mapped_type d);
     SimpleElement(const SimpleElement &e);
     SimpleElement & operator=(const SimpleElement & e);
     SimpleElement(const SimpleElement &&e);
@@ -48,16 +48,16 @@ public:
     static SimpleElement getDeleted()
     { return SimpleElement( (1ull<<63)-1ull, 0 ); }
 
-    Key  getKey() const;
-    Data getData() const;
+    key_type    getKey()  const;
+    mapped_type getData() const;
 
-    Key  key;
-    Data data;
+    key_type    key;
+    mapped_type data;
 
     bool isEmpty() const;
     bool isDeleted() const;
     bool isMarked() const;
-    bool compareKey(const Key & k) const;
+    bool compareKey(const key_type & k) const;
     bool atomicMark(SimpleElement& expected);
 
     bool CAS(      SimpleElement & expected,
@@ -91,7 +91,7 @@ private:
 
 
 SimpleElement::SimpleElement() { }
-SimpleElement::SimpleElement(Key k, Data d) : key(k), data(d) { }
+SimpleElement::SimpleElement(key_type k, mapped_type d) : key(k), data(d) { }
 SimpleElement::SimpleElement(const SimpleElement &&e) : key(e.key), data(e.data) { }
 
 
@@ -118,10 +118,10 @@ SimpleElement & SimpleElement::operator=(const SimpleElement & e)
 inline bool SimpleElement::isEmpty() const { return key == 0; }
 inline bool SimpleElement::isDeleted() const { return key == BITMASK; }
 inline bool SimpleElement::isMarked() const { return false; }
-inline bool SimpleElement::compareKey(const Key & k) const { return key == k; }
+inline bool SimpleElement::compareKey(const key_type & k) const { return key == k; }
 inline bool SimpleElement::atomicMark(SimpleElement&) { return true; }
-inline SimpleElement::Key SimpleElement::getKey() const { return key;  }
-inline SimpleElement::Data SimpleElement::getData() const { return data; }
+inline SimpleElement::key_type    SimpleElement::getKey()  const { return key; }
+inline SimpleElement::mapped_type SimpleElement::getData() const { return data;}
 
 
 
@@ -184,7 +184,7 @@ struct TAtomic<false>
     template <class TFunctor>
     static bool execute(SimpleElement& that, SimpleElement& expected, const SimpleElement& desired, TFunctor f)
     {
-        SimpleElement::Data td = expected.data;
+        SimpleElement::mapped_type td = expected.data;
         f(td, desired.key, desired.data);
         return __sync_bool_compare_and_swap(&(that.data),
                                             expected.data,

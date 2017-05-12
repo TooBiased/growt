@@ -95,7 +95,7 @@ int fill(Hash& hash, size_t end)
         [&hash, &err](size_t i)
         {
             auto key = keys[i];
-            if (! successful(hash.insert(key, i+2)))
+            if (! hash.insert(key, i+2).second )
             {
                 // Insertion failed? Possibly already inserted.
                 ++err;
@@ -120,7 +120,7 @@ int find_unsucc(Hash& hash, size_t begin, size_t end)
 
             auto data = hash.find(key);
 
-            if (data)
+            if (data != hash.end())
             {
                 // Random key found (unexpected)
                 ++err;
@@ -143,7 +143,7 @@ int find_succ(Hash& hash, size_t end)
 
             auto data = hash.find(key);
 
-            if (!data)
+            if (data == hash.end())
             {
                 ++err;
             }

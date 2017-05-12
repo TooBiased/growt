@@ -55,7 +55,7 @@
 #ifdef FOLKLORE
 #include "data-structures/simpleelement.h"
 #include "data-structures/circular.h"
-#define HASHTYPE growt::Circular<growt::SimpleElement, HASHFCT, \
+#define HASHTYPE growt::BaseCircular<growt::SimpleElement, HASHFCT, \
                                  ALLOCATOR<> >
 #endif // FOLKLORE
 
@@ -75,7 +75,7 @@
 #include "data-structures/strategy/wstrat_user.h"
 #include "data-structures/strategy/estrat_async.h"
 #include "data-structures/growtable.h"
-#define HASHTYPE growt::GrowTable<growt::Circular<growt::MarkableElement, \
+#define HASHTYPE growt::GrowTable<growt::BaseCircular<growt::MarkableElement, \
                                                   HASHFCT, \
                                                   ALLOCATOR<> >, \
                                   growt::WStratUser, growt::EStratAsync>
@@ -87,7 +87,7 @@
 #include "data-structures/strategy/wstrat_pool.h"
 #include "data-structures/strategy/estrat_async.h"
 #include "data-structures/growtable.h"
-#define HASHTYPE growt::GrowTable<growt::Circular<growt::MarkableElement, \
+#define HASHTYPE growt::GrowTable<growt::BaseCircular<growt::MarkableElement, \
                                                   HASHFCT, \
                                                   ALLOCATOR<> >, \
                                   growt::WStratPool, growt::EStratAsync>
@@ -99,7 +99,7 @@
 #include "data-structures/strategy/wstrat_user.h"
 #include "data-structures/strategy/estrat_sync.h"
 #include "data-structures/growtable.h"
-#define HASHTYPE growt::GrowTable<growt::Circular<growt::SimpleElement, \
+#define HASHTYPE growt::GrowTable<growt::BaseCircular<growt::SimpleElement, \
                                                   HASHFCT, \
                                                   ALLOCATOR<> >, \
                                   growt::WStratUser, growt::EStratSync>
@@ -111,7 +111,7 @@
 #include "data-structures/strategy/wstrat_pool.h"
 #include "data-structures/strategy/estrat_sync.h"
 #include "data-structures/growtable.h"
-#define HASHTYPE growt::GrowTable<growt::Circular<growt::SimpleElement, \
+#define HASHTYPE growt::GrowTable<growt::BaseCircular<growt::SimpleElement, \
                                                   HASHFCT, \
                                                   ALLOCATOR<> >, \
                                   growt::WStratPool, growt::EStratSync>
@@ -123,7 +123,7 @@
 #include "data-structures/strategy/wstrat_user.h"
 #include "data-structures/strategy/estrat_sync_alt.h"
 #include "data-structures/growtable.h"
-#define HASHTYPE growt::GrowTable<growt::Circular<growt::SimpleElement, \
+#define HASHTYPE growt::GrowTable<growt::BaseCircular<growt::SimpleElement, \
                                                   HASHFCT, \
                                                   ALLOCATOR<> >, \
                                   growt::WStratUser, growt::EStratSyncNUMA>
@@ -135,7 +135,7 @@
 #include "data-structures/strategy/wstrat_pool.h"
 #include "data-structures/strategy/estrat_sync_alt.h"
 #include "data-structures/growtable.h"
-#define HASHTYPE growt::GrowTable<growt::Circular<growt::SimpleElement, \
+#define HASHTYPE growt::GrowTable<growt::BaseCircular<growt::SimpleElement, \
                                                   HASHFCT, \
                                                   ALLOCATOR<> >, \
                                   growt::WStratPool, growt::EStratSyncNUMA>
