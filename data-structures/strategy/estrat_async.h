@@ -1,6 +1,6 @@
 /*******************************************************************************
  * data-structures/strategy/estrat_async.h
- * 
+ *
  * see below
  *
  * Part of Project growt - https://github.com/TooBiased/growt.git
@@ -52,7 +52,7 @@ template<class Table_t> size_t blockwise_migrate(Table_t source, Table_t target)
 
 template<class Parent>
 class EStratAsync
-{   
+{
 public:
     using SeqTable_t    = typename Parent::SeqTable_t;
     using HashPtrRef    = std::shared_ptr<SeqTable_t>&;
@@ -62,7 +62,7 @@ public:
                   "Asynchroneous migration can only be chosen with MarkableElement!!!" );
 
     class local_data_t;
-    
+
     // STORED AT THE GLOBAL OBJECT
     //  - SHARED POINTERS TO BOTH THE CURRENT AND THE TARGET TABLE
     //  - VERSION COUNTERS
@@ -80,13 +80,13 @@ public:
 
     private:
         friend local_data_t;
-        
+
         std::atomic_size_t g_epoch_r;
         std::atomic_size_t g_epoch_w;
         HashPtr g_table_r;
         HashPtr g_table_w;
 
-        std::mutex grow_mutex; 
+        std::mutex grow_mutex;
         std::atomic_size_t n_helper;
         // return g_epoch_r.load(std::memory_order_acquire); }
     };
@@ -96,7 +96,7 @@ public:
     //  - CONNECTIONS TO THE  WORKER STRATEGY AND THE GLOBAL TABLE
     class local_data_t
     {
-    private:        
+    private:
         using WorkerStratL  = typename Parent::WorkerStrat_t::local_data_t;
     public:
         local_data_t(Parent& parent, WorkerStratL& wstrat)
@@ -104,10 +104,10 @@ public:
               worker_strat(wstrat),
               epoch(0), table(nullptr)
         { }
-        
+
         local_data_t(const local_data_t& source) = delete;
         local_data_t& operator=(const local_data_t& source) = delete;
-        
+
         local_data_t(local_data_t&& source) = default;
         local_data_t& operator=(local_data_t&& source) = default;
         ~local_data_t() = default;
@@ -142,7 +142,7 @@ public:
             //std::shared_ptr<SeqTable_t> w_table;
             { // should be atomic (therefore locked)
                 std::lock_guard<std::mutex> lock(global.grow_mutex);
-                if (global.g_table_w->version == table->version) 
+                if (global.g_table_w->version == table->version)
                 {
                     // first one to get here allocates new table
                     auto w_table = std::make_shared<SeqTable_t>(
@@ -153,10 +153,6 @@ public:
 
                     global.g_table_w = w_table;
                     global.g_epoch_w.store(w_table->version,
-                                           std::memory_order_release);
-                    parent.elements.store(0,
-                                           std::memory_order_release);
-                    parent.dummies.store(0,
                                            std::memory_order_release);
                 }
             }
@@ -188,8 +184,8 @@ public:
                 while (!all_fine);
                 already.store(0, std::memory_order_release);
             }
-            
-            leave_migration();            
+
+            leave_migration();
             //*/// ====================================================================
 
             endGrow();
@@ -205,7 +201,7 @@ public:
         inline size_t migrate()
         {
             // enter_migration(): nhelper ++
-            global.n_helper.fetch_add(1, std::memory_order_acquire);
+            global.n_helper.fetch_add(1, std::memory_order_acq_rel);
 
             // getCurr() and getNext()
             HashPtr curr, next;
@@ -223,15 +219,18 @@ public:
 
                 return next->version;
             }
-            parent.elements.fetch_add(blockwise_migrate(curr, next),
-                                      std::memory_order_release);
+
+            parent.grow_count.fetch_add(
+                blockwise_migrate(curr, next),
+                std::memory_order_acq_rel);
+
 
             // leave_migration(): nhelper --
             global.n_helper.fetch_sub(1, std::memory_order_release);
 
             return next->version;
         }
-        
+
     private:
         inline void load()
         {
@@ -253,7 +252,12 @@ public:
                 if (global.g_table_r->version == epoch)
                 {
                     global.g_table_r = global.g_table_w;
-                    global.g_epoch_r.store(global.g_epoch_w.load(std::memory_order_acquire));
+                    global.g_epoch_r.store(global.g_epoch_w.load(std::memory_order_acquire),
+                                           std::memory_order_release);
+                    parent.elements.store(parent.grow_count.load(std::memory_order_acquire),
+                                          std::memory_order_release);
+                    parent.dummies.store(0, std::memory_order_release);
+                    parent.grow_count.store(0, std::memory_order_release);
                 }
             }
 
