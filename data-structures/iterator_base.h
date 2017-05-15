@@ -1,5 +1,56 @@
 #pragma once
 
+/*******************************************************************************
+ * data-structures/iterator_base.h
+ *
+ * MarkableElements represent the cells of a table, that has to be able to mark
+ * a copied cell (used in uaGrow and paGrow). They encapsulate some CAS and
+ * update methods.
+ *
+ * Part of Project growt - https://github.com/TooBiased/growt.git
+ *
+ * Copyright (C) 2015-2016 Tobias Maier <t.maier@kit.edu>
+ *
+ * All rights reserved. Published under the BSD-2 license in the LICENSE file.
+ ******************************************************************************/
+
+template <class Table>
+{
+private:
+
+}
+
+template<class Table, class Validator, bool is_const = false>
+class ReferenceBase
+{
+private:
+    using Table_t      = Table;
+    using key_type     = typename Table_t::key_type;
+    using mapped_type  = typename Table_t::mapped_type;
+    using value_intern = typename Table_t::value_intern;
+    using Valid_t      = Validator;
+
+    using pointer      = value_intern&;
+    using reference    = ReferenceBase<Table,Validator,is_const>;
+
+public:
+    ReferenceBase(pointer ptr, value_intern copy, Valid_t val)
+        : ptr(ptr), copy(copy), val(val) { }
+
+    void operator=(mapped_type value)
+    {
+
+    }
+
+    operator user_type() const
+    { return std::make_pair(copy.getKey(), copy.getData()); }
+
+private:
+    pointer      ptr;
+    value_intern copy;
+    Valid_t      val;
+}
+
 // template <class Table, class Ptr>
 // class iterator_incr
 // {
@@ -14,15 +65,18 @@
 //     Pointer_t next(Pointer_t) { return nullptr; }
 // };
 
-template <class Increment, bool is_const = false>
+template <class Table, class Validator, class Increment, bool is_const = false>
 class IteratorBase
 {
 private:
-    using Table_t      = typename Increment::Table_t;
+    using Table_t      = Table;
 
     using key_type     = typename Table_t::key_type;
     using mapped_type  = typename Table_t::mapped_type;
     using value_intern = typename Table_t::value_intern;
+
+    using Incr_t   = Increment;
+    using Valid_t  = Validator;
 
 public:
     using difference_type = std::ptrdiff_t;
@@ -30,7 +84,6 @@ public:
     using reference  = value_type&;
     using pointer    = value_type*;
     using iterator_category = std::forward_iterator_tag;
-    using Incr_t   = Increment;
 
     // template<class T, bool b>
     // friend void swap(IteratorBase<T,b>& l, IteratorBase<T,b>& r);
@@ -55,13 +108,34 @@ public:
     // Basic Iterator Functionality
 
     IteratorBase& operator++(int = 0) { ptr = incr.next(ptr); return *this; }
-    reference operator* () const { return *ptr; }
-    pointer   operator->() const { return  ptr; }
+    reference operator* () const { return reference(ptr, copy, val); }
+    // pointer   operator->() const { return  ptr; }
+
+    bool compare_exchange(value_intern& expect, value_intern val)
+    {
+
+    }
+    bool replace(mapped_type val)
+    {
+
+    }
+    bool erase()
+    {
+
+    }
+    template <class Functor>
+    bool update(value_intern inp2)
+    {
+
+    }
 
     bool operator==(const IteratorBase& rhs) const { return ptr == rhs.ptr; }
     bool operator!=(const IteratorBase& rhs) const { return ptr != rhs.ptr; }
 
 private:
-    pointer ptr;
-    Incr_t  incr;
+    pointer      ptr;
+    value_intern copy;
+    Valid_t      val;
+    Incr_t       incr;
+
 };
