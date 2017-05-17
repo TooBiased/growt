@@ -33,11 +33,13 @@ namespace growt {
 class SimpleElement
 {
 public:
-    typedef uint64_t key_type;
-    typedef uint64_t mapped_type;
+    using key_type    = uint64_t;
+    using mapped_type = uint64_t;
+    using value_type  = std::pair<const key_type, mapped_type>;
 
     SimpleElement();
     SimpleElement(key_type k, mapped_type d);
+    SimpleElement(value_type pair);
     SimpleElement(const SimpleElement &e);
     SimpleElement & operator=(const SimpleElement & e);
     SimpleElement(const SimpleElement &&e);
@@ -48,9 +50,6 @@ public:
     static SimpleElement getDeleted()
     { return SimpleElement( (1ull<<63)-1ull, 0 ); }
 
-    key_type    getKey()  const;
-    mapped_type getData() const;
-
     key_type    key;
     mapped_type data;
 
@@ -59,6 +58,9 @@ public:
     bool isMarked() const;
     bool compareKey(const key_type & k) const;
     bool atomicMark(SimpleElement& expected);
+    key_type    getKey()  const;
+    mapped_type getData() const;
+    bool setData(const mapped_type);
 
     bool CAS(      SimpleElement & expected,
              const SimpleElement & desired);
@@ -78,8 +80,9 @@ public:
     inline bool operator==(SimpleElement& other) { return (key == other.key); }
     inline bool operator!=(SimpleElement& other) { return (key != other.key); }
 
-    inline ReturnElement getReturn() const {  return ReturnElement(getKey(), getData()); }
-    inline operator ReturnElement() { return ReturnElement(getKey(), getData());  }
+    inline ReturnElement getReturn() const { return ReturnElement (getKey(), getData()); }
+    inline operator ReturnElement()        { return ReturnElement (getKey(), getData()); }
+    inline operator value_type() const     { return std::make_pair(getKey(), getData()); }
 
 private:
     int128_t       &as128i();
@@ -122,6 +125,11 @@ inline bool SimpleElement::compareKey(const key_type & k) const { return key == 
 inline bool SimpleElement::atomicMark(SimpleElement&) { return true; }
 inline SimpleElement::key_type    SimpleElement::getKey()  const { return key; }
 inline SimpleElement::mapped_type SimpleElement::getData() const { return data;}
+inline bool SimpleElement::setData(const mapped_type d)
+{
+    data = d;
+    return true;
+}
 
 
 

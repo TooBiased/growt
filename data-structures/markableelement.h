@@ -35,14 +35,17 @@ namespace growt {
 class MarkableElement
 {
 public:
-    typedef uint64_t key_type;
-    typedef uint64_t mapped_type;
+    using key_type    = uint64_t;
+    using mapped_type = uint64_t;
+    using value_type  = std::pair<const key_type, mapped_type>;
 
     MarkableElement();
     MarkableElement(key_type k, mapped_type d);
+    MarkableElement(value_type pair);
     MarkableElement(const MarkableElement &e);
     MarkableElement & operator=(const MarkableElement & e);
     MarkableElement(MarkableElement &&e);
+    //MarkableElement & operator=(MarkableElement && e);
 
     static MarkableElement getEmpty()
     { return MarkableElement( 0, 0 ); }
@@ -50,7 +53,7 @@ public:
     static MarkableElement getDeleted()
     { return MarkableElement( (1ull<<63)-1ull, 0 ); }
 
-    key_type  key;
+    key_type    key;
     mapped_type data;
 
     bool isEmpty()   const;
@@ -60,6 +63,8 @@ public:
     bool atomicMark(MarkableElement& expected);
     key_type    getKey() const;
     mapped_type getData() const;
+    bool setData(const mapped_type);
+
     bool CAS(      MarkableElement & expected,
              const MarkableElement & desired);
 
@@ -82,6 +87,10 @@ public:
 
     inline operator ReturnElement()
     {  return ReturnElement(getKey(), getData());  }
+
+    inline operator value_type() const
+    {  return std::make_pair(getKey(), getData()); }
+
 private:
     int128_t       &as128i();
     const int128_t &as128i() const;
@@ -94,7 +103,10 @@ private:
 
 
 inline MarkableElement::MarkableElement() { }
-inline MarkableElement::MarkableElement(key_type k, mapped_type d) : key(k), data(d) { }
+inline MarkableElement::MarkableElement(key_type k, mapped_type d)
+    : key(k), data(d) { }
+inline MarkableElement::MarkableElement(value_type pair)
+    : key(pair.first), data(pair.second) { }
 
 
 // Roman used: _mm_loadu_ps Think about using
@@ -115,6 +127,12 @@ inline MarkableElement & MarkableElement::operator=(const MarkableElement & e)
 inline MarkableElement::MarkableElement(MarkableElement &&e)
     : key(e.key), data(e.data) { }
 
+// inline MarkableElement & MarkableElement::operator=(MarkableElement &&e)
+// {
+//     key  = e.key;
+//     data = e.data;
+//     return *this;
+// }
 
 
 inline bool MarkableElement::isEmpty() const   { return (key & BITMASK) == 0; }
@@ -123,7 +141,13 @@ inline bool MarkableElement::isMarked() const  { return (key & MARKED_BIT); }
 inline bool MarkableElement::compareKey(const key_type & k) const { return (key & BITMASK) == k; }
 inline MarkableElement::key_type    MarkableElement::getKey()  const { return (key != BITMASK) ? (key & BITMASK) : 0; }
 inline MarkableElement::mapped_type MarkableElement::getData() const { return data; }
-
+inline bool MarkableElement::setData(const mapped_type d)
+{
+    MarkableElement temp = *this;
+    if (temp.isMarked()) return false;
+    return __sync_bool_compare_and_swap_16(& as128i(), temp.as128i(),
+                                           MarkableElement(temp.key, d).as128i());
+}
 
 inline bool MarkableElement::atomicMark(MarkableElement& expected)
 {

@@ -19,6 +19,7 @@
 #define GROWTABLE_H
 
 #include "data-structures/returnelement.h"
+#include "data-structures/iterator_base.h"
 #include "utils/concurrentptrarray.h"
 
 #include <atomic>
@@ -168,19 +169,19 @@ private:
     using Parent_t           = typename GrowTableData::Parent_t;
     using WorkerStrat_t      = typename GrowTableData::WorkerStrat_t;
     using ExclusionStrat_t   = typename GrowTableData::ExclusionStrat_t;
-    using HashPtrRef_t       = typename ExclusionStrat_t::HashPtrRef;
-    using BaseTable_t        = typename GrowTableData::BaseTable_t;
-
     friend GrowTableData;
 
-    using value_intern       = typename BaseTable_t::value_intern;
+public:
+    using HashPtrRef_t       = typename ExclusionStrat_t::HashPtrRef;
+    using BaseTable_t        = typename GrowTableData::BaseTable_t;
     using basetable_iterator = typename BaseTable_t::iterator;
     using basetable_insert_return_type = typename BaseTable_t::insert_return_type;
-public:
+    using value_intern       = typename BaseTable_t::value_intern;
+
     using key_type           = typename BaseTable_t::key_type;
     using mapped_type        = typename BaseTable_t::mapped_type;
     using value_type         = typename std::pair<const key_type, mapped_type>;
-    using iterator           = value_intern*;
+    using iterator           = IteratorGrowT<This_t, false>;//value_intern*;
     using const_iterator     =    void;
     using size_type          = size_t;
     using difference_type    = std::ptrdiff_t;
@@ -224,7 +225,12 @@ public:
     size_type element_count_approx() { return gtData.element_count_approx(); }
     size_type element_count_unsafe();
 
-    iterator end() { return nullptr; }
+    inline iterator end()
+    {
+        return iterator(basetable_iterator(std::pair<key_type, mapped_type>(key_type(), mapped_type()),
+                                           nullptr,nullptr),
+                        0, *this);
+    }
 
 private:
     // DATA+FUNCTIONS FOR MIGRATION STRATEGIES
@@ -240,7 +246,7 @@ private:
     inline HashPtrRef_t getTable() { return local_exclusion.getTable(); }
 
     template<typename Functor, typename ... Types>
-    typename std::result_of<Functor(HashPtrRef_t, Types&& ...)>::type
+    inline typename std::result_of<Functor(HashPtrRef_t, Types&& ...)>::type
     execute (Functor f, Types&& ... param)
     {
         HashPtrRef_t temp = local_exclusion.getTable();
@@ -250,7 +256,14 @@ private:
         return result;
     }
 
-    //ReturnCode
+    inline iterator makeIterator(const basetable_iterator& bit, size_t version)
+    { return iterator(bit, version, *this); }
+    inline insert_return_type makeInsertRet(const basetable_iterator& bit,
+                                            size_t version, bool inserted)
+    { return std::make_pair(iterator(bit, version, *this), inserted); }
+    inline basetable_iterator bend()
+        { return basetable_iterator(std::make_pair(key_type(), mapped_type()), nullptr, nullptr);}
+
     insert_return_type insert(const value_intern & e);
     template <class F>
     insert_return_type update(const value_intern & e, F f);
@@ -396,7 +409,7 @@ inline typename GrowTableHandle<GrowTableData>::insert_return_type
 GrowTableHandle<GrowTableData>::insert(const value_intern& e)
 {
     int v = -1;
-    basetable_insert_return_type result = std::make_pair(end(), ReturnCode::ERROR);
+    basetable_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
     std::tie (v, result) = execute([](HashPtrRef_t t, const value_intern& e)
                                      ->std::pair<int,basetable_insert_return_type>
                                    {
@@ -414,7 +427,7 @@ GrowTableHandle<GrowTableData>::insert(const value_intern& e)
         inc_inserted(v);
     case ReturnCode::UNSUCCESS_ALREADY_USED:
     case ReturnCode::TSX_UNSUCCESS_ALREADY_USED:
-        return std::make_pair(result.first, true);
+        return makeInsertRet(result.first, v, true);
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow();
@@ -424,7 +437,7 @@ GrowTableHandle<GrowTableData>::insert(const value_intern& e)
         helpGrow();
         return insert(e);
     default:
-        return std::make_pair(end(), false);
+        return makeInsertRet(bend(), v, false);
     }
 }
 
@@ -438,7 +451,7 @@ inline typename GrowTableHandle<GrowTableData>::insert_return_type
 GrowTableHandle<GrowTableData>::update(const value_intern& e, F f)
 {
     int v = -1;
-    basetable_insert_return_type result = std::make_pair(end(), ReturnCode::ERROR);
+    basetable_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
 
     std::tie (v, result) = execute([](HashPtrRef_t t, const value_intern& e, F f)
                                      ->std::pair<int,basetable_insert_return_type>
@@ -456,7 +469,7 @@ GrowTableHandle<GrowTableData>::update(const value_intern& e, F f)
     case ReturnCode::TSX_SUCCESS_UP:
     case ReturnCode::UNSUCCESS_NOT_FOUND:
     case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
-        return std::make_pair(result.first, true);
+        return makeInsertRet(result.first, v, true);
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow();  // usually impossible as this collides with NOT_FOUND
@@ -465,7 +478,7 @@ GrowTableHandle<GrowTableData>::update(const value_intern& e, F f)
     case ReturnCode::TSX_UNSUCCESS_INVALID:
         return update(e, f);
     default:
-        return std::make_pair(end(), false);
+        return makeInsertRet(bend(), v, false);
     }
 }
 
@@ -479,7 +492,7 @@ inline typename GrowTableHandle<GrowTableData>::insert_return_type
 GrowTableHandle<GrowTableData>::insertOrUpdate(const value_intern& e, F f)
 {
     int v = -1;
-    basetable_insert_return_type result = std::make_pair(end(), ReturnCode::ERROR);
+    basetable_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
 
     std::tie (v, result) = execute([](HashPtrRef_t t, const value_intern& e, F f)
                                      ->std::pair<int,basetable_insert_return_type>
@@ -496,10 +509,10 @@ GrowTableHandle<GrowTableData>::insertOrUpdate(const value_intern& e, F f)
     case ReturnCode::SUCCESS_IN:
     case ReturnCode::TSX_SUCCESS_IN:
         inc_inserted(v);
-        return std::make_pair(result.first, true);
+        return makeInsertRet(result.first, v, true);
     case ReturnCode::SUCCESS_UP:
     case ReturnCode::TSX_SUCCESS_UP:
-        return std::make_pair(result.first, false);
+        return makeInsertRet(result.first, v, false);
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow();
@@ -509,7 +522,7 @@ GrowTableHandle<GrowTableData>::insertOrUpdate(const value_intern& e, F f)
         helpGrow();
         return insertOrUpdate(e, f);
     default:
-        return std::make_pair(end(), false);
+        return makeInsertRet(bend(), v, false);
     }
 }
 
@@ -523,7 +536,7 @@ inline typename GrowTableHandle<GrowTableData>::insert_return_type
 GrowTableHandle<GrowTableData>::update_unsafe(const value_intern& e, F f)
 {
     int v = -1;
-    basetable_insert_return_type result = std::make_pair(end(), ReturnCode::ERROR);
+    basetable_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
 
     std::tie (v, result) = execute([](HashPtrRef_t t, const value_intern& e, F f)
                                      ->std::pair<int,basetable_insert_return_type>
@@ -541,7 +554,7 @@ GrowTableHandle<GrowTableData>::update_unsafe(const value_intern& e, F f)
     case ReturnCode::TSX_SUCCESS_UP:
     case ReturnCode::UNSUCCESS_NOT_FOUND:
     case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
-        return std::make_pair(result.first, true);
+        return makeInsertRet(result.first, v, true);
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow();
@@ -550,7 +563,7 @@ GrowTableHandle<GrowTableData>::update_unsafe(const value_intern& e, F f)
     case ReturnCode::TSX_UNSUCCESS_INVALID:
         return update_unsafe(e, f);
     default:
-        return std::make_pair(end(), false);
+        return makeInsertRet(bend(), v, false);
     }
 }
 
@@ -564,7 +577,7 @@ inline typename GrowTableHandle<GrowTableData>::insert_return_type
 GrowTableHandle<GrowTableData>::insertOrUpdate_unsafe(const value_intern& e, F f)
 {
     int v = -1;
-    basetable_insert_return_type result = std::make_pair(end(), ReturnCode::ERROR);
+    basetable_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
 
     std::tie (v, result) = execute([](HashPtrRef_t t, const value_intern& e, F f)
                                      ->std::pair<int,basetable_insert_return_type>
@@ -581,10 +594,10 @@ GrowTableHandle<GrowTableData>::insertOrUpdate_unsafe(const value_intern& e, F f
     case ReturnCode::SUCCESS_IN:
     case ReturnCode::TSX_SUCCESS_IN:
         inc_inserted(v);
-        return std::make_pair(result.first, true);
+        return makeInsertRet(result.first, v, true);
     case ReturnCode::SUCCESS_UP:
     case ReturnCode::TSX_SUCCESS_UP:
-        return std::make_pair(result.first, false);
+        return makeInsertRet(result.first, v, false);
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow();
@@ -594,7 +607,7 @@ GrowTableHandle<GrowTableData>::insertOrUpdate_unsafe(const value_intern& e, F f
         helpGrow();
         return insertOrUpdate_unsafe(e, f);
     default:
-        return std::make_pair(end(), false);
+        return makeInsertRet(bend(), v, false);
     }
 }
 
@@ -603,10 +616,12 @@ inline typename GrowTableHandle<GrowTableData>::iterator
 GrowTableHandle<GrowTableData>::
     find(const key_type& k)
 {
-    iterator e = execute([this](HashPtrRef_t t, const key_type & k) -> iterator
-                                    { return t->find(k); },
+    int v = -1;
+    basetable_iterator bit = bend();
+    std::tie (v, bit) = execute([this](HashPtrRef_t t, const key_type & k) -> std::pair<int, basetable_iterator>
+                                { return std::make_pair<int, basetable_iterator>(t->version, t->find(k)); },
                      k);
-    return e;
+    return makeIterator(bit, v);
 }
 
 template<class GrowTableData>
