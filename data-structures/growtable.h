@@ -286,10 +286,10 @@ private:
 
         void set(int ver, int upd, int in, int del)
         {
-            updates  = u;
-            inserted = i;
-            deleted  = d;
-            version  = v;
+            updates  = upd;
+            inserted = in;
+            deleted  = del;
+            version  = ver;
         }
 
         LocalCount(const LocalCount&) = delete;
