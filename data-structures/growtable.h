@@ -18,7 +18,6 @@
 #ifndef GROWTABLE_H
 #define GROWTABLE_H
 
-#include "data-structures/returnelement.h"
 #include "data-structures/iterator_base.h"
 #include "utils/concurrentptrarray.h"
 
@@ -264,15 +263,15 @@ private:
     inline basetable_iterator bend()
         { return basetable_iterator(std::make_pair(key_type(), mapped_type()), nullptr, nullptr);}
 
-    insert_return_type insert(const value_intern & e);
-    template <class F>
-    insert_return_type update(const value_intern & e, F f);
-    template <class F>
-    insert_return_type insertOrUpdate(const value_intern & e, F f);
-    template <class F>
-    insert_return_type update_unsafe(const value_intern & e, F f);
-    template <class F>
-    insert_return_type insertOrUpdate_unsafe(const value_intern & e, F f);
+    // insert_return_type insert(const value_intern & e);
+    // template <class F>
+    // insert_return_type update(const value_intern & e, F f);
+    // template <class F>
+    // insert_return_type insertOrUpdate(const value_intern & e, F f);
+    // template <class F>
+    // insert_return_type update_unsafe(const value_intern & e, F f);
+    // template <class F>
+    // insert_return_type insertOrUpdate_unsafe(const value_intern & e, F f);
 
     double max_fill_factor;
 
@@ -401,24 +400,16 @@ template<class GrowTableData>
 inline typename GrowTableHandle<GrowTableData>::insert_return_type
 GrowTableHandle<GrowTableData>::insert(const key_type k, const mapped_type d)
 {
-   return insert(value_intern(k,d));
-}
-
-template<class GrowTableData>
-inline typename GrowTableHandle<GrowTableData>::insert_return_type
-GrowTableHandle<GrowTableData>::insert(const value_intern& e)
-{
     int v = -1;
     basetable_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
-    std::tie (v, result) = execute([](HashPtrRef_t t, const value_intern& e)
+    std::tie (v, result) = execute([](HashPtrRef_t t, const key_type& k, const mapped_type& d)
                                      ->std::pair<int,basetable_insert_return_type>
                                    {
                                        std::pair<int,basetable_insert_return_type> result =
                                            std::make_pair(t->version,
-                                                          t->insert(e));
+                                                          t->insert(k,d));
                                        return result;
-                                   },
-                                   e);
+                                   }, k,d);
 
     switch(result.second)
     {
@@ -431,11 +422,11 @@ GrowTableHandle<GrowTableData>::insert(const value_intern& e)
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow();
-        return insert(e);
+        return insert(k,d);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
         helpGrow();
-        return insert(e);
+        return insert(k,d);
     default:
         return makeInsertRet(bend(), v, false);
     }
@@ -444,24 +435,18 @@ GrowTableHandle<GrowTableData>::insert(const value_intern& e)
 template<class GrowTableData> template <class F>
 inline typename GrowTableHandle<GrowTableData>::insert_return_type
 GrowTableHandle<GrowTableData>::update(const key_type k, const mapped_type d, F f)
-{   return update(value_intern(k,d), f);  }
-
-template<class GrowTableData> template <class F>
-inline typename GrowTableHandle<GrowTableData>::insert_return_type
-GrowTableHandle<GrowTableData>::update(const value_intern& e, F f)
 {
     int v = -1;
     basetable_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
 
-    std::tie (v, result) = execute([](HashPtrRef_t t, const value_intern& e, F f)
+    std::tie (v, result) = execute([](HashPtrRef_t t, const key_type& k, const mapped_type& d, F f)
                                      ->std::pair<int,basetable_insert_return_type>
                                    {
                                        std::pair<int,basetable_insert_return_type> result =
                                            std::make_pair(t->version,
-                                                          t->update(e, f));
+                                                          t->update(k,d, f));
                                        return result;
-                                   },
-                                   e, f);
+                                   },k,d, f);
 
     switch(result.second)
     {
@@ -473,10 +458,10 @@ GrowTableHandle<GrowTableData>::update(const value_intern& e, F f)
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow();  // usually impossible as this collides with NOT_FOUND
-        return update(e, f);
+        return update(k,d, f);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
-        return update(e, f);
+        return update(k,d, f);
     default:
         return makeInsertRet(bend(), v, false);
     }
@@ -485,24 +470,18 @@ GrowTableHandle<GrowTableData>::update(const value_intern& e, F f)
 template<class GrowTableData> template <class F>
 inline typename GrowTableHandle<GrowTableData>::insert_return_type
 GrowTableHandle<GrowTableData>::insertOrUpdate(const key_type k, const mapped_type d, F f)
-{   return insertOrUpdate(value_intern(k,d), f);  }
-
-template<class GrowTableData> template <class F>
-inline typename GrowTableHandle<GrowTableData>::insert_return_type
-GrowTableHandle<GrowTableData>::insertOrUpdate(const value_intern& e, F f)
 {
     int v = -1;
     basetable_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
 
-    std::tie (v, result) = execute([](HashPtrRef_t t, const value_intern& e, F f)
+    std::tie (v, result) = execute([](HashPtrRef_t t, const key_type& k, const mapped_type& d, F f)
                                      ->std::pair<int,basetable_insert_return_type>
                                    {
                                        std::pair<int,basetable_insert_return_type> result =
                                            std::make_pair(t->version,
-                                                          t->insertOrUpdate(e, f));
+                                                          t->insertOrUpdate(k,d, f));
                                        return result;
-                                   },
-                                   e, f);
+                                   },k,d, f);
 
     switch(result.second)
     {
@@ -516,11 +495,11 @@ GrowTableHandle<GrowTableData>::insertOrUpdate(const value_intern& e, F f)
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow();
-        return insertOrUpdate(e, f);
+        return insertOrUpdate(k,d, f);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
         helpGrow();
-        return insertOrUpdate(e, f);
+        return insertOrUpdate(k,d, f);
     default:
         return makeInsertRet(bend(), v, false);
     }
@@ -529,24 +508,18 @@ GrowTableHandle<GrowTableData>::insertOrUpdate(const value_intern& e, F f)
 template<class GrowTableData> template <class F>
 inline typename GrowTableHandle<GrowTableData>::insert_return_type
 GrowTableHandle<GrowTableData>::update_unsafe(const key_type k, const mapped_type d, F f)
-{   return update_unsafe(value_intern(k,d), f);  }
-
-template<class GrowTableData> template <class F>
-inline typename GrowTableHandle<GrowTableData>::insert_return_type
-GrowTableHandle<GrowTableData>::update_unsafe(const value_intern& e, F f)
 {
     int v = -1;
     basetable_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
 
-    std::tie (v, result) = execute([](HashPtrRef_t t, const value_intern& e, F f)
+    std::tie (v, result) = execute([](HashPtrRef_t t, const key_type& k, const mapped_type& d, F f)
                                      ->std::pair<int,basetable_insert_return_type>
                                    {
                                        std::pair<int,basetable_insert_return_type> result =
                                            std::make_pair(t->version,
-                                                          t->update_unsafe(e, f));
+                                                          t->update_unsafe(k,d, f));
                                        return result;
-                                   },
-                                   e, f);
+                                   },k,d, f);
 
     switch(result.second)
     {
@@ -558,10 +531,10 @@ GrowTableHandle<GrowTableData>::update_unsafe(const value_intern& e, F f)
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow();
-        return update_unsafe(e, f);
+        return update_unsafe(k,d, f);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
-        return update_unsafe(e, f);
+        return update_unsafe(k,d, f);
     default:
         return makeInsertRet(bend(), v, false);
     }
@@ -570,24 +543,18 @@ GrowTableHandle<GrowTableData>::update_unsafe(const value_intern& e, F f)
 template<class GrowTableData> template <class F>
 inline typename GrowTableHandle<GrowTableData>::insert_return_type
 GrowTableHandle<GrowTableData>::insertOrUpdate_unsafe(const key_type k, const mapped_type d, F f)
-{   return insertOrUpdate_unsafe(value_intern(k,d), f);  }
-
-template<class GrowTableData> template <class F>
-inline typename GrowTableHandle<GrowTableData>::insert_return_type
-GrowTableHandle<GrowTableData>::insertOrUpdate_unsafe(const value_intern& e, F f)
 {
     int v = -1;
     basetable_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
 
-    std::tie (v, result) = execute([](HashPtrRef_t t, const value_intern& e, F f)
+    std::tie (v, result) = execute([](HashPtrRef_t t, const key_type& k, const mapped_type& d, F f)
                                      ->std::pair<int,basetable_insert_return_type>
                                    {
                                        std::pair<int,basetable_insert_return_type> result =
                                            std::make_pair(t->version,
-                                                          t->insertOrUpdate_unsafe(e, f));
+                                                          t->insertOrUpdate_unsafe(k,d, f));
                                        return result;
-                                   },
-                                   e, f);
+                                   },k,d, f);
 
     switch(result.second)
     {
@@ -601,11 +568,11 @@ GrowTableHandle<GrowTableData>::insertOrUpdate_unsafe(const value_intern& e, F f
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow();
-        return insertOrUpdate_unsafe(e, f);
+        return insertOrUpdate_unsafe(k,d, f);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
         helpGrow();
-        return insertOrUpdate_unsafe(e, f);
+        return insertOrUpdate_unsafe(k,d, f);
     default:
         return makeInsertRet(bend(), v, false);
     }
@@ -613,8 +580,7 @@ GrowTableHandle<GrowTableData>::insertOrUpdate_unsafe(const value_intern& e, F f
 
 template<class GrowTableData>
 inline typename GrowTableHandle<GrowTableData>::iterator
-GrowTableHandle<GrowTableData>::
-    find(const key_type& k)
+GrowTableHandle<GrowTableData>::find(const key_type& k)
 {
     int v = -1;
     basetable_iterator bit = bend();
