@@ -20,9 +20,9 @@
 #include <stdexcept>
 
 #include "data-structures/returnelement.h"
+#include "data-structures/iterator_base.h"
 
 namespace growt {
-
 
 template<class E, class HashFct = std::hash<typename E::key_type>,
          class A = std::allocator<E>,
@@ -41,7 +41,7 @@ public:
     using key_type           = typename value_intern::key_type;
     using mapped_type        = typename value_intern::mapped_type;
     using value_type         = E;//typename std::pair<const key_type, mapped_type>;
-    using iterator           = E*;
+    using iterator           = IteratorBase<This_t, false>;//E*;
     using const_iterator     =    void;
     using size_type          = size_t;
     using difference_type    = std::ptrdiff_t;
@@ -83,7 +83,7 @@ public:
 
     ReturnCode erase(const key_type& k);
     //ReturnElement
-    iterator find  (const key_type& k) const;
+    iterator find  (const key_type& k);
 
     size_type migrate(This_t& target, size_type s, size_type e);
 
@@ -101,6 +101,8 @@ public:
         return nsize;
     }
 
+    inline iterator end() { return iterator(std::make_pair(key_type(), mapped_type()), nullptr, nullptr); }
+
 protected:
     Allocator_t allocator;
     static_assert(std::is_same<typename Allocator_t::value_type, value_intern>::value,
@@ -114,6 +116,16 @@ protected:
     size_type h(const key_type & k) const { return hash(k) >> right_shift; }
 
 private:
+    inline iterator           makeIterator (value_intern* ptr)
+    {
+        auto temp = *ptr;
+        return iterator(std::make_pair(temp.getKey(), temp.getData()), ptr, t+capacity);
+    }
+    inline insert_return_type makeInsertRet(value_intern* ptr, ReturnCode code)
+    { return std::make_pair(makeIterator(ptr), code); }
+    inline insert_return_type makeInsertRet(iterator it, ReturnCode code)
+    { return std::make_pair(it, code); }
+
     insert_return_type insert(const value_intern& e);
     template <class F>
     insert_return_type update(const value_intern& e, F f);
@@ -226,11 +238,11 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::insert(const value_intern & e)
     {
         size_type temp = i & bitmask;
         value_intern curr(t[temp]);
-        if (curr.isMarked()   )      return std::make_pair(nullptr , ReturnCode::UNSUCCESS_INVALID);
-        else if (curr.compareKey(k)) return std::make_pair(&t[temp], ReturnCode::UNSUCCESS_ALREADY_USED);
+        if (curr.isMarked()   ) return makeInsertRet(end() , ReturnCode::UNSUCCESS_INVALID);
+        else if (curr.compareKey(k)) return makeInsertRet(&t[temp], ReturnCode::UNSUCCESS_ALREADY_USED);
         else if (curr.isEmpty())
         {
-            if ( t[temp].CAS(curr, e) ) return std::make_pair(&t[temp], ReturnCode::SUCCESS_IN);
+            if ( t[temp].CAS(curr, e) ) return makeInsertRet(&t[temp], ReturnCode::SUCCESS_IN);
             //somebody changed the current element! recheck it
             --i;
         }
@@ -239,7 +251,7 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::insert(const value_intern & e)
             //do something appropriate
         }
     }
-    return std::make_pair(nullptr, ReturnCode::UNSUCCESS_FULL);
+    return makeInsertRet(end(), ReturnCode::UNSUCCESS_FULL);
 }
 
 
@@ -261,24 +273,24 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::update(const value_intern & e, F f)
         value_intern curr(t[temp]);
         if (curr.isMarked())
         {
-            return std::make_pair(nullptr, ReturnCode::UNSUCCESS_INVALID);
+            return makeInsertRet(end(), ReturnCode::UNSUCCESS_INVALID);
         }
         else if (curr.compareKey(k))
         {
             if (t[temp].atomicUpdate(curr, e, f))
-                return std::make_pair(&t[temp], ReturnCode::SUCCESS_UP);
+                return makeInsertRet(&t[temp], ReturnCode::SUCCESS_UP);
             i--;
         }
         else if (curr.isEmpty())
         {
-            return std::make_pair(nullptr, ReturnCode::UNSUCCESS_NOT_FOUND);
+            return makeInsertRet(end(), ReturnCode::UNSUCCESS_NOT_FOUND);
         }
         else if (curr.isDeleted())
         {
             //do something appropriate
         }
     }
-    return std::make_pair(nullptr, ReturnCode::UNSUCCESS_NOT_FOUND);
+    return makeInsertRet(end(), ReturnCode::UNSUCCESS_NOT_FOUND);
 }
 
 
@@ -300,17 +312,17 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::insertOrUpdate(const value_intern & e, F f
         value_intern curr(t[temp]);
         if (curr.isMarked())
         {
-            return std::make_pair(nullptr, ReturnCode::UNSUCCESS_INVALID);
+            return makeInsertRet(end(), ReturnCode::UNSUCCESS_INVALID);
         }
         else if (curr.compareKey(k))
         {
             if (t[temp].atomicUpdate(curr, e, f))
-                return std::make_pair(&t[temp], ReturnCode::SUCCESS_UP);
+                return makeInsertRet(&t[temp], ReturnCode::SUCCESS_UP);
             i--;
         }
         else if (curr.isEmpty())
         {
-            if ( t[temp].CAS(curr, e) ) return std::make_pair(&t[temp], ReturnCode::SUCCESS_IN);
+            if ( t[temp].CAS(curr, e) ) return makeInsertRet(&t[temp], ReturnCode::SUCCESS_IN);
             //somebody changed the current element! recheck it
             --i;
         }
@@ -319,7 +331,7 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::insertOrUpdate(const value_intern & e, F f
             //do something appropriate
         }
     }
-    return std::make_pair(nullptr, ReturnCode::UNSUCCESS_FULL);
+    return makeInsertRet(end(), ReturnCode::UNSUCCESS_FULL);
 }
 
 template<class E, class HashFct, class A, size_t MaDis, size_t MiSt> template<class F>
@@ -340,24 +352,24 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::update_unsafe(const value_intern & e, F f)
         value_intern curr(t[temp]);
         if (curr.isMarked())
         {
-            return std::make_pair(nullptr, ReturnCode::UNSUCCESS_INVALID);
+            return makeInsertRet(end(), ReturnCode::UNSUCCESS_INVALID);
         }
         else if (curr.compareKey(k))
         {
             if (t[temp].nonAtomicUpdate(curr, e, f))
-                return std::make_pair(&t[temp], ReturnCode::SUCCESS_UP);
+                return makeInsertRet(&t[temp], ReturnCode::SUCCESS_UP);
             i--;
         }
         else if (curr.isEmpty())
         {
-            return std::make_pair(nullptr, ReturnCode::UNSUCCESS_NOT_FOUND);
+            return makeInsertRet(end(), ReturnCode::UNSUCCESS_NOT_FOUND);
         }
         else if (curr.isDeleted())
         {
             //do something appropriate
         }
     }
-    return std::make_pair(nullptr, ReturnCode::UNSUCCESS_NOT_FOUND);
+    return makeInsertRet(end(), ReturnCode::UNSUCCESS_NOT_FOUND);
 }
 
 
@@ -379,17 +391,17 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::insertOrUpdate_unsafe(const value_intern &
         value_intern curr(t[temp]);
         if (curr.isMarked())
         {
-            return std::make_pair(nullptr, ReturnCode::UNSUCCESS_INVALID);
+            return makeInsertRet(end(), ReturnCode::UNSUCCESS_INVALID);
         }
         else if (curr.compareKey(k))
         {
             if (t[temp].nonAtomicUpdate(curr, e, f))
-                return std::make_pair(&t[temp], ReturnCode::SUCCESS_UP);
+                return makeInsertRet(&t[temp], ReturnCode::SUCCESS_UP);
             i--;
         }
         else if (curr.isEmpty())
         {
-            if ( t[temp].CAS(curr, e) ) return std::make_pair(&t[temp], ReturnCode::SUCCESS_IN);
+            if ( t[temp].CAS(curr, e) ) return makeInsertRet(&t[temp], ReturnCode::SUCCESS_IN);
             //somebody changed the current element! recheck it
             --i;
         }
@@ -398,7 +410,7 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::insertOrUpdate_unsafe(const value_intern &
             //do something appropriate
         }
     }
-    return std::make_pair(nullptr, ReturnCode::UNSUCCESS_FULL);
+    return makeInsertRet(end(), ReturnCode::UNSUCCESS_FULL);
 }
 
 template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
@@ -434,16 +446,16 @@ inline ReturnCode BaseCircular<E,HashFct,A,MaDis,MiSt>::erase(const key_type & k
 
 template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
 inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::iterator
-BaseCircular<E,HashFct,A,MaDis,MiSt>::find(const key_type & k) const
+BaseCircular<E,HashFct,A,MaDis,MiSt>::find(const key_type & k)
 {
     size_type htemp = h(k);
     for (size_type i = htemp; i < htemp+MaDis; ++i)
     {
         value_intern curr(t[i & bitmask]);
-        if (curr.compareKey(k)) return &t[i & bitmask]; // curr;
-        if (curr.isEmpty()) return nullptr; // ReturnElement::getEmpty();
+        if (curr.compareKey(k)) return makeIterator(&t[i & bitmask]); // curr;
+        if (curr.isEmpty()) return end(); // ReturnElement::getEmpty();
     }
-    return nullptr; // ReturnElement::getEmpty();
+    return end(); // ReturnElement::getEmpty();
 }
 
 template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
