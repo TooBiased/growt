@@ -13,6 +13,15 @@
 namespace growt
 {
 
+// Forward Declarations ********************************************************
+template <class, bool>
+class ReferenceGrowT;
+template <class, bool>
+class IteratorGrowt;
+
+
+
+// Reference *******************************************************************
 template <class BaseTable, bool is_const = false>
 class ReferenceBase
 {
@@ -25,6 +34,8 @@ private:
     using value_intern   = typename BTable_t::value_intern;
     using pointer_intern = value_intern*;
 
+    template <class, bool>
+    friend class ReferenceGrowT;
 public:
     using value_type   = typename
         std::conditional<is_const, const value_nc, value_nc>::type;
@@ -37,17 +48,25 @@ public:
     template<class F>
     void update   (const mapped_type value, F f)
     { ptr->update(copy.first, value, f); }
+    bool compare_exchange(mapped_type& exp, const mapped_type& val)
+    {
+        auto temp = value_intern(copy.first, exp);
+        if (ptr->CAS(temp, value_intern(copy.first, val)))
+        { copy.second = val; return true; }
+        else
+        { copy.second = temp.second; exp = temp.second; return false; }
+    }
 
-    //operator user_type() const        { return copy; }
-
-// private:
+    operator pair_type()  const { return copy; }
+    operator value_type() const { return reinterpret_cast<value_type>(copy); }
+private:
     pair_type      copy;
     pointer_intern ptr;
 };
 
 
 
-
+// Iterator ********************************************************************
 template <class BaseTable, bool is_const = false>
 class IteratorBase
 {
@@ -60,6 +79,8 @@ private:
     using value_intern   = typename BTable_t::value_intern;
     using pointer_intern = value_intern*;
 
+    template <class, bool>
+    friend class IteratorGrowT;
 public:
     using difference_type = std::ptrdiff_t;
     using value_type = typename std::conditional<is_const, const value_nc, value_nc>::type;
@@ -84,7 +105,6 @@ public:
     { copy = r.copy; ptr = r.ptr; eptr = r.eptr; return *this; }
 
     ~IteratorBase() = default;
-
 
     // Basic Iterator Functionality ********************************************
     IteratorBase& operator++(int = 0)

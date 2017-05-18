@@ -40,10 +40,10 @@ public:
     using value_type  = std::pair<const key_type, mapped_type>;
 
     MarkableElement();
-    MarkableElement(key_type k, mapped_type d);
-    MarkableElement(value_type pair);
-    MarkableElement(const MarkableElement &e);
-    MarkableElement & operator=(const MarkableElement & e);
+    MarkableElement(const key_type& k, const mapped_type& d);
+    MarkableElement(const value_type& pair);
+    MarkableElement(const MarkableElement& e);
+    MarkableElement & operator=(const MarkableElement& e);
     MarkableElement(MarkableElement &&e);
     //MarkableElement & operator=(MarkableElement && e);
 
@@ -79,6 +79,12 @@ public:
                       const MarkableElement & desired,
                             F f);
 
+    template<class F, class ...Types>
+    bool atomicUpdate(   MarkableElement & expected,
+                         F f, Types... args);
+    template<class F, class ...Types>
+    bool nonAtomicUpdate(F f, Types... args);
+
     inline bool operator==(MarkableElement& other) { return (key == other.key); }
     inline bool operator!=(MarkableElement& other) { return (key != other.key); }
 
@@ -103,11 +109,8 @@ private:
 
 
 inline MarkableElement::MarkableElement() { }
-inline MarkableElement::MarkableElement(key_type k, mapped_type d)
-    : key(k), data(d) { }
-inline MarkableElement::MarkableElement(value_type pair)
-    : key(pair.first), data(pair.second) { }
-
+inline MarkableElement::MarkableElement(const key_type& k, const mapped_type& d) : key(k), data(d) { }
+inline MarkableElement::MarkableElement(const value_type& p) : key(p.first), data(p.second) { }
 
 // Roman used: _mm_loadu_ps Think about using
 // _mm_load_ps because the memory should be aligned
@@ -200,6 +203,23 @@ inline bool MarkableElement::nonAtomicUpdate(MarkableElement &,
                                              F f)
 {
     f(data, desired.key, desired.data);
+    return true;
+}
+
+template<class F, class ...Types>
+inline bool MarkableElement::atomicUpdate(MarkableElement &exp,
+                                          F f, Types ... args)
+{
+    auto temp = exp.getData();
+    f(temp, std::forward<Types>(args)...);
+    return CAS(exp, MarkableElement(exp.key, temp));
+
+}
+
+template<class F, class ...Types>
+inline bool MarkableElement::nonAtomicUpdate(F f, Types ... args)
+{
+    f(data, std::forward<Types>(args)...);
     return true;
 }
 

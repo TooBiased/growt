@@ -100,7 +100,8 @@ public:
         return nsize;
     }
 
-    inline iterator end() { return iterator(std::make_pair(key_type(), mapped_type()), nullptr, nullptr); }
+    iterator begin();
+    iterator end();
 
 protected:
     Allocator_t allocator;
@@ -513,5 +514,22 @@ inline void BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_unsafe(const value_inte
     }
     throw std::bad_alloc();
 }
+
+template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
+inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::iterator
+BaseCircular<E,HashFct,A,MaDis,MiSt>::begin()
+{
+    for (size_t i = 0; i<capacity; ++i)
+    {
+        auto temp = t[i];
+        if (temp.first) return makeIterator(temp.getKey(), temp.getData(), &t[i]);
+    }
+    end();
+}
+
+template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
+inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::iterator
+BaseCircular<E,HashFct,A,MaDis,MiSt>::end()
+{ return iterator(std::make_pair(key_type(), mapped_type()),nullptr,nullptr); }
 
 }
