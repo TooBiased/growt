@@ -223,12 +223,8 @@ public:
     size_type element_count_approx() { return gtData.element_count_approx(); }
     size_type element_count_unsafe();
 
-    inline iterator end()
-    {
-        return iterator(basetable_iterator(std::pair<key_type, mapped_type>(key_type(), mapped_type()),
-                                           nullptr,nullptr),
-                        0, *this);
-    }
+    iterator begin();
+    iterator end();
 
 private:
     // DATA+FUNCTIONS FOR MIGRATION STRATEGIES
@@ -614,6 +610,26 @@ GrowTableHandle<GrowTableData>::erase(const key_type& k)
         return 0;
     }
 }
+
+template<class GrowTableData>
+inline typename GrowTableHandle<GrowTableData>::iterator
+GrowTableHandle<GrowTableData>::begin()
+{
+    return execute([](HashPtrRef_t t, GrowTableHandle& gt)
+                   -> iterator
+                   {
+                       return iterator(t->begin(), t->version, gt);
+                   }, *this);
+}
+template<class GrowTableData>
+inline typename GrowTableHandle<GrowTableData>::iterator
+GrowTableHandle<GrowTableData>::end()
+{
+    return iterator(basetable_iterator(std::pair<key_type, mapped_type>(key_type(), mapped_type()),
+                                       nullptr,nullptr),
+                    0, *this);
+}
+
 
 template<class GrowTableData>
 inline void GrowTableHandle<GrowTableData>::update_numbers()

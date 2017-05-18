@@ -38,11 +38,11 @@ public:
     using value_type  = std::pair<const key_type, mapped_type>;
 
     SimpleElement();
-    SimpleElement(key_type k, mapped_type d);
-    SimpleElement(value_type pair);
+    SimpleElement(const key_type& k, const mapped_type& d);
+    SimpleElement(const value_type& pair);
     SimpleElement(const SimpleElement &e);
     SimpleElement & operator=(const SimpleElement & e);
-    SimpleElement(const SimpleElement &&e);
+    SimpleElement(SimpleElement &&e);
 
     static SimpleElement getEmpty()
     { return SimpleElement( 0, 0 ); }
@@ -76,6 +76,12 @@ public:
                       const SimpleElement & desired,
                             F f);
 
+    template<class F, class ...Types>
+    bool atomicUpdate(      SimpleElement & expected,
+                            F f, Types ...args);
+    template<class F, class ...Types>
+    bool nonAtomicUpdate(   F f, Types ...args);
+
 
     inline bool operator==(SimpleElement& other) { return (key == other.key); }
     inline bool operator!=(SimpleElement& other) { return (key != other.key); }
@@ -93,26 +99,21 @@ private:
 };
 
 
-SimpleElement::SimpleElement() { }
-SimpleElement::SimpleElement(key_type k, mapped_type d) : key(k), data(d) { }
-SimpleElement::SimpleElement(const SimpleElement &&e) : key(e.key), data(e.data) { }
-
-
-SimpleElement::SimpleElement(const SimpleElement &e)
+inline SimpleElement::SimpleElement() { }
+inline SimpleElement::SimpleElement(const key_type& k, const mapped_type& d) : key(k), data(d) { }
+inline SimpleElement::SimpleElement(const value_type& p) : key(p.first), data(p.second) {}
+inline SimpleElement::SimpleElement(const SimpleElement &e)
 {
     //as128i() = (int128_t) _mm_loadu_ps((float *) &e);
     as128i() = reinterpret_cast<int128_t>(_mm_loadu_si128((__m128i*) &e));
 }
-
-
-SimpleElement & SimpleElement::operator=(const SimpleElement & e)
+inline SimpleElement & SimpleElement::operator=(const SimpleElement & e)
 {
     //as128i() = (int128_t) _mm_loadu_ps((float *) &e);
     as128i() = reinterpret_cast<int128_t>(_mm_loadu_si128((__m128i*) &e));
     return *this;
 }
-
-
+inline SimpleElement::SimpleElement(SimpleElement &&e) : key(e.key), data(e.data) { }
 
 
 
@@ -177,9 +178,16 @@ template <bool TTrue>
 struct TAtomic
 {
     template <class TFunctor>
-    static bool execute(SimpleElement& that, SimpleElement&, const SimpleElement& desired, TFunctor f)
+    inline static bool execute(SimpleElement& that, SimpleElement&, const SimpleElement& desired, TFunctor f)
     {
         f.atomic(that.data, desired.key, desired.data);
+        return true;
+    }
+
+    template <class F, class ...Types>
+    inline static bool execute(SimpleElement& that, SimpleElement& exp, F f, Types ... args)
+    {
+        f.atomic(that.data, std::forward<Types>(args)...);
         return true;
     }
 };
@@ -190,12 +198,22 @@ template <>
 struct TAtomic<false>
 {
     template <class TFunctor>
-    static bool execute(SimpleElement& that, SimpleElement& expected, const SimpleElement& desired, TFunctor f)
+    inline static bool execute(SimpleElement& that, SimpleElement& exp, const SimpleElement& des, TFunctor f)
     {
-        SimpleElement::mapped_type td = expected.data;
-        f(td, desired.key, desired.data);
+        SimpleElement::mapped_type td = exp.data;
+        f(td, des.key, des.data);
         return __sync_bool_compare_and_swap(&(that.data),
-                                            expected.data,
+                                            exp.data,
+                                            td);
+    }
+
+    template <class F, class ...Types>
+    inline static bool execute(SimpleElement& that, SimpleElement& exp, F f, Types ... args)
+    {
+        SimpleElement::mapped_type td = exp.data;
+        f(td, std::forward<Types>(args)...);
+        return __sync_bool_compare_and_swap(&(that.data),
+                                            exp.data,
                                             td);
     }
 };
@@ -220,6 +238,21 @@ inline bool SimpleElement::nonAtomicUpdate(SimpleElement &,
     return true;
 }
 
+template<class F, class ... Types>
+inline bool SimpleElement::atomicUpdate(SimpleElement & expected,
+                                        F f, Types ... args)
+{
+    return TAtomic<THasAtomic<F>::value>::execute(*this, f, std::forward<Types>(args)...);
+}
+
+
+
+template<class F>
+inline bool SimpleElement::nonAtomicUpdate(F f, Types ... args)
+{
+    f(data, std::forward<Types>(args)...);
+    return true;
+}
 
 
 

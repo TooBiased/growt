@@ -27,6 +27,7 @@ private:
     using HashPtrRef_t = typename Table_t::HashPtrRef_t;
     using pair_type    = std::pair<key_type, mapped_type>;
 public:
+    using value_type   = typename RefBase_t::value_type;
 
     ReferenceGrowT(RefBase_t ref, size_t ver, Table_t& table)
         : tab(table), version(ver), ref(ref) { }
@@ -59,10 +60,21 @@ public:
             {
                 sref.base_refresh_ptr(t);
                 sref.ref.update(value, f);
-            }, *this, value);
+            }, *this, value, f);
+    }
+    bool compare_exchange(mapped_type& exp, const mapped_type &val)
+    {
+        return tab.execute(
+            [](HashPtrRef_t t, ReferenceGrowT& sref,
+               mapped_type& exp, const mapped_type& val)
+            {
+                sref.base_refresh_ptr(t);
+                return sref.ref.compare_exchange(exp, val);
+            }, *this, std::ref(exp), val);
     }
 
-    //   operator user_type() const        { return user_type(ref); }
+    operator pair_type()  const { return pair_type (ref); }
+    operator value_type() const { return value_type(ref); }
 private:
     Table_t&  tab;
     size_t    version;
@@ -104,9 +116,9 @@ private:
 
 public:
     using difference_type = std::ptrdiff_t;
-    using value_type = typename std::conditional<is_const, const value_nc, value_nc>::type;
-    using reference  = value_type&;
-    using pointer    = value_type*;
+    using value_type = typename BIterator_t::value_type;
+    using reference  = typename BIterator_t::reference;
+    // using pointer    = value_type*;
     using iterator_category = std::forward_iterator_tag;
 
     // template<class T, bool b>
