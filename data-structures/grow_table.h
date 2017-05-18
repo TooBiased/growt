@@ -1,5 +1,5 @@
 /*******************************************************************************
- * data-structures/growtable.h
+ * data-structures/grow_table.h
  *
  * Defines the growtable architecture:
  *   GrowTable       - the global facade of our table
@@ -15,10 +15,9 @@
  * All rights reserved. Published under the BSD-2 license in the LICENSE file.
  ******************************************************************************/
 
-#ifndef GROWTABLE_H
-#define GROWTABLE_H
+#pragma once
 
-#include "data-structures/iterator_base.h"
+#include "data-structures/grow_iterator.h"
 #include "utils/concurrentptrarray.h"
 
 #include <atomic>
@@ -184,7 +183,7 @@ public:
     using const_iterator     =    void;
     using size_type          = size_t;
     using difference_type    = std::ptrdiff_t;
-    using reference          =    void;
+    using reference          = ReferenceGrowT<This_t, false>;
     using const_reference    =    void;
     using insert_return_type = std::pair<iterator, bool>;
 
@@ -261,17 +260,7 @@ private:
                                             size_t version, bool inserted)
     { return std::make_pair(iterator(bit, version, *this), inserted); }
     inline basetable_iterator bend()
-        { return basetable_iterator(std::make_pair(key_type(), mapped_type()), nullptr, nullptr);}
-
-    // insert_return_type insert(const value_intern & e);
-    // template <class F>
-    // insert_return_type update(const value_intern & e, F f);
-    // template <class F>
-    // insert_return_type insertOrUpdate(const value_intern & e, F f);
-    // template <class F>
-    // insert_return_type update_unsafe(const value_intern & e, F f);
-    // template <class F>
-    // insert_return_type insertOrUpdate_unsafe(const value_intern & e, F f);
+    { return basetable_iterator(std::make_pair(key_type(), mapped_type()), nullptr, nullptr);}
 
     double max_fill_factor;
 
@@ -712,5 +701,3 @@ GrowTableHandle<GrowTableData>::element_count_unsafe()
 }
 
 }
-
-#endif // GROWTABLE_H

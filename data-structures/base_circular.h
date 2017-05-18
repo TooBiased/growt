@@ -1,5 +1,5 @@
 /*******************************************************************************
- * data-structures/circular.h
+ * data-structures/base_circular.h
  *
  * Non growing table variant, that is also used by our growing
  * tables to represent the current table.
@@ -11,16 +11,15 @@
  * All rights reserved. Published under the BSD-2 license in the LICENSE file.
  ******************************************************************************/
 
-#ifndef CIRCULAR
-#define CIRCULAR
+#pragma once
 
 #include <stdlib.h>
 #include <functional>
 #include <atomic>
 #include <stdexcept>
 
-#include "data-structures/returnelement.h"
-#include "data-structures/iterator_base.h"
+//#include "data-structures/returnelement.h"
+#include "data-structures/base_iterator.h"
 
 namespace growt {
 
@@ -41,11 +40,11 @@ public:
     using key_type           = typename value_intern::key_type;
     using mapped_type        = typename value_intern::mapped_type;
     using value_type         = E;//typename std::pair<const key_type, mapped_type>;
-    using iterator           = IteratorBase<This_t, false>;//E*;
+    using iterator           = IteratorBase <This_t, false>;//E*;
     using const_iterator     =    void;
     using size_type          = size_t;
     using difference_type    = std::ptrdiff_t;
-    using reference          =    void;
+    using reference          = ReferenceBase<This_t, false>;
     using const_reference    =    void;
     using insert_return_type = std::pair<iterator, ReturnCode>;
 
@@ -516,4 +515,3 @@ inline void BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_unsafe(const value_inte
 }
 
 }
-#endif // CIRCULAR
