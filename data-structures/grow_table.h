@@ -144,10 +144,10 @@ public:
 
 private:
     // DATA+FUNCTIONS FOR MIGRATION STRATEGIES
-    typename ExclusionStrat_t::global_data_t global_exclusion;
-    typename WorkerStrat_t   ::global_data_t global_worker;
+    mutable typename ExclusionStrat_t::global_data_t global_exclusion;
+    mutable typename WorkerStrat_t   ::global_data_t global_worker;
 
-    ConcurrentPtrArray<Handle> handle_ptr;
+    mutable ConcurrentPtrArray<Handle> handle_ptr;
 
     // APPROXIMATE COUNTS
     alignas(64) std::atomic_int elements;
@@ -165,26 +165,24 @@ class GrowTableHandle
 private:
     using This_t             = GrowTableHandle<GrowTableData>;
     using Parent_t           = typename GrowTableData::Parent_t;
+    using BaseTable_t        = typename GrowTableData::BaseTable_t;
     using WorkerStrat_t      = typename GrowTableData::WorkerStrat_t;
     using ExclusionStrat_t   = typename GrowTableData::ExclusionStrat_t;
     friend GrowTableData;
 
 public:
     using HashPtrRef_t       = typename ExclusionStrat_t::HashPtrRef;
-    using BaseTable_t        = typename GrowTableData::BaseTable_t;
-    using basetable_iterator = typename BaseTable_t::iterator;
-    using basetable_insert_return_type = typename BaseTable_t::insert_return_type;
     using value_intern       = typename BaseTable_t::value_intern;
 
     using key_type           = typename BaseTable_t::key_type;
     using mapped_type        = typename BaseTable_t::mapped_type;
     using value_type         = typename std::pair<const key_type, mapped_type>;
     using iterator           = IteratorGrowT<This_t, false>;//value_intern*;
-    using const_iterator     =    void;
+    using const_iterator     = iterator;//IteratorGrowT<This_t, true>;
     using size_type          = size_t;
     using difference_type    = std::ptrdiff_t;
     using reference          = ReferenceGrowT<This_t, false>;
-    using const_reference    =    void;
+    using const_reference    = ReferenceGrowT<This_t, true>;
     using insert_return_type = std::pair<iterator, bool>;
 
     using local_iterator       = void;
@@ -192,8 +190,14 @@ public:
     using node_type            = void;
 
 private:
-    using base_iterator      = typename BaseTable_t::iterator;
+    using basetable_iterator = typename BaseTable_t::iterator;
+    using basetable_insert_return_type = typename BaseTable_t::insert_return_type;
+    using basetable_citerator = typename BaseTable_t::iterator;
 
+    friend iterator;
+    friend reference;
+    friend const_iterator;
+    friend const_reference;
 public:
     GrowTableHandle() = delete;
     GrowTableHandle(GrowTableData &data);
@@ -208,13 +212,20 @@ public:
     ~GrowTableHandle();
 
     insert_return_type insert(const key_type k, const mapped_type d);
+    iterator           find (const key_type & k);
+    size_type          erase(const key_type & k);
+
+    iterator begin();
+    iterator end();
+    const_iterator cbegin(); // const;
+    const_iterator cend()  ; // const;
+    // const_iterator begin()  const { return cbegin(); }
+    // const_iterator end()    const { return cend(); }
+
     template <class F>
     insert_return_type update(const key_type k, const mapped_type d, F f);
     template <class F>
     insert_return_type insertOrUpdate(const key_type k, const mapped_type d, F f);
-    iterator           find (const key_type & k);
-    size_type          erase(const key_type & k);
-
     template <class F>
     insert_return_type update_unsafe(const key_type k, const mapped_type d, F f);
     template <class F>
@@ -223,15 +234,12 @@ public:
     size_type element_count_approx() { return gtData.element_count_approx(); }
     size_type element_count_unsafe();
 
-    iterator begin();
-    iterator end();
-
 private:
     // DATA+FUNCTIONS FOR MIGRATION STRATEGIES
     GrowTableData& gtData;
     size_type      handle_id;
-    typename WorkerStrat_t   ::local_data_t local_worker;
-    typename ExclusionStrat_t::local_data_t local_exclusion;
+    mutable typename WorkerStrat_t   ::local_data_t local_worker;
+    mutable typename ExclusionStrat_t::local_data_t local_exclusion;
 
 
     inline void         grow()     { local_exclusion.grow(); }
@@ -242,6 +250,17 @@ private:
     template<typename Functor, typename ... Types>
     inline typename std::result_of<Functor(HashPtrRef_t, Types&& ...)>::type
     execute (Functor f, Types&& ... param)
+    {
+        HashPtrRef_t temp = local_exclusion.getTable();
+        auto result = std::forward<Functor>(f)
+                          (temp, std::forward<Types>(param)...);
+        rlsTable();
+        return result;
+    }
+
+    template<typename Functor, typename ... Types>
+    inline typename std::result_of<Functor(HashPtrRef_t, Types&& ...)>::type
+    cexecute (Functor f, Types&& ... param) const
     {
         HashPtrRef_t temp = local_exclusion.getTable();
         auto result = std::forward<Functor>(f)
@@ -280,7 +299,8 @@ private:
         {  }
 
         LocalCount(LocalCount&& rhs)
-            : version(rhs.version), updates(rhs.updates), inserted(rhs.inserted), deleted(rhs.deleted)
+            : version(rhs.version), updates(rhs.updates),
+              inserted(rhs.inserted), deleted(rhs.deleted)
         {
             rhs.version = 0;
         }
@@ -629,6 +649,30 @@ GrowTableHandle<GrowTableData>::end()
                                        nullptr,nullptr),
                     0, *this);
 }
+
+
+template<class GrowTableData>
+inline typename GrowTableHandle<GrowTableData>::const_iterator
+GrowTableHandle<GrowTableData>::cbegin()
+{
+    return begin();
+    //auto non_const_this = const_cast<GrowTableHandle*>(this);
+    //return execute([](HashPtrRef_t t, const GrowTableHandle& gt)
+    //               -> const_iterator
+    //               {
+    //                   return gt.cend();//const_iterator(t->begin(), t->version, gt);
+    //              }, non_const_this);
+}
+template<class GrowTableData>
+inline typename GrowTableHandle<GrowTableData>::const_iterator
+GrowTableHandle<GrowTableData>::cend()
+{
+    return end();
+    // return const_iterator(basetable_citerator(std::pair<key_type, mapped_type>(key_type(), mapped_type()),
+    //                                    nullptr,nullptr),
+    //                 0, *this);
+}
+
 
 
 template<class GrowTableData>
