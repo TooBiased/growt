@@ -19,7 +19,8 @@ template<class Table, bool is_const = false>
 class ReferenceGrowT
 {
 private:
-    using Table_t      = Table;
+    using Table_t      = typename std::conditional<is_const, const Table, Table>::type;
+
     using key_type     = typename Table_t::key_type;
     using mapped_type  = typename Table_t::mapped_type;
 
@@ -37,29 +38,34 @@ public:
     void refresh()
     {
         tab.execute(
-            [](HashPtrRef_t t, ReferenceGrowT& sref)
+            [](HashPtrRef_t t, ReferenceGrowT& sref) -> int
             {
                 sref.base_refresh_ptr(t);
                 sref.ref.refresh();
+                return 0;
             }, *this);
     }
-    void operator=(const mapped_type& value)
+
+    template<bool is_const2 = is_const>
+    typename std::enable_if<!is_const2>::type operator=(const mapped_type& value)
     {
         tab.execute(
-            [](HashPtrRef_t t, ReferenceGrowT& sref, const mapped_type& value)
+            [](HashPtrRef_t t, ReferenceGrowT& sref, const mapped_type& value) -> int
             {
                 sref.base_refresh_ptr(t);
                 sref.ref.operator=(value);
+                return 0;
             }, *this, value);
     }
     template<class F>
     void update   (const mapped_type& value, F f)
     {
         tab.execute(
-            [](HashPtrRef_t t, ReferenceGrowT& sref, const mapped_type& value, F f)
+            [](HashPtrRef_t t, ReferenceGrowT& sref, const mapped_type& value, F f) -> int
             {
                 sref.base_refresh_ptr(t);
                 sref.ref.update(value, f);
+                return 0;
             }, *this, value, f);
     }
     bool compare_exchange(mapped_type& exp, const mapped_type &val)
@@ -86,7 +92,7 @@ private:
         if (ht->version == version) return false;
 
         version = ht->version;
-        auto it = ht->find(ref.copy.first).first;
+        auto it = ht->find(ref.copy.first);
         ref.copy = it.copy;
         ref.ptr  = it.ptr;
         return true;
@@ -101,7 +107,7 @@ template <class Table, bool is_const = false>
 class IteratorGrowT
 {
 private:
-    using Table_t        = Table;
+    using Table_t        = typename std::conditional<is_const, const Table, Table>::type;
     using key_type       = typename Table_t::key_type;
     using mapped_type    = typename Table_t::mapped_type;
     using pair_type      = std::pair<key_type, mapped_type>;
@@ -117,7 +123,7 @@ private:
 public:
     using difference_type = std::ptrdiff_t;
     using value_type = typename BIterator_t::value_type;
-    using reference  = typename BIterator_t::reference;
+    using reference  = ReferenceGrowT<Table, is_const>;
     // using pointer    = value_type*;
     using iterator_category = std::forward_iterator_tag;
 
@@ -145,12 +151,12 @@ public:
     IteratorGrowT& operator++(int = 0)
     {
         tab.execute(
-            [](HashPtrRef_t t, IteratorGrowT& sit)
+            [](HashPtrRef_t t, IteratorGrowT& sit) -> int
             {
                 sit.base_refresh_ptr(t);
                 sit.it++;
-            },
-            *this);
+                return 0;
+            }, *this);
         return *this;
     }
 
@@ -164,20 +170,14 @@ public:
     void refresh()
     {
         tab.execute(
-            [](HashPtrRef_t t, IteratorGrowT& sit)
+            [](HashPtrRef_t t, IteratorGrowT& sit) -> int
             {
                 sit.base_refresh_ptr(t);
                 sit.it.refresh();
+                return 0;
             },
             *this);
     }
-
-    // bool compare_exchange(value_intern& expect, value_intern val)
-    // bool replace(mapped_type val)
-    // bool erase()
-
-    // template <class Functor>
-    // bool update(value_intern inp2)
 
 private:
     Table_t&    tab;
@@ -190,7 +190,7 @@ private:
         if (ht->version == version) return false;
 
         version = ht->version;
-        it      = ht->find(it.copy.first).first;
+        it      = ht->find(it.copy.first);
         return true;
     }
 };

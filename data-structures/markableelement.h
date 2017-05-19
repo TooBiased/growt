@@ -85,8 +85,8 @@ public:
     template<class F, class ...Types>
     bool nonAtomicUpdate(F f, Types... args);
 
-    inline bool operator==(MarkableElement& other) { return (key == other.key); }
-    inline bool operator!=(MarkableElement& other) { return (key != other.key); }
+    inline bool operator==(MarkableElement& r) { return (key == r.key); }
+    inline bool operator!=(MarkableElement& r) { return (key != r.key); }
 
     inline ReturnElement getReturn() const
     {  return ReturnElement(getKey(), getData());  }
@@ -138,11 +138,13 @@ inline MarkableElement::MarkableElement(MarkableElement &&e)
 // }
 
 
-inline bool MarkableElement::isEmpty() const   { return (key & BITMASK) == 0; }
+inline bool MarkableElement::isEmpty()   const { return (key & BITMASK) == 0; }
 inline bool MarkableElement::isDeleted() const { return (key & BITMASK) == BITMASK; }
-inline bool MarkableElement::isMarked() const  { return (key & MARKED_BIT); }
-inline bool MarkableElement::compareKey(const key_type & k) const { return (key & BITMASK) == k; }
-inline MarkableElement::key_type    MarkableElement::getKey()  const { return (key != BITMASK) ? (key & BITMASK) : 0; }
+inline bool MarkableElement::isMarked()  const { return (key & MARKED_BIT); }
+inline bool MarkableElement::compareKey(const key_type & k) const
+{ return (key & BITMASK) == k; }
+inline MarkableElement::key_type    MarkableElement::getKey()  const
+{ return (key != BITMASK) ? (key & BITMASK) : 0; }
 inline MarkableElement::mapped_type MarkableElement::getData() const { return data; }
 inline bool MarkableElement::setData(const mapped_type d)
 {

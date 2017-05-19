@@ -153,6 +153,28 @@ int find_succ(Hash& hash, size_t end)
     return 0;
 }
 
+template <class Hash>
+int bla(Hash& hash, size_t end)
+{
+    auto err = 0u;
+
+    execute_parallel(current_block, end,
+        [&hash, &err, end](size_t i)
+        {
+            auto key = keys[i];
+
+            auto data = hash.find(key);
+
+            if (std::pair<size_t,size_t>(*data).second != 666666666)
+            {
+                ++err;
+            }
+        });
+
+    errors.fetch_add(err, std::memory_order_relaxed);
+    return 0;
+}
+
 template <class ThreadType>
 int test_in_stages(size_t p, size_t id, size_t n, size_t cap, size_t it)
 {
@@ -217,12 +239,34 @@ int test_in_stages(size_t p, size_t id, size_t n, size_t cap, size_t it)
             ThreadType::out (errors.load(), 6);
         }
 
+        if (ThreadType::is_main)
+        {
+            //const
+                Handle& chash = hash;
+            size_t count = 0;
+            for (auto it = chash.cbegin(); it != chash.cend(); it++)
+            {
+                count ++;
+            }
+            ThreadType::out (count                      , 10);
+            ThreadType::out (hash.element_count_unsafe(), 10);
+            ThreadType::out (hash.element_count_approx(), 10);
+        }
+
+        // STAGE4 n Finds Successful
+        {
+            if (ThreadType::is_main) current_block.store(0);
+
+            auto duration = ThreadType::synchronized(bla<Handle>,
+                                                     ++stage, p-1, hash, n);
+
+            ThreadType::out (errors.load(), 6);
+        }
+
         #ifdef MALLOC_COUNT
         ThreadType::out (malloc_count_current(), 14);
         #endif
 
-        //ThreadType::out (hash.element_count_unsafe(), 10);
-        //ThreadType::out (hash.element_count_approx(), 10);
         ThreadType() << std::endl;
         if (ThreadType::is_main) errors.store(0);
 

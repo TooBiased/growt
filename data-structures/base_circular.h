@@ -40,22 +40,17 @@ public:
     using key_type           = typename value_intern::key_type;
     using mapped_type        = typename value_intern::mapped_type;
     using value_type         = E;//typename std::pair<const key_type, mapped_type>;
-    using iterator           = IteratorBase <This_t, false>;//E*;
-    using const_iterator     =    void;
+    using iterator           = IteratorBase<This_t, false>;//E*;
+    using const_iterator     = IteratorBase<This_t, true>;
     using size_type          = size_t;
     using difference_type    = std::ptrdiff_t;
     using reference          = ReferenceBase<This_t, false>;
-    using const_reference    =    void;
+    using const_reference    = ReferenceBase<This_t, true>;
     using insert_return_type = std::pair<iterator, ReturnCode>;
 
     using local_iterator       = void;
     using const_local_iterator = void;
     using node_type            = void;
-
-    // Handle and get Handle are used for our tests using them
-    // They are here so BaseCircular behaves like GrowTable
-    //using Handle  = This_t&;
-    //Handle getHandle() { return *this; }
 
     BaseCircular(size_type size_ = 1<<18);
     BaseCircular(size_type size_, size_type version_);
@@ -71,6 +66,16 @@ public:
     ~BaseCircular();
 
     insert_return_type insert(const key_type k, const mapped_type d);
+    ReturnCode         erase(const key_type& k);
+    iterator           find(const key_type& k);
+
+    iterator begin();
+    iterator end();
+    const_iterator cbegin() const;
+    const_iterator cend()   const;
+    const_iterator begin()  const { return cbegin(); }
+    const_iterator end()    const { return cend();   }
+
     template <class F>
     insert_return_type update(const key_type k, const mapped_type d, F f);
     template <class F>
@@ -79,10 +84,6 @@ public:
     insert_return_type update_unsafe(const key_type k, const mapped_type d, F f);
     template <class F>
     insert_return_type insertOrUpdate_unsafe(const key_type k, const mapped_type d, F f);
-
-    ReturnCode erase(const key_type& k);
-    //ReturnElement
-    iterator find  (const key_type& k);
 
     size_type migrate(This_t& target, size_type s, size_type e);
 
@@ -100,9 +101,6 @@ public:
         return nsize;
     }
 
-    iterator begin();
-    iterator end();
-
 protected:
     Allocator_t allocator;
     static_assert(std::is_same<typename Allocator_t::value_type, value_intern>::value,
@@ -119,21 +117,14 @@ private:
     inline iterator           makeIterator (const key_type& k, const mapped_type& d,
                                             value_intern* ptr)
     { return iterator(std::make_pair(k,d), ptr, t+capacity); }
+    inline const_iterator     makeCIterator (const key_type& k, const mapped_type& d,
+                                            value_intern* ptr) const
+    { return const_iterator(std::make_pair(k,d), ptr, t+capacity); }
     inline insert_return_type makeInsertRet(const key_type& k, const mapped_type& d,
                                             value_intern* ptr, ReturnCode code)
     { return std::make_pair(makeIterator(k,d, ptr), code); }
     inline insert_return_type makeInsertRet(iterator it, ReturnCode code)
     { return std::make_pair(it, code); }
-
-    // insert_return_type insert(const value_intern& e);
-    // template <class F>
-    // insert_return_type update(const value_intern& e, F f);
-    // template <class F>
-    // insert_return_type insertOrUpdate(const value_intern& e, F f);
-    // template <class F>
-    // insert_return_type update_unsafe(const value_intern& e, F f);
-    // template <class F>
-    // insert_return_type insertOrUpdate_unsafe(const value_intern& e, F f);
 
     void insert_unsafe(const value_intern& e);
 
@@ -522,14 +513,34 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::begin()
     for (size_t i = 0; i<capacity; ++i)
     {
         auto temp = t[i];
-        if (temp.first) return makeIterator(temp.getKey(), temp.getData(), &t[i]);
+        if (!temp.isEmpty() && !temp.isDeleted())
+            return makeIterator(temp.getKey(), temp.getData(), &t[i]);
     }
-    end();
+    return end();
 }
 
 template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
 inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::iterator
 BaseCircular<E,HashFct,A,MaDis,MiSt>::end()
 { return iterator(std::make_pair(key_type(), mapped_type()),nullptr,nullptr); }
+
+
+template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
+inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::const_iterator
+BaseCircular<E,HashFct,A,MaDis,MiSt>::cbegin() const
+{
+    for (size_t i = 0; i<capacity; ++i)
+    {
+        auto temp = t[i];
+        if (temp.first) return makeCIterator(temp.getKey(), temp.getData(), &t[i]);
+    }
+    return end();
+}
+
+template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
+inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::const_iterator
+BaseCircular<E,HashFct,A,MaDis,MiSt>::cend() const
+{ return const_iterator(std::make_pair(key_type(), mapped_type()),nullptr,nullptr); }
+
 
 }

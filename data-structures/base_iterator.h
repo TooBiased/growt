@@ -44,18 +44,19 @@ public:
         : copy(copy), ptr(ptr) { }
 
     void refresh()                          { copy = *ptr; }
-    void operator=(const mapped_type value) { ptr->setData(value); }
+
+    template<bool is_const2 = is_const>
+    typename std::enable_if<!is_const2>::type operator=(const mapped_type& value) { ptr->setData(value); }
     template<class F>
-    void update   (const mapped_type value, F f)
-    { ptr->update(copy.first, value, f); }
+    void update   (const mapped_type& value, F f) { ptr->update(copy.first, value, f); }
     bool compare_exchange(mapped_type& exp, const mapped_type& val)
-    {
-        auto temp = value_intern(copy.first, exp);
-        if (ptr->CAS(temp, value_intern(copy.first, val)))
-        { copy.second = val; return true; }
-        else
-        { copy.second = temp.second; exp = temp.second; return false; }
-    }
+        {
+            auto temp = value_intern(copy.first, exp);
+            if (ptr->CAS(temp, value_intern(copy.first, val)))
+            { copy.second = val; return true; }
+            else
+            { copy.second = temp.second; exp = temp.second; return false; }
+        }
 
     operator pair_type()  const { return copy; }
     operator value_type() const { return reinterpret_cast<value_type>(copy); }
@@ -63,7 +64,6 @@ private:
     pair_type      copy;
     pointer_intern ptr;
 };
-
 
 
 // Iterator ********************************************************************
@@ -81,6 +81,8 @@ private:
 
     template <class, bool>
     friend class IteratorGrowT;
+    template <class, bool>
+    friend class ReferenceGrowT;
 public:
     using difference_type = std::ptrdiff_t;
     using value_type = typename std::conditional<is_const, const value_nc, value_nc>::type;
@@ -109,7 +111,8 @@ public:
     // Basic Iterator Functionality ********************************************
     IteratorBase& operator++(int = 0)
     {
-        while ( (++ptr).isEmpty() && ptr < eptr ) { }
+        ++ptr;
+        while ( ptr < eptr && (ptr->isEmpty() || ptr->isDeleted())) { ++ptr; }
         if (ptr == eptr)
         {
             ptr  = nullptr;
@@ -127,17 +130,24 @@ public:
     // Functions necessary for concurrency *************************************
     void refresh () { copy = *ptr; }
 
-    // bool compare_exchange(value_intern& expect, value_intern val)
-    // bool replace(mapped_type val)
-    // bool erase()
-
-    // template <class Functor>
-    // bool update(value_intern inp2)
+    bool erase()
+        {
+    auto temp   = value_intern(reinterpret_cast<value_type>(copy));
+    auto result = false;
+    while (!temp.isDeleted)
+    {
+        if (ptr->atomicDelete(temp))
+        { this->operator++(); return true; }
+    }
+    this->operator++();
+    return false;
+}
 
 private:
     pair_type      copy;
     pointer_intern ptr;
     pointer_intern eptr;
 };
+
 
 }
