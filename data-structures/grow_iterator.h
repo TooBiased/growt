@@ -24,7 +24,9 @@ private:
     using key_type     = typename Table_t::key_type;
     using mapped_type  = typename Table_t::mapped_type;
 
-    using RefBase_t    = typename Table_t::BaseTable_t::reference;
+    using RefBase_t    = typename std::conditional<is_const,
+                                                   typename Table_t::BaseTable_t::const_reference,
+                                                   typename Table_t::BaseTable_t::reference>::type;
     using HashPtrRef_t = typename Table_t::HashPtrRef_t;
     using pair_type    = std::pair<key_type, mapped_type>;
 public:
@@ -81,6 +83,7 @@ public:
 
     operator pair_type()  const { return pair_type (ref); }
     operator value_type() const { return value_type(ref); }
+
 private:
     Table_t&  tab;
     size_t    version;
@@ -117,8 +120,12 @@ private:
 
     using HashPtrRef_t   = typename Table_t::HashPtrRef_t;
 
-    using BTable_t       = typename Table_t::BaseTable_t;
-    using BIterator_t    = typename BTable_t::iterator;
+    using BTable_t       = typename std::conditional<is_const,
+                                            const typename Table_t::BaseTable_t,
+                                            typename Table_t::BaseTable_t>::type;
+    using BIterator_t    = typename std::conditional<is_const,
+                                            typename BTable_t::const_iterator,
+                                            typename BTable_t::iterator>::type;
 
 public:
     using difference_type = std::ptrdiff_t;
@@ -144,13 +151,18 @@ public:
     IteratorGrowT& operator=(const IteratorGrowT& r)
     { tab = r.tab; version = r.version; it = r.it; return *this; }
 
+    //template <bool is_const2 = is_const>
+    //typename std::enable_if<is_const2, IteratorGrowT<Table, is_const>&>::type
+    //operator=(const IteratorGrowT<Table,false>& r)
+    //{ tab = r.tab; version = r.version; it = r.it; return *this; }
+
     ~IteratorGrowT() = default;
 
 
     // Basic Iterator Functionality ********************************************
     IteratorGrowT& operator++(int = 0)
     {
-        tab.execute(
+        tab.cexecute(
             [](HashPtrRef_t t, IteratorGrowT& sit) -> int
             {
                 sit.base_refresh_ptr(t);
@@ -169,7 +181,7 @@ public:
     // Functions necessary for concurrency *************************************
     void refresh()
     {
-        tab.execute(
+        tab.cexecute(
             [](HashPtrRef_t t, IteratorGrowT& sit) -> int
             {
                 sit.base_refresh_ptr(t);
@@ -190,7 +202,7 @@ private:
         if (ht->version == version) return false;
 
         version = ht->version;
-        it      = ht->find(it.copy.first);
+        it      = static_cast<BTable_t&>(*ht).find(it.copy.first);
         return true;
     }
 };

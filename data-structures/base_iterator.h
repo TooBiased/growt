@@ -50,16 +50,17 @@ public:
     template<class F>
     void update   (const mapped_type& value, F f) { ptr->update(copy.first, value, f); }
     bool compare_exchange(mapped_type& exp, const mapped_type& val)
-        {
-            auto temp = value_intern(copy.first, exp);
-            if (ptr->CAS(temp, value_intern(copy.first, val)))
-            { copy.second = val; return true; }
-            else
-            { copy.second = temp.second; exp = temp.second; return false; }
-        }
+    {
+        auto temp = value_intern(copy.first, exp);
+        if (ptr->CAS(temp, value_intern(copy.first, val)))
+        { copy.second = val; return true; }
+        else
+        { copy.second = temp.second; exp = temp.second; return false; }
+    }
 
     operator pair_type()  const { return copy; }
     operator value_type() const { return reinterpret_cast<value_type>(copy); }
+
 private:
     pair_type      copy;
     pointer_intern ptr;
