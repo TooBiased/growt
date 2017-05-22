@@ -77,10 +77,10 @@ public:
                             F f);
 
     template<class F, class ...Types>
-    bool atomicUpdate(      SimpleElement & expected,
-                            F f, Types ...args);
+    std::pair<mapped_type, bool> atomicUpdate(      SimpleElement & expected,
+                            F f, Types&& ...args);
     template<class F, class ...Types>
-    bool nonAtomicUpdate(   F f, Types ...args);
+    std::pair<mapped_type, bool> nonAtomicUpdate(   F f, Types&& ...args);
 
 
     inline bool operator==(SimpleElement& other) { return (key == other.key); }
@@ -185,10 +185,11 @@ struct TAtomic
     }
 
     template <class F, class ...Types>
-    inline static bool execute(SimpleElement& that, SimpleElement& exp, F f, Types ... args)
+    inline static std::pair<typename SimpleElement::mapped_type, bool>
+    execute(SimpleElement& that, SimpleElement& exp, F f, Types ... args)
     {
-        f.atomic(that.data, std::forward<Types>(args)...);
-        return true;
+        typename SimpleElement::mapped_type temp = f.atomic(that.data, std::forward<Types>(args)...);
+        return std::make_pair(temp, true);
     }
 };
 
@@ -208,13 +209,15 @@ struct TAtomic<false>
     }
 
     template <class F, class ...Types>
-    inline static bool execute(SimpleElement& that, SimpleElement& exp, F f, Types ... args)
+    inline static std::pair<typename SimpleElement::mapped_type, bool>
+    execute(SimpleElement& that, SimpleElement& exp, F f, Types ... args)
     {
         SimpleElement::mapped_type td = exp.data;
-        f(td, std::forward<Types>(args)...);
-        return __sync_bool_compare_and_swap(&(that.data),
+        td = f(td, std::forward<Types>(args)...);
+        bool succ = __sync_bool_compare_and_swap(&(that.data),
                                             exp.data,
                                             td);
+        return std::make_pair(td, succ);
     }
 };
 
@@ -239,19 +242,22 @@ inline bool SimpleElement::nonAtomicUpdate(SimpleElement &,
 }
 
 template<class F, class ... Types>
-inline bool SimpleElement::atomicUpdate(SimpleElement & expected,
-                                        F f, Types ... args)
+inline std::pair<typename SimpleElement::mapped_type, bool>
+SimpleElement::atomicUpdate(SimpleElement & expected,
+                                        F f, Types&& ... args)
 {
-    return TAtomic<THasAtomic<F>::value>::execute(*this, f, std::forward<Types>(args)...);
+    return TAtomic<THasAtomic<F>::value>::execute
+        (*this, expected, f, std::forward<Types>(args)...);
 }
 
 
 
 template<class F, class ... Types>
-inline bool SimpleElement::nonAtomicUpdate(F f, Types ... args)
+inline std::pair<typename SimpleElement::mapped_type, bool>
+SimpleElement::nonAtomicUpdate(F f, Types&& ... args)
 {
-    f(data, std::forward<Types>(args)...);
-    return true;
+    return std::make_pair(f(data, std::forward<Types>(args)...),
+                          true);
 }
 
 
