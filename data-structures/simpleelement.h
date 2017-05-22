@@ -247,7 +247,7 @@ inline bool SimpleElement::atomicUpdate(SimpleElement & expected,
 
 
 
-template<class F>
+template<class F, class ... Types>
 inline bool SimpleElement::nonAtomicUpdate(F f, Types ... args)
 {
     f(data, std::forward<Types>(args)...);

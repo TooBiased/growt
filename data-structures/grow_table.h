@@ -178,7 +178,7 @@ public:
     using mapped_type        = typename BaseTable_t::mapped_type;
     using value_type         = typename std::pair<const key_type, mapped_type>;
     using iterator           = IteratorGrowT<This_t, false>;//value_intern*;
-    using const_iterator     = iterator;//IteratorGrowT<This_t, true>;
+    using const_iterator     = IteratorGrowT<This_t, true>;//IteratorGrowT<This_t, true>;
     using size_type          = size_t;
     using difference_type    = std::ptrdiff_t;
     using reference          = ReferenceGrowT<This_t, false>;
@@ -191,13 +191,14 @@ public:
 
 private:
     using basetable_iterator = typename BaseTable_t::iterator;
-    using basetable_insert_return_type = typename BaseTable_t::insert_return_type;
-    using basetable_citerator = typename BaseTable_t::iterator;
+    using basetable_insert_return_type = typename BaseTable_t::insert_return_intern;
+    using basetable_citerator = typename BaseTable_t::const_iterator;
 
     friend iterator;
     friend reference;
     friend const_iterator;
     friend const_reference;
+
 public:
     GrowTableHandle() = delete;
     GrowTableHandle(GrowTableData &data);
@@ -213,14 +214,15 @@ public:
 
     insert_return_type insert(const key_type k, const mapped_type d);
     iterator           find (const key_type & k);
+    const_iterator     find (const key_type & k) const;
     size_type          erase(const key_type & k);
 
     iterator begin();
     iterator end();
-    const_iterator cbegin(); // const;
-    const_iterator cend()  ; // const;
-    // const_iterator begin()  const { return cbegin(); }
-    // const_iterator end()    const { return cend(); }
+    const_iterator cbegin() const;
+    const_iterator cend()   const;
+    const_iterator begin()  const { return cbegin(); }
+    const_iterator end()    const { return cend(); }
 
     template <class F>
     insert_return_type update(const key_type k, const mapped_type d, F f);
@@ -242,10 +244,10 @@ private:
     mutable typename ExclusionStrat_t::local_data_t local_exclusion;
 
 
-    inline void         grow()     { local_exclusion.grow(); }
-    inline void         helpGrow() { local_exclusion.helpGrow(); }
-    inline void         rlsTable() { local_exclusion.rlsTable(); }
-    inline HashPtrRef_t getTable() { return local_exclusion.getTable(); }
+    inline void         grow()     const { local_exclusion.grow(); }
+    inline void         helpGrow() const { local_exclusion.helpGrow(); }
+    inline void         rlsTable() const { local_exclusion.rlsTable(); }
+    inline HashPtrRef_t getTable() const { return local_exclusion.getTable(); }
 
     template<typename Functor, typename ... Types>
     inline typename std::result_of<Functor(HashPtrRef_t, Types&& ...)>::type
@@ -275,7 +277,9 @@ private:
                                             size_t version, bool inserted)
     { return std::make_pair(iterator(bit, version, *this), inserted); }
     inline basetable_iterator bend()
-    { return basetable_iterator(std::make_pair(key_type(), mapped_type()), nullptr, nullptr);}
+    { return basetable_iterator (std::make_pair(key_type(), mapped_type()), nullptr, nullptr);}
+    inline basetable_iterator bcend()
+    { return basetable_citerator(std::make_pair(key_type(), mapped_type()), nullptr, nullptr);}
 
     double max_fill_factor;
 
@@ -330,6 +334,13 @@ private:
 };
 
 
+
+
+
+
+
+// CONSTRUCTORS AND ASSIGNMENTS ************************************************
+
 template<class GrowTableData>
 GrowTableHandle<GrowTableData>::GrowTableHandle(GrowTableData &data)
     : gtData(data), local_worker(data), local_exclusion(data, local_worker),
@@ -356,6 +367,7 @@ GrowTableHandle<GrowTableData>::GrowTableHandle(Parent_t      &parent)
     local_exclusion.init();
     local_worker   .init(local_exclusion);
 }
+
 
 
 template<class GrowTableData>
@@ -401,6 +413,15 @@ GrowTableHandle<GrowTableData>::~GrowTableHandle()
 }
 
 
+
+
+
+
+
+
+
+// MAIN HASH TABLE FUNCTIONALITY ***********************************************
+
 template<class GrowTableData>
 inline typename GrowTableHandle<GrowTableData>::insert_return_type
 GrowTableHandle<GrowTableData>::insert(const key_type k, const mapped_type d)
@@ -412,7 +433,7 @@ GrowTableHandle<GrowTableData>::insert(const key_type k, const mapped_type d)
                                    {
                                        std::pair<int,basetable_insert_return_type> result =
                                            std::make_pair(t->version,
-                                                          t->insert(k,d));
+                                                          t->insert_intern(k,d));
                                        return result;
                                    }, k,d);
 
@@ -449,7 +470,7 @@ GrowTableHandle<GrowTableData>::update(const key_type k, const mapped_type d, F 
                                    {
                                        std::pair<int,basetable_insert_return_type> result =
                                            std::make_pair(t->version,
-                                                          t->update(k,d, f));
+                                                          t->update_intern(k,d, f));
                                        return result;
                                    },k,d, f);
 
@@ -484,7 +505,7 @@ GrowTableHandle<GrowTableData>::insertOrUpdate(const key_type k, const mapped_ty
                                    {
                                        std::pair<int,basetable_insert_return_type> result =
                                            std::make_pair(t->version,
-                                                          t->insertOrUpdate(k,d, f));
+                                                          t->insertOrUpdate_intern(k,d, f));
                                        return result;
                                    },k,d, f);
 
@@ -522,7 +543,7 @@ GrowTableHandle<GrowTableData>::update_unsafe(const key_type k, const mapped_typ
                                    {
                                        std::pair<int,basetable_insert_return_type> result =
                                            std::make_pair(t->version,
-                                                          t->update_unsafe(k,d, f));
+                                                          t->update_unsafe_intern(k,d, f));
                                        return result;
                                    },k,d, f);
 
@@ -557,7 +578,7 @@ GrowTableHandle<GrowTableData>::insertOrUpdate_unsafe(const key_type k, const ma
                                    {
                                        std::pair<int,basetable_insert_return_type> result =
                                            std::make_pair(t->version,
-                                                          t->insertOrUpdate_unsafe(k,d, f));
+                                                          t->insertOrUpdate_unsafe_intern(k,d, f));
                                        return result;
                                    },k,d, f);
 
@@ -589,10 +610,22 @@ GrowTableHandle<GrowTableData>::find(const key_type& k)
 {
     int v = -1;
     basetable_iterator bit = bend();
-    std::tie (v, bit) = execute([this](HashPtrRef_t t, const key_type & k) -> std::pair<int, basetable_iterator>
+    std::tie (v, bit) = execute([](HashPtrRef_t t, const key_type & k) -> std::pair<int, basetable_iterator>
                                 { return std::make_pair<int, basetable_iterator>(t->version, t->find(k)); },
                      k);
     return makeIterator(bit, v);
+}
+
+template<class GrowTableData>
+inline typename GrowTableHandle<GrowTableData>::const_iterator
+GrowTableHandle<GrowTableData>::find(const key_type& k) const
+{
+    int v = -1;
+    basetable_citerator bit = bcend();
+    std::tie (v, bit) = cexecute([](HashPtrRef_t t, const key_type & k) -> std::pair<int, basetable_citerator>
+                                { return std::make_pair<int, basetable_iterator>(t->version, t->find(k)); },
+                     k);
+    return makeCIterator(bit, v);
 }
 
 template<class GrowTableData>
@@ -606,7 +639,7 @@ GrowTableHandle<GrowTableData>::erase(const key_type& k)
                                    {
                                        std::pair<int,ReturnCode> result =
                                            std::make_pair(t->version,
-                                                          t->erase(k));
+                                                          t->erase_intern(k));
                                        return result;
                                    },
                                    k);
@@ -631,6 +664,13 @@ GrowTableHandle<GrowTableData>::erase(const key_type& k)
     }
 }
 
+
+
+
+
+
+// ITERATOR FUNCTIONALITY ******************************************************
+
 template<class GrowTableData>
 inline typename GrowTableHandle<GrowTableData>::iterator
 GrowTableHandle<GrowTableData>::begin()
@@ -650,30 +690,31 @@ GrowTableHandle<GrowTableData>::end()
                     0, *this);
 }
 
-
 template<class GrowTableData>
 inline typename GrowTableHandle<GrowTableData>::const_iterator
-GrowTableHandle<GrowTableData>::cbegin()
+GrowTableHandle<GrowTableData>::cbegin() const
 {
-    return begin();
-    //auto non_const_this = const_cast<GrowTableHandle*>(this);
-    //return execute([](HashPtrRef_t t, const GrowTableHandle& gt)
-    //               -> const_iterator
-    //               {
-    //                   return gt.cend();//const_iterator(t->begin(), t->version, gt);
-    //              }, non_const_this);
+    // return begin();
+    return cexecute([](HashPtrRef_t t, const GrowTableHandle& gt)
+                    -> const_iterator
+                    {
+                      return const_iterator(t->cbegin(), t->version, gt);
+                    }, *this);
 }
 template<class GrowTableData>
 inline typename GrowTableHandle<GrowTableData>::const_iterator
-GrowTableHandle<GrowTableData>::cend()
+GrowTableHandle<GrowTableData>::cend()  const
 {
-    return end();
-    // return const_iterator(basetable_citerator(std::pair<key_type, mapped_type>(key_type(), mapped_type()),
-    //                                    nullptr,nullptr),
-    //                 0, *this);
+    // return end();
+    return const_iterator(basetable_citerator(std::pair<key_type, mapped_type>(key_type(), mapped_type()),
+                                       nullptr,nullptr), 0, *this);
 }
 
 
+
+
+
+// COUNTING FUNCTIONALITY ******************************************************
 
 template<class GrowTableData>
 inline void GrowTableHandle<GrowTableData>::update_numbers()
