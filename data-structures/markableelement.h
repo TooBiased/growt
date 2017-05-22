@@ -80,10 +80,10 @@ public:
                             F f);
 
     template<class F, class ...Types>
-    bool atomicUpdate(   MarkableElement & expected,
-                         F f, Types... args);
+    std::pair<mapped_type, bool> atomicUpdate(   MarkableElement & expected,
+                         F f, Types&& ... args);
     template<class F, class ...Types>
-    bool nonAtomicUpdate(F f, Types... args);
+    std::pair<mapped_type, bool> nonAtomicUpdate(F f, Types&& ... args);
 
     inline bool operator==(MarkableElement& r) { return (key == r.key); }
     inline bool operator!=(MarkableElement& r) { return (key != r.key); }
@@ -209,20 +209,22 @@ inline bool MarkableElement::nonAtomicUpdate(MarkableElement &,
 }
 
 template<class F, class ...Types>
-inline bool MarkableElement::atomicUpdate(MarkableElement &exp,
-                                          F f, Types ... args)
+inline std::pair<typename MarkableElement::mapped_type, bool>
+MarkableElement::atomicUpdate(MarkableElement &exp,
+                              F f, Types&& ... args)
 {
     auto temp = exp.getData();
-    f(temp, std::forward<Types>(args)...);
-    return CAS(exp, MarkableElement(exp.key, temp));
+    temp = f(temp, std::forward<Types>(args)...);
+    return std::make_pair(temp, CAS(exp, MarkableElement(exp.key, temp)));
 
 }
 
 template<class F, class ...Types>
-inline bool MarkableElement::nonAtomicUpdate(F f, Types ... args)
+inline std::pair<typename MarkableElement::mapped_type, bool>
+MarkableElement::nonAtomicUpdate(F f, Types&& ... args)
 {
-    f(data, std::forward<Types>(args)...);
-    return true;
+    return std::make_pair(f(data, std::forward<Types>(args)...),
+                          true);
 }
 
 }
