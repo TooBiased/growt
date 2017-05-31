@@ -33,7 +33,8 @@ public:
     using value_type   = typename RefBase_t::value_type;
 
     ReferenceGrowT(RefBase_t ref, size_t ver, Table_t& table)
-        : tab(table), version(ver), ref(ref) { }
+        : tab(table), version(ver), ref(ref),
+          first(ref.copy.first), second(ref.copy.second){ }
 
 
     // Functions necessary for concurrency *************************************
@@ -100,6 +101,10 @@ private:
         ref.ptr  = it.ptr;
         return true;
     }
+
+public:
+    const key_type& first;
+    const mapped_type& second;
 };
 
 

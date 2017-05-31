@@ -46,7 +46,7 @@ size_t prefill(Hash& hash, size_t thread_id, size_t n)
         [&hash, &err, &dis, &re](size_t)
         {
             auto key = dis(re);
-            if (! successful(hash.insert(key, 3)))
+            if (! hash.insert(key, 3).second)
             {
                 // Insertion failed? Possibly already inserted.
                 ++err;

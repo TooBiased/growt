@@ -100,13 +100,9 @@ int prefill(Hash& hash, size_t pre)
         [&hash, &err](size_t i)
         {
             auto key = keys[i];
-            if (! successful(hash.insert(key, i+2)) )
-            {
-                auto index = hash.find(key);
-                if (! index )               { ++err; }
-                if (index.second   < 2 ||
-                    keys[index - 2] != key) { ++err; }
-            }
+            auto temp = hash.insert(key, i+2);
+            if (! temp.second )
+            { ++err; }
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);
@@ -125,20 +121,14 @@ int del_test(Hash& hash, size_t end, size_t size)
         {
             auto key = keys[i];
 
-            if (! successful(hash.insert(key, i+2)) )
-            {
-                auto index = hash.find(key);
-                if (! index )                     { ++err; }
-                if (index < 2   ||
-                    keys[index.second -2] != key) { ++err; }
-            }
+            auto temp = hash.insert(key, i+2);
+            if (! temp.second )
+            { ++err; }
 
             auto key2 = keys[i-size];
 
-            if (! successful(hash.remove(key2)))
-            {
-                ++not_deleted;
-            }
+            if (! hash.erase(key2))
+            { ++not_deleted; }
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);
@@ -158,9 +148,7 @@ int validate(Hash& hash, size_t end)
         {
             auto key  = keys[i];
 
-            auto data = hash.find(key);
-
-            if (data)
+            if ( hash.find(key) != hash.end() )
             {
                 ++found;
             }

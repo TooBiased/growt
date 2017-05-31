@@ -71,8 +71,8 @@ int fill(Hash& hash, size_t end)
     execute_parallel(current_block, end,
         [&hash, &err](size_t i)
         {
-            if (! successful(hash.insert(range & (i*9827345982374782ull),
-                                         i+2))) ++err;
+            if (! hash.insert(range & (i*9827345982374782ull),
+                                         i+2).second) ++err;
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);
@@ -89,9 +89,9 @@ int find_unsucc(Hash& hash, size_t end)
         [&hash, &err](size_t i)
         {
             auto data = hash.find(range & (i*29124898243091298ull));
-            if (data)
+            if (data != hash.end())
             {
-                if (i*29124898243091298ull != (data.second-2)*9827345982374782ull)
+                if (i*29124898243091298ull != ((*data).second-2)*9827345982374782ull)
                     ++err;
             }
         });
@@ -109,7 +109,7 @@ int find_succ(Hash& hash, size_t end)
         [&hash, &err, end](size_t i)
         {
             auto data = hash.find(range & (i*9827345982374782ull));
-            if (! data) ++err;
+            if (data == hash.end()) ++err;
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);

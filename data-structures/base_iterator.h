@@ -20,7 +20,6 @@ template <class, bool>
 class IteratorGrowt;
 
 
-
 // Reference *******************************************************************
 template <class BaseTable, bool is_const = false>
 class ReferenceBase
@@ -40,8 +39,8 @@ public:
     using value_type   = typename
         std::conditional<is_const, const value_nc, value_nc>::type;
 
-    ReferenceBase(value_type copy, pointer_intern ptr)
-        : copy(copy), ptr(ptr) { }
+    ReferenceBase(value_type _copy, pointer_intern ptr)
+        : copy(_copy), ptr(ptr), first(copy.first), second(copy.second) { }
 
     void refresh()                          { copy = *ptr; }
 
@@ -64,6 +63,10 @@ public:
 private:
     pair_type      copy;
     pointer_intern ptr;
+
+public:
+    const key_type& first;
+    const mapped_type& second;
 };
 
 
