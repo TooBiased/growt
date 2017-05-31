@@ -57,7 +57,7 @@ void print_parameter_list()
     out("t_find_c", 10);
     out("t_updt_c", 10);
     out("t_val_up", 10);
-    out("errors"  , 7);
+    out("errors"  , 9);
     std::cout << std::endl;
 }
 
@@ -96,7 +96,7 @@ int fill(Hash& hash, size_t n)
     execute_parallel(current_block, n,
         [&hash, &err](size_t i)
         {
-            if (! successful(hash.insert(i+2, i+2))) ++err;
+            if (! hash.insert(i+2, i+2).second) ++err;
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);
@@ -116,13 +116,15 @@ int find_contended(Hash& hash, size_t n)
 
             auto data = hash.find(key);
 
-            if (!data || (data.second != key))
+            if (data == hash.end() || (*data).second != key)
             {
                 ++err;
             }
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);
+
+
     return 0;
 }
 
@@ -136,10 +138,11 @@ int update_contended(Hash& hash, size_t n)
         {
             auto key = keys[i];
 
-            if (! successful(hash.update(key, i+2, growt::example::Overwrite()))) ++err;
+            if (! hash.update(key, growt::example::Overwrite(), i+2).second) ++err;
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);
+
     return 0;
 }
 
@@ -153,14 +156,21 @@ int val_update(Hash& hash, size_t n)
         [&hash, &err, n](size_t i)
         {
             auto data = hash.find(i+2);
-            if      (! data)
+            if      (data == hash.end())
             {   ++ err;   }
-            else if (data.second != i+2)
-            {   if (data.second < 2   ||
-                    data.second > n+1 ||
-                    keys[data.second-2] != i+2) ++err;   }
+            else
+            {
+                auto temp = (*data).second;
+                if (temp != i+2)
+                {
+                    if (temp < 2   ||
+                        temp > n+1 ||
+                        keys[temp-2] != i+2) ++err;
+                }
+            }
         });
 
+    // std::cout << " " << err << std::flush;
     errors.fetch_add(err, std::memory_order_relaxed);
     return 0;
 }
@@ -242,7 +252,7 @@ int test_in_stages(size_t p, size_t id, size_t n, size_t cap, size_t it, double 
 
 
             ThreadType::out (duration.second/1000000., 10);
-            ThreadType::out (errors.load(), 7);
+            ThreadType::out (errors.load(), 9);
         }
 
         ThreadType() << std::endl;

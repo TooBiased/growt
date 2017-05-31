@@ -214,7 +214,7 @@ MarkableElement::atomicUpdate(MarkableElement &exp,
                               F f, Types&& ... args)
 {
     auto temp = exp.getData();
-    temp = f(temp, std::forward<Types>(args)...);
+    f(temp, std::forward<Types>(args)...);
     return std::make_pair(temp, CAS(exp, MarkableElement(exp.key, temp)));
 
 }

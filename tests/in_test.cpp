@@ -143,7 +143,7 @@ int find_succ(Hash& hash, size_t end)
 
             auto data = hash.find(key);
 
-            if (data == hash.end())
+            if (data == hash.end() || (*data).second != i+2)
             {
                 ++err;
             }

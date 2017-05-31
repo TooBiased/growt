@@ -648,7 +648,7 @@ inline typename GrowTableHandle<GrowTableData>::size_type
 GrowTableHandle<GrowTableData>::erase(const key_type& k)
 {
     int v = -1;
-    ReturnCode result = 0;
+    ReturnCode result = ReturnCode::ERROR;
     std::tie (v, result) = execute([](HashPtrRef_t t, const key_type& k)
                                      ->std::pair<int,ReturnCode>
                                    {
@@ -670,7 +670,7 @@ GrowTableHandle<GrowTableData>::erase(const key_type& k)
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
         helpGrow();
-        return remove(k);
+        return erase(k);
     case ReturnCode::UNSUCCESS_NOT_FOUND:
     case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
         return 0;

@@ -4,18 +4,22 @@
 namespace growt{
 namespace example{
 
+
+
 struct Increment
 {
-    void operator()(uint64_t& lhs, const uint64_t, const uint64_t rhs) const
+    using mapped_type = uint64_t;
+
+    mapped_type operator()(mapped_type& lhs, const mapped_type& rhs) const
     {
-        lhs+=rhs;
+        return lhs+=rhs;;
     }
 
     // an atomic implementation can improve the performance of updates in .sGrow
     // this will be detected automatically
-    void atomic    (uint64_t& lhs, const uint64_t, const uint64_t rhs) const
+    mapped_type atomic    (mapped_type& lhs, const mapped_type& rhs) const
     {
-        __sync_fetch_and_add(&lhs, rhs);
+        return __sync_fetch_and_add(&lhs, rhs);
     }
 
     // Only necessary for JunctionWrapper (not needed)
@@ -24,14 +28,58 @@ struct Increment
 
 struct Overwrite
 {
-    void operator()(uint64_t& lhs, const uint64_t, const uint64_t rhs) const
+    using mapped_type = uint64_t;
+
+    mapped_type operator()(mapped_type& lhs, const mapped_type& rhs) const
+    {
+        lhs = rhs;
+        return rhs;
+    }
+
+    // an atomic implementation can improve the performance of updates in .sGrow
+    // this will be detected automatically
+    mapped_type atomic    (mapped_type& lhs, const mapped_type& rhs) const
+    {
+        lhs = rhs;
+        return rhs;
+    }
+
+    // Only necessary for JunctionWrapper (not needed)
+    using junction_compatible = std::true_type;
+};
+
+struct OIncrement
+{
+    using mapped_type = uint64_t;
+
+    void operator()(mapped_type& lhs, const mapped_type, const mapped_type rhs) const
+    {
+        lhs+=rhs;
+    }
+
+    // an atomic implementation can improve the performance of updates in .sGrow
+    // this will be detected automatically
+    void atomic    (mapped_type& lhs, const mapped_type, const mapped_type rhs) const
+    {
+        __sync_fetch_and_add(&lhs, rhs);
+    }
+
+    // Only necessary for JunctionWrapper (not needed)
+    using junction_compatible = std::false_type;
+};
+
+struct OOverwrite
+{
+    using mapped_type = uint64_t;
+
+    void operator()(mapped_type& lhs, const mapped_type, const mapped_type rhs) const
     {
         lhs = rhs;
     }
 
     // an atomic implementation can improve the performance of updates in .sGrow
     // this will be detected automatically
-    void atomic    (uint64_t& lhs, const uint64_t, const uint64_t rhs) const
+    void atomic    (mapped_type& lhs, const mapped_type, const mapped_type rhs) const
     {
         lhs = rhs;
     }

@@ -137,15 +137,9 @@ int prefill(Hash& hash, size_t pre)
         [&hash, &err](size_t i)
         {
             auto key = keys[i];
-            if (! successful(hash.insert(key, i+2)) )
-            {
-                // Insertion failed? Possibly already inserted.
-                auto index = hash.find(key);
-                if      ( !index )                    { ++err; }
-                else if (index.second < 2 ||
-                         keys[index.second-2] != key) { ++err; }
-
-            }
+            auto temp = hash.insert(key, i+2);
+            if (! temp.second)
+            { ++err; }
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);
@@ -166,15 +160,11 @@ int mixed_test(Hash& hash, size_t end)
             if (key & read_flag)
             {
                 auto data = hash.find( key ^ read_flag );
-                if      (! data)            { ++not_found; }
-                else if (data.second > i+2) { ++err; }
+                if      (data == hash.end()) { ++not_found; }
+                else if ((*data).second > i+2) { ++err; }
             }
-            else if (! successful(hash.insert(key, i+2)) )
-            {
-                auto index = hash.find(key);
-                if (! index)                                              { ++err; }
-                else if (index.second < 2 || keys[index.second-2] != key) { ++err; }
-            }
+            else if (! hash.insert(key, i+2).second )
+            { ++err;}
 
 
         });

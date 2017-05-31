@@ -104,7 +104,7 @@ int insert(Hash& hash, size_t n, size_t val)
         [&hash, &err, val](size_t i)
         {
             auto key = keys[i];
-            if (! successful(hash.insert(key, val)))
+            if (hash.insert(key, val).second)
             {
                 ++ err;
             }
@@ -125,7 +125,7 @@ int update(Hash& hash, size_t n, size_t val)
         [&hash, &err, val](size_t i)
         {
             auto key = keys[i];
-            if (! successful(hash.update(key, val, growt::example::Overwrite()))) ++ err;
+            if (! hash.update(key, growt::example::Overwrite(),val).second) ++ err;
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);
@@ -147,7 +147,7 @@ int insertOrIncrement(Hash& hash, size_t n, size_t p)
         {
             auto key = bitmask &
                 __builtin_ia32_crc32di(34390210450981235ull,i*12037459812355ull);
-            if (! successful(hash.insertOrUpdate(key+2, 1, growt::example::Increment())))
+            if (hash.insertOrUpdate(key+2, 1, growt::example::Increment(),1).first == hash.end())
             {
                 ++ err;
             }
@@ -169,7 +169,7 @@ bool val_inc(Hash& hash, size_t n, size_t p)
 
     for (size_t i = 2; i <= bitmask+2; ++i)
     {
-        sum += hash.find(i).second;
+        sum += (*hash.find(i)).second;
     }
 
     return sum == n;
@@ -186,7 +186,7 @@ int remove(Hash& hash, size_t n)
         [&hash, &err](size_t i)
         {
             auto key = keys[i<<1];
-            if (! successful(hash.remove(key)) )
+            if (! hash.erase(key) )
             {
                 ++err;
             }
@@ -205,9 +205,9 @@ int val_rem(Hash& hash, size_t n)
         [&hash, &err](size_t i)
         {
             auto key  = keys[i];
-            auto data = hash.find(key).second;
-            if ( !(i & 1) && (data >  0) ) ++err;
-            if (  (i & 1) && (data == 0) ) ++err;
+            auto data = hash.find(key);
+            if ( !(i & 1) && (data != hash.end()) ) ++err;
+            if (  (i & 1) && (data == hash.end()) ) ++err;
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);
@@ -225,7 +225,7 @@ int find(Hash& hash, size_t n, size_t val)
         {
             auto key = keys[i];
 
-            if (hash.find(key).second != val)
+            if ((*hash.find(key)).second != val)
             {
                 ++err;
             }

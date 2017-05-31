@@ -186,9 +186,9 @@ struct TAtomic
 
     template <class F, class ...Types>
     inline static std::pair<typename SimpleElement::mapped_type, bool>
-    execute(SimpleElement& that, SimpleElement& exp, F f, Types ... args)
+    execute(SimpleElement& that, SimpleElement&, F f, Types ... args)
     {
-        typename SimpleElement::mapped_type temp = f.atomic(that.data, std::forward<Types>(args)...);
+        SimpleElement::mapped_type temp = f.atomic(that.data, std::forward<Types>(args)...);
         return std::make_pair(temp, true);
     }
 };
@@ -213,7 +213,7 @@ struct TAtomic<false>
     execute(SimpleElement& that, SimpleElement& exp, F f, Types ... args)
     {
         SimpleElement::mapped_type td = exp.data;
-        td = f(td, std::forward<Types>(args)...);
+        f(td, std::forward<Types>(args)...);
         bool succ = __sync_bool_compare_and_swap(&(that.data),
                                             exp.data,
                                             td);

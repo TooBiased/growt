@@ -98,7 +98,7 @@ int aggregate(Hash& hash, size_t n)
                      [&hash, &err](size_t i)
         {
             auto key = keys[i];
-            if (! successful(hash.insertOrUpdate(key, 1, growt::example::Increment()))) ++err;
+            if (hash.insertOrUpdate(key, 1, growt::example::Increment(), 1).first == hash.end()) ++err;
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);
@@ -114,7 +114,7 @@ int validate_aggregate(Hash& hash, size_t n)
         [&hash, &sum](size_t i)
         {
             auto data = hash.find(i+2);
-            if (data) { sum += data.second; };
+            if (data != hash.end()) { sum += (*data).second; };
         });
 
     valsum.fetch_add(sum, std::memory_order_relaxed);
