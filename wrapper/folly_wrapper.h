@@ -30,6 +30,14 @@ private:
     size_t capacity;
 
 public:
+
+    using key_type           = size_t;
+    using mapped_type        = size_t;
+    using value_type         = typename std::pair<const key_type, mapped_type>;
+    using iterator           = typename HashType::iterator;
+    using const_iterator     = typename HashType::const_iterator;
+    using insert_return_type = std::pair<iterator, bool>;
+
     FollyWrapper() = default;
     FollyWrapper(size_t capacity_) : hash(capacity_), capacity(capacity_) {}
     FollyWrapper(const FollyWrapper&) = delete;
@@ -53,61 +61,68 @@ public:
     Handle getHandle() { return *this; }
 
 
-    inline ReturnElement find              (const size_t k)
+    inline iterator find(const key_type& k)
     {
-        auto ret = hash.find(k);
-        if (ret == hash.end()) return ReturnElement::getEmpty();
-        else return ReturnElement(k, ret->second);
+        return hash.find(k);
+        // auto ret = hash.find(k);
+        // if (ret == hash.end()) return ReturnElement::getEmpty();
+        // else return ReturnElement(k, ret->second);
     }
 
-    inline ReturnCode insert               (const size_t k, const size_t d)
+    inline insert_return_type insert(const key_type& k, const mapped_type& d)
+    {
+        return hash.insert(k,d);
+        // auto ret = hash.insert(std::make_pair(k,d));
+        // if (ret.second) return ReturnCode::SUCCESS_IN;
+        // else return ReturnCode::UNSUCCESS_ALREADY_USED;
+    }
+
+    template<class F, class ... Types>
+    inline insert_return_type update(const key_type& k, F f, Types&& ... args)
+    {
+        auto result = hash.find(k);
+        if (result != hash.end())
+        {
+            f.atomic(result->second, std::forward<Types>(args)...);
+        }
+        return std::make_pair(result, result != hash.end());
+    }
+
+    template<class F, class ... Types>
+    inline insert_return_type insertOrUpdate(const key_type& k, const mapped_type& d, F f, Types&& ... args)
     {
         auto ret = hash.insert(std::make_pair(k,d));
-        if (ret.second) return ReturnCode::SUCCESS_IN;
-        else return ReturnCode::UNSUCCESS_ALREADY_USED;
-    }
-
-    template<class F>
-    inline ReturnCode update               (const size_t k, const size_t d, F f)
-    {
-        auto ret = hash.insert(std::make_pair(k,0));
         if (! ret.second)
         {
-            f.atomic(ret.first->second, k, d);
-            return ReturnCode::SUCCESS_UP;
+            f.atomic(ret.first->second, std::forward<Types>(args)...);
         }
-        else return ReturnCode::UNSUCCESS_NOT_FOUND;
+        return ret;
     }
 
-    template<class F>
-    inline ReturnCode insertOrUpdate       (const size_t k, const size_t d, F f)
+    template<class F, class ... Types>
+    inline insert_return_type update_unsafe(const key_type& k, F f, Types&& ... args)
     {
-        auto ret = hash.insert(std::make_pair(k,d));
-        if (! ret.second)
-        {
-            f.atomic(ret.first->second, k, d);
-            return ReturnCode::SUCCESS_UP;
-        }
-        else return ReturnCode::SUCCESS_IN;
+        return update(k,f, std::forward<Types>(args)...);
     }
 
-    template<class F>
-    inline ReturnCode update_unsafe        (const size_t k, const size_t d, F f)
+    template<class F, class ... Types>
+    inline insert_return_type insertOrUpdate_unsafe(const key_type& k, const mapped_type& d, F f, Types&& ... args)
     {
-        return update(k,d,f);
+        return insertOrUpdate(k,d,f, std::forward<Types>(args)...);
     }
 
-    template<class F>
-    inline ReturnCode insertOrUpdate_unsafe(const size_t k, const size_t d, F f)
+    inline size_t erase(const key_type& k)
     {
-        return insertOrUpdate(k,d,f);
+        return hash.erase(k);
     }
 
-    inline ReturnCode remove               (const size_t k)
-    {
-        if (hash.erase(k) == 1) return ReturnCode::SUCCESS_DEL;
-        else return ReturnCode::UNSUCCESS_NOT_FOUND;
-    }
+    inline iterator        end()         { return hash.end();  }
+    inline const_iterator  end()   const { return hash.cend(); }
+    inline const_iterator cend()   const { return hash.cend(); }
+
+    inline iterator        begin()       { return hash.begin();  }
+    inline const_iterator  begin() const { return hash.cbegin(); }
+    inline const_iterator cbegin() const { return hash.cbegin(); }
 };
 
 #endif // FOLLY_WRAPPER

@@ -15,9 +15,68 @@ namespace growt
 
 // Forward Declarations ********************************************************
 template <class, bool>
+class MappedRefGrowT;
+template <class, bool>
 class ReferenceGrowT;
 template <class, bool>
 class IteratorGrowt;
+
+template <class, bool>
+class ReferenceBase;
+
+
+
+// Mapped Reference
+template <class BaseTable, bool is_const = false>
+class MappedRefBase
+{
+private:
+    using BTable_t       = BaseTable;
+    using key_type       = typename BTable_t::key_type;
+    using mapped_type    = typename BTable_t::mapped_type;
+    using pair_type      = std::pair<key_type, mapped_type>;
+    using value_nc       = std::pair<const key_type, mapped_type>;
+    using value_intern   = typename BTable_t::value_intern;
+    using pointer_intern = value_intern*;
+
+    template <class, bool>
+    friend class MappedRefGrowT;
+    template <class, bool>
+    friend class ReferenceGrowT;
+    template <class, bool>
+    friend class ReferenceBase;
+public:
+    using value_type   = typename
+        std::conditional<is_const, const value_nc, value_nc>::type;
+
+    MappedRefBase(value_type _copy, pointer_intern ptr)
+        : copy(_copy), ptr(ptr) { }
+
+    inline void refresh() { copy = *ptr; }
+
+    template<bool is_const2 = is_const>
+    inline typename std::enable_if<!is_const2>::type operator=(const mapped_type& value)
+    { ptr->setData(value); }
+    template<class F>
+    inline void update   (const mapped_type& value, F f)
+    { ptr->update(copy.first, value, f); }
+    inline bool compare_exchange(mapped_type& exp, const mapped_type& val)
+    {
+        auto temp = value_intern(copy.first, exp);
+        if (ptr->CAS(temp, value_intern(copy.first, val)))
+        { copy.second = val; return true; }
+        else
+        { copy.second = temp.second; exp = temp.second; return false; }
+    }
+
+    inline operator mapped_type()  const { return copy.second; }
+
+private:
+    pair_type      copy;
+    pointer_intern ptr;
+};
+
+
 
 
 // Reference *******************************************************************
@@ -33,40 +92,37 @@ private:
     using value_intern   = typename BTable_t::value_intern;
     using pointer_intern = value_intern*;
 
+    using mapped_ref     = MappedRefBase<BaseTable, is_const>;
+
     template <class, bool>
     friend class ReferenceGrowT;
+    template <class, bool>
+    friend class MappedRefGrowT;
 public:
     using value_type   = typename
         std::conditional<is_const, const value_nc, value_nc>::type;
 
     ReferenceBase(value_type _copy, pointer_intern ptr)
-        : copy(_copy), ptr(ptr), first(copy.first), second(copy.second) { }
+        : second(_copy, ptr), first(second.copy.first) { }
 
-    void refresh()                          { copy = *ptr; }
+    inline void refresh() { second.refresh(); }
 
-    template<bool is_const2 = is_const>
-    typename std::enable_if<!is_const2>::type operator=(const mapped_type& value) { ptr->setData(value); }
     template<class F>
-    void update   (const mapped_type& value, F f) { ptr->update(copy.first, value, f); }
-    bool compare_exchange(mapped_type& exp, const mapped_type& val)
+    inline void update   (const mapped_type& value, F f)
+    { second.update(value, f); }
+    inline bool compare_exchange(mapped_type& exp, const mapped_type& val)
     {
-        auto temp = value_intern(copy.first, exp);
-        if (ptr->CAS(temp, value_intern(copy.first, val)))
-        { copy.second = val; return true; }
-        else
-        { copy.second = temp.second; exp = temp.second; return false; }
+        return second.compare_exchange(exp,val);
     }
 
-    operator pair_type()  const { return copy; }
-    operator value_type() const { return reinterpret_cast<value_type>(copy); }
+    inline operator pair_type()  const
+    { return second.copy; }
+    inline operator value_type() const
+    { return reinterpret_cast<value_type>(second.copy); }
 
-private:
-    pair_type      copy;
-    pointer_intern ptr;
-
-public:
+    mapped_ref      second;
     const key_type& first;
-    const mapped_type& second;
+
 };
 
 
@@ -113,7 +169,7 @@ public:
     ~IteratorBase() = default;
 
     // Basic Iterator Functionality ********************************************
-    IteratorBase& operator++(int = 0)
+    inline IteratorBase& operator++(int = 0)
     {
         ++ptr;
         while ( ptr < eptr && (ptr->isEmpty() || ptr->isDeleted())) { ++ptr; }
@@ -125,27 +181,27 @@ public:
         return *this;
     }
 
-    reference operator* () const { return reference(copy, ptr); }
+    inline reference operator* () const { return reference(copy, ptr); }
     // pointer   operator->() const { return  ptr; }
 
-    bool operator==(const IteratorBase& rhs) const { return ptr == rhs.ptr; }
-    bool operator!=(const IteratorBase& rhs) const { return ptr != rhs.ptr; }
+    inline bool operator==(const IteratorBase& rhs) const { return ptr == rhs.ptr; }
+    inline bool operator!=(const IteratorBase& rhs) const { return ptr != rhs.ptr; }
 
     // Functions necessary for concurrency *************************************
-    void refresh () { copy = *ptr; }
+    inline void refresh () { copy = *ptr; }
 
-    bool erase()
-        {
-    auto temp   = value_intern(reinterpret_cast<value_type>(copy));
-    auto result = false;
-    while (!temp.isDeleted)
+    inline bool erase()
     {
-        if (ptr->atomicDelete(temp))
-        { this->operator++(); return true; }
+        auto temp   = value_intern(reinterpret_cast<value_type>(copy));
+        auto result = false;
+        while (!temp.isDeleted)
+        {
+            if (ptr->atomicDelete(temp))
+            { this->operator++(); return true; }
+        }
+        this->operator++();
+        return false;
     }
-    this->operator++();
-    return false;
-}
 
 private:
     pair_type      copy;

@@ -48,46 +48,6 @@ struct Overwrite
     using junction_compatible = std::true_type;
 };
 
-struct OIncrement
-{
-    using mapped_type = uint64_t;
-
-    void operator()(mapped_type& lhs, const mapped_type, const mapped_type rhs) const
-    {
-        lhs+=rhs;
-    }
-
-    // an atomic implementation can improve the performance of updates in .sGrow
-    // this will be detected automatically
-    void atomic    (mapped_type& lhs, const mapped_type, const mapped_type rhs) const
-    {
-        __sync_fetch_and_add(&lhs, rhs);
-    }
-
-    // Only necessary for JunctionWrapper (not needed)
-    using junction_compatible = std::false_type;
-};
-
-struct OOverwrite
-{
-    using mapped_type = uint64_t;
-
-    void operator()(mapped_type& lhs, const mapped_type, const mapped_type rhs) const
-    {
-        lhs = rhs;
-    }
-
-    // an atomic implementation can improve the performance of updates in .sGrow
-    // this will be detected automatically
-    void atomic    (mapped_type& lhs, const mapped_type, const mapped_type rhs) const
-    {
-        lhs = rhs;
-    }
-
-    // Only necessary for JunctionWrapper (not needed)
-    using junction_compatible = std::true_type;
-};
-
 }
 }
 
