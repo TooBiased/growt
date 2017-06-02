@@ -20,6 +20,7 @@
 
 //#include "data-structures/returnelement.h"
 #include "data-structures/base_iterator.h"
+#include "example/update_fcts.h"
 
 namespace growt {
 
@@ -46,7 +47,10 @@ public:
     using difference_type    = std::ptrdiff_t;
     using reference          = ReferenceBase<This_t, false>;
     using const_reference    = ReferenceBase<This_t, true>;
+    using mapped_reference       = MappedRefBase<This_t, false>;
+    using const_mapped_reference = MappedRefBase<This_t, true>;
     using insert_return_type = std::pair<iterator, bool>;
+
 
     using local_iterator       = void;
     using const_local_iterator = void;
@@ -83,11 +87,16 @@ public:
     const_iterator begin()  const { return cbegin(); }
     const_iterator end()    const { return cend();   }
 
-
     insert_return_type insert(const key_type& k, const mapped_type& d);
     size_type          erase (const key_type& k);
     iterator           find  (const key_type& k);
     const_iterator     find  (const key_type& k) const;
+
+    insert_return_type insert_or_assign(const key_type& k, const mapped_type& d)
+    { return insertOrUpdate(k, d, example::Overwrite(), d); }
+
+    mapped_reference operator[](const key_type& k)
+    { return (*insert(k, mapped_type())).second; }
 
     template <class F, class ... Types>
     insert_return_type update

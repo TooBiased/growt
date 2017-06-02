@@ -23,6 +23,7 @@
 #include <memory>
 
 #include "data-structures/returnelement.h"
+#include "wrapper/stupid_iterator.h"
 
 using namespace growt;
 
@@ -64,6 +65,12 @@ private:
 public:
     //static std::mutex registration_mutex;
 
+    using key_type           = size_t;
+    using mapped_type        = size_t;
+    using value_type         = typename std::pair<const key_type, mapped_type>;
+    using iterator           = StupidIterator<key_type, mapped_type>;
+    using insert_return_type = std::pair<iterator, bool>;
+
     JunctionHandle() = default;
     JunctionHandle(HashType& hash_table) : hash(hash_table), count(0)
     {
@@ -83,9 +90,9 @@ public:
     JunctionHandle(JunctionHandle&& rhs) = default;
     JunctionHandle& operator=(JunctionHandle&& rhs) = default;
 
-    inline ReturnElement find              (const size_t k)
+    inline iterator find              (const key_type& k)
     {
-        size_t r = 0;
+        mapped_type r = mapped_type();
         {
             r = hash.find(k).getValue();
         }
@@ -94,20 +101,24 @@ public:
             count = 0;
             junction::DefaultQSBR.update(qsbrContext);
         }
-        if (r) return ReturnElement(k,r);
-        else   return ReturnElement::getEmpty();
+        if (r) return iterator(k,r);
+        else   return end();
     }
 
-    inline ReturnCode insert               (const size_t k, const size_t d)
+    inline insert_return_type insert               (const key_type& k, const mapped_type& d)
     {
-        ReturnCode r = ReturnCode::UNSUCCESS_ALREADY_USED;
+        auto inserted = false;
+        auto temp = mapped_type();
         {
             auto mutator = hash.insertOrFind(k);
 
-            if (! mutator.getValue())
+            temp = mutator.getValue();
+
+            if (! temp)
             {
                 mutator.exchangeValue(d);
-                r = ReturnCode::SUCCESS_IN;
+                temp = d;
+                inserted = true;
             }
         }
         if (++count > 64)
@@ -115,25 +126,26 @@ public:
             count = 0;
             junction::DefaultQSBR.update(qsbrContext);
         }
-        return r;
+        return insert_return_type(iterator(k,temp), inserted);
     }
 
-    template<class F>
-    inline ReturnCode update               (const size_t k, const size_t d, F f)
+    template<class F, class ... Types>
+    inline insert_return_type update(const key_type& k, F f, Types&& ... args)
     {
         //static_assert(F::junction_compatible::value, //TJuncComp<F>::value,
         //              "Used update function is not Junction compatible!");
-        if (! F::junction_compatible::value) return ReturnCode::ERROR;
+        if (! F::junction_compatible::value) return insert_return_type(end(), false);
 
-        ReturnCode r = ReturnCode::UNSUCCESS_NOT_FOUND;
+        bool changed     = false;
+        auto temp        = mapped_type();
         {
             auto mutator = hash.find(k);
-            uint64_t temp    = mutator.getValue();
+            temp = mutator.getValue();
             if (temp)
             {
-                f(temp, k, d);
+                f(temp, std::forward<Types>(args)...);
                 mutator.exchangeValue(temp);
-                r = ReturnCode::SUCCESS_UP;
+                changed = true;
             }
         }
         if (++count > 64)
@@ -141,31 +153,32 @@ public:
             count = 0;
             junction::DefaultQSBR.update(qsbrContext);
         }
-        return r;
+        return insert_return_type(iterator(changed ? k: 0, temp), changed);
     }
 
-    template<class F>
-    inline ReturnCode insertOrUpdate       (const size_t k, const size_t d, F f)
+    template<class F, class ... Types>
+    inline insert_return_type insertOrUpdate(const key_type& k, const mapped_type& d, F f, Types&& ... args)
     {
         //static_assert(F::junction_compatible::value, //TJuncComp<F>::value,
         //              "Used update function is not Junction compatible!");
 
         if (! F::junction_compatible::value) return ReturnCode::ERROR;
 
-        ReturnCode r = ReturnCode::ERROR;
+        bool inserted = false;
+        auto temp     = mapped_type();
         {
             auto mutator = hash.insertOrFind(k);
-            uint64_t temp = mutator.getValue();
+            temp = mutator.getValue();
             if (temp)
             {
-                f(temp, k, d);
+                f(temp, std::forward<Types>(args)...);
                 mutator.exchangeValue(temp);
-                r = ReturnCode::SUCCESS_UP;
             }
             else
             {
                 mutator.exchangeValue(d);
-                r = ReturnCode::SUCCESS_IN;
+                inserted = true;
+                temp = d;
             }
         }
         if (++count > 64)
@@ -173,24 +186,24 @@ public:
             count = 0;
             junction::DefaultQSBR.update(qsbrContext);
         }
-        return r;
+        return insert_return_type(iterator(k, temp), inserted);
     }
 
-    template<class F>
-    inline ReturnCode update_unsafe        (const size_t k, const size_t d, F f)
+    template<class F, class ... Types>
+    inline insert_return_type update_unsafe(const key_type& k, F f, Types&& ... args)
     {
-        return update(k,d,f);
+        return update(k,f,std::forward<Types>(args)...);
     }
 
-    template<class F>
-    inline ReturnCode insertOrUpdate_unsafe(const size_t k, const size_t d, F f)
+    template<class F, class ... Types>
+    inline insert_return_type insertOrUpdate_unsafe(const key_type& k, const mapped_type& d, F f, Types&& ... args)
     {
-        return insertOrUpdate(k,d,f);
+        return insertOrUpdate(k,d,f,std::forward<Types>(args)...);
     }
 
-    inline ReturnCode remove               (const size_t k)
+    inline size_t remove(const key_type& k)
     {
-        bool r = false;
+        size_t r = 0;
         {
             auto mutator = hash.find(k);
             r = mutator.eraseValue();
@@ -200,8 +213,10 @@ public:
             count = 0;
             junction::DefaultQSBR.update(qsbrContext);
         }
-        return (r) ? ReturnCode::SUCCESS_DEL : ReturnCode::UNSUCCESS_NOT_FOUND;
+        return r;
     }
+
+    inline iterator end() { return iterator(); }
 };
 
 //std::mutex JunctionHandle::registration_mutex;

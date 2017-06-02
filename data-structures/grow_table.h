@@ -17,12 +17,13 @@
 
 #pragma once
 
-#include "data-structures/grow_iterator.h"
-#include "utils/concurrentptrarray.h"
-
 #include <atomic>
 #include <memory>
-#include <iostream>
+//#include <iostream>
+
+#include "data-structures/grow_iterator.h"
+#include "example/update_fcts.h"
+#include "utils/concurrentptrarray.h"
 
 namespace growt {
 
@@ -183,6 +184,8 @@ public:
     using difference_type    = std::ptrdiff_t;
     using reference          = ReferenceGrowT<This_t, false>;
     using const_reference    = ReferenceGrowT<This_t, true>;
+    using mapped_reference       = MappedRefGrowT<This_t, false>;
+    using const_mapped_reference = MappedRefGrowT<This_t, true>;
     using insert_return_type = std::pair<iterator, bool>;
 
     using local_iterator       = void;
@@ -198,6 +201,8 @@ private:
     friend reference;
     friend const_iterator;
     friend const_reference;
+    friend mapped_reference;
+    friend const_mapped_reference;
 
 public:
     GrowTableHandle() = delete;
@@ -224,6 +229,11 @@ public:
     iterator           find  (const key_type& k);
     const_iterator     find  (const key_type& k) const;
 
+    insert_return_type insert_or_assign(const key_type& k, const mapped_type& d)
+    { return insertOrUpdate(k, d, example::Overwrite(), d); }
+
+    mapped_reference operator[](const key_type& k)
+    { return (*insert(k, mapped_type())).second; }
 
     template <class F, class ... Types>
     insert_return_type update

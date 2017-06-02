@@ -30,6 +30,14 @@ private:
     HashType hash;
 
 public:
+
+    using key_type           = size_t;
+    using mapped_type        = size_t;
+    using value_type         = typename std::pair<const key_type, mapped_type>;
+    using iterator           = typename HashType::iterator;
+    using const_iterator     = typename HashType::const_iterator;
+    using insert_return_type = std::pair<iterator, bool>;
+
     TBBUMWrapper() = default;
     TBBUMWrapper(size_t capacity_) : hash(capacity_) { }
     TBBUMWrapper(const TBBUMWrapper&) = delete;
@@ -42,55 +50,69 @@ public:
     Handle getHandle() { return *this; }
 
 
-    inline ReturnElement find              (const size_t k)
+    inline iterator find(const key_type& k)
     {
-        auto temp = hash.find(k);
-        if (temp == end(hash)) return ReturnElement::getEmpty();
-        else return ReturnElement(k, temp->second);
+        return hash.find(k);
+        // auto temp = hash.find(k);
+        // if (temp == end(hash)) return ReturnElement::getEmpty();
+        // else return ReturnElement(k, temp->second);
     }
 
-    inline ReturnCode insert               (const size_t k, const size_t d)
+    inline insert_return_type insert(const key_type& k, const mapped_type& d)
     {
-        auto ret = hash.insert(std::make_pair(k,d)).second;
-        return (ret) ? ReturnCode::SUCCESS_IN : ReturnCode::UNSUCCESS_ALREADY_USED;
+        return hash.insert(std::make_pair(k,d));
+        // auto ret = hash.insert(std::make_pair(k,d)).second;
+        // return (ret) ? ReturnCode::SUCCESS_IN : ReturnCode::UNSUCCESS_ALREADY_USED;
     }
 
-    template<class F>
-    inline ReturnCode update               (const size_t k, const size_t d, F f)
+    template<class F, class ... Types>
+    inline insert_return_type update(const key_type& k, F f, Types&& ... args)
     {
-        f.atomic(hash[k], k, d);
-        return ReturnCode::SUCCESS_UP;
-    }
-
-    template<class F>
-    inline ReturnCode insertOrUpdate       (const size_t k, const size_t d, F f)
-    {
-        auto temp = hash.insert(std::make_pair(k,d));
-        if (temp.second) return ReturnCode::SUCCESS_IN;
-        else
+        auto result = hash.find(k);
+        if (result != hash.end())
         {
-            f.atomic(temp.first->second, k, d);
-            return ReturnCode::SUCCESS_UP;
+            f.atomic(result->second, std::forward<Types>(args)...);
         }
+        return std::make_pair(result, result != hash.end());
     }
 
-    template<class F>
-    inline ReturnCode update_unsafe        (const size_t k, const size_t d, F f)
+    template<class F, class ... Types>
+    inline insert_return_type insertOrUpdate(const key_type& k, const mapped_type& d, F f, Types&& ... args)
     {
-        return update(k,d,f);
+        auto ret = hash.insert(std::make_pair(k,d));
+        if (! ret.second)
+        {
+            f.atomic(ret.first->second, std::forward<Types>(args)...);
+        }
+        return ret;
     }
 
-    template<class F>
-    inline ReturnCode insertOrUpdate_unsafe(const size_t k, const size_t d, F f)
+    template<class F, class ... Types>
+    inline insert_return_type update_unsafe(const key_type& k, F f, Types&& ... args)
     {
-        return insertOrUpdate(k,d,f);
+        return update(k,f, std::forward<Types>(args)...);
     }
 
-    inline ReturnCode remove               (const size_t)
+    template<class F, class ... Types>
+    inline insert_return_type insertOrUpdate_unsafe(const key_type& k, const mapped_type& d, F f, Types&& ... args)
+    {
+        return insertOrUpdate(k,d,f, std::forward<Types>(args)...);
+    }
+
+    inline size_t erase(const key_type&)
     {
         //static_assert(false, "tbb_um .remove(key) is not implemented")
-        return ReturnCode::ERROR;
+        return 0;
     }
+
+
+    inline iterator        end()         { return hash.end();  }
+    inline const_iterator  end()   const { return hash.cend(); }
+    inline const_iterator cend()   const { return hash.cend(); }
+
+    inline iterator        begin()       { return hash.begin();  }
+    inline const_iterator  begin() const { return hash.cbegin(); }
+    inline const_iterator cbegin() const { return hash.cbegin(); }
 };
 
 #endif // TBB_UM_WRAPPER

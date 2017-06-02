@@ -15,6 +15,100 @@
 namespace growt
 {
 
+template<class, bool>
+class ReferenceGrowT;
+
+template<class Table, bool is_const = false>
+class MappedRefGrowT
+{
+private:
+    using Table_t      = typename std::conditional<is_const, const Table, Table>::type;
+
+    using key_type     = typename Table_t::key_type;
+    using mapped_type  = typename Table_t::mapped_type;
+
+    using MappedRefBase_t    = typename std::conditional<is_const,
+                                   typename Table_t::BaseTable_t::const_reference::mapped_ref,
+                                   typename Table_t::BaseTable_t::reference::mapped_ref>::type;
+    using HashPtrRef_t = typename Table_t::HashPtrRef_t;
+    using pair_type    = std::pair<key_type, mapped_type>;
+
+    template <class, bool>
+    friend class ReferenceGrowT;
+public:
+    //using value_type   = typename RefBase_t::value_type;
+
+    MappedRefGrowT(MappedRefBase_t mref, size_t ver, Table_t& table)
+        : tab(table), version(ver), mref(mref) { }
+
+
+    // Functions necessary for concurrency *************************************
+    inline void refresh()
+    {
+        tab.execute(
+            [](HashPtrRef_t t, MappedRefGrowT& sref) -> int
+            {
+                sref.base_refresh_ptr(t);
+                sref.ref.refresh();
+                return 0;
+            }, *this);
+    }
+
+    template<bool is_const2 = is_const>
+    inline typename std::enable_if<!is_const2>::type operator=(const mapped_type& value)
+    {
+        tab.execute(
+            [](HashPtrRef_t t, MappedRefGrowT& sref, const mapped_type& value) -> int
+            {
+                sref.base_refresh_ptr(t);
+                sref.ref.operator=(value);
+                return 0;
+            }, *this, value);
+    }
+    template<class F>
+    inline void update   (const mapped_type& value, F f)
+    {
+        tab.execute(
+            [](HashPtrRef_t t, MappedRefGrowT& sref, const mapped_type& value, F f) -> int
+            {
+                sref.base_refresh_ptr(t);
+                sref.ref.update(value, f);
+                return 0;
+            }, *this, value, f);
+    }
+    inline bool compare_exchange(mapped_type& exp, const mapped_type &val)
+    {
+        return tab.execute(
+            [](HashPtrRef_t t, MappedRefGrowT& sref,
+               mapped_type& exp, const mapped_type& val)
+            {
+                sref.base_refresh_ptr(t);
+                return sref.ref.compare_exchange(exp, val);
+            }, *this, std::ref(exp), val);
+    }
+
+    inline operator mapped_type()  const { return mapped_type (mref); }
+
+private:
+    Table_t&  tab;
+    size_t    version;
+    MappedRefBase_t mref;
+
+    // the table should be locked, while this is called
+    inline bool base_refresh_ptr(HashPtrRef_t ht)
+    {
+        if (ht->version == version) return false;
+
+        version = ht->version;
+        auto it = ht->find(mref.copy.first);
+        mref.copy = it.copy;
+        mref.ptr  = it.ptr;
+        return true;
+    }
+
+};
+
+
 template<class Table, bool is_const = false>
 class ReferenceGrowT
 {
@@ -29,82 +123,49 @@ private:
                                                    typename Table_t::BaseTable_t::reference>::type;
     using HashPtrRef_t = typename Table_t::HashPtrRef_t;
     using pair_type    = std::pair<key_type, mapped_type>;
+
+    using mapped_ref   = MappedRefGrowT<Table, is_const>;
 public:
     using value_type   = typename RefBase_t::value_type;
 
     ReferenceGrowT(RefBase_t ref, size_t ver, Table_t& table)
-        : tab(table), version(ver), ref(ref),
-          first(ref.copy.first), second(ref.copy.second){ }
+        : second(ref.second, ver, table),
+          first(second.mref.copy.first) { }
 
 
     // Functions necessary for concurrency *************************************
-    void refresh()
-    {
-        tab.execute(
-            [](HashPtrRef_t t, ReferenceGrowT& sref) -> int
-            {
-                sref.base_refresh_ptr(t);
-                sref.ref.refresh();
-                return 0;
-            }, *this);
-    }
+    inline void refresh() { second.refresh(); }
 
-    template<bool is_const2 = is_const>
-    typename std::enable_if<!is_const2>::type operator=(const mapped_type& value)
-    {
-        tab.execute(
-            [](HashPtrRef_t t, ReferenceGrowT& sref, const mapped_type& value) -> int
-            {
-                sref.base_refresh_ptr(t);
-                sref.ref.operator=(value);
-                return 0;
-            }, *this, value);
-    }
     template<class F>
-    void update   (const mapped_type& value, F f)
-    {
-        tab.execute(
-            [](HashPtrRef_t t, ReferenceGrowT& sref, const mapped_type& value, F f) -> int
-            {
-                sref.base_refresh_ptr(t);
-                sref.ref.update(value, f);
-                return 0;
-            }, *this, value, f);
-    }
-    bool compare_exchange(mapped_type& exp, const mapped_type &val)
-    {
-        return tab.execute(
-            [](HashPtrRef_t t, ReferenceGrowT& sref,
-               mapped_type& exp, const mapped_type& val)
-            {
-                sref.base_refresh_ptr(t);
-                return sref.ref.compare_exchange(exp, val);
-            }, *this, std::ref(exp), val);
-    }
+    inline void update   (const mapped_type& value, F f)
+    { second.update(value, f); }
+    inline bool compare_exchange(mapped_type& exp, const mapped_type &val)
+    { return second.compare_exchange(exp, val); }
 
-    operator pair_type()  const { return pair_type (ref); }
-    operator value_type() const { return value_type(ref); }
+    inline operator pair_type()  const { return pair_type (second.ref); }
+    inline operator value_type() const { return value_type(second.ref); }
 
 private:
-    Table_t&  tab;
-    size_t    version;
-    RefBase_t ref;
+    // Table_t&  tab;
+    // size_t    version;
+    // RefBase_t ref;
 
     // the table should be locked, while this is called
-    bool base_refresh_ptr(HashPtrRef_t ht)
-    {
-        if (ht->version == version) return false;
+    // inline bool base_refresh_ptr(HashPtrRef_t ht)
+    // {
+    //     if (ht->version == version) return false;
 
-        version = ht->version;
-        auto it = ht->find(ref.copy.first);
-        ref.copy = it.copy;
-        ref.ptr  = it.ptr;
-        return true;
-    }
+    //     version = ht->version;
+    //     auto it = ht->find(ref.copy.first);
+    //     ref.copy = it.copy;
+    //     ref.ptr  = it.ptr;
+    //     return true;
+    // }
 
 public:
+    mapped_ref      second;
     const key_type& first;
-    const mapped_type& second;
+    //const mapped_type& second;
 };
 
 
