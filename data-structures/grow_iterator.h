@@ -226,7 +226,7 @@ public:
 
 
     // Basic Iterator Functionality ********************************************
-    IteratorGrowT& operator++(int = 0)
+    inline IteratorGrowT& operator++(int = 0)
     {
         tab.cexecute(
             [](HashPtrRef_t t, IteratorGrowT& sit) -> int
@@ -238,14 +238,14 @@ public:
         return *this;
     }
 
-    reference operator* () const { return reference(*it, version, tab); }
+    inline reference operator* () const { return reference(*it, version, tab); }
     // pointer   operator->() const { return  ptr; }
 
-    bool operator==(const IteratorGrowT& rhs) const { return it == rhs.it; }
-    bool operator!=(const IteratorGrowT& rhs) const { return it != rhs.it; }
+    inline bool operator==(const IteratorGrowT& rhs) const { return it == rhs.it; }
+    inline bool operator!=(const IteratorGrowT& rhs) const { return it != rhs.it; }
 
     // Functions necessary for concurrency *************************************
-    void refresh()
+    inline void refresh()
     {
         tab.cexecute(
             [](HashPtrRef_t t, IteratorGrowT& sit) -> int
@@ -263,7 +263,7 @@ private:
     BIterator_t it;
 
     // the table should be locked, while this is called
-    bool base_refresh_ptr(HashPtrRef_t ht)
+    inline bool base_refresh_ptr(HashPtrRef_t ht)
     {
         if (ht->version == version) return false;
 

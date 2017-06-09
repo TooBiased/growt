@@ -37,7 +37,7 @@ void insertions(Table_t& table, size_t n)
 
     for (size_t i = 1; i <= n; ++i)
     {
-        if (!successful(handle.insert(i,i)))
+        if (! handle.insert(i,i).second)
         {
             std::cout << "unsuccessful insert on key " << i << std::endl;
         }
@@ -50,7 +50,7 @@ void wait_for_k(Table_t& table, size_t k)
     // obtain a handle (alternative)
     Table_t::Handle handle{table};
 
-    while (! handle.find(k)) { ; }
+    while (handle.find(k) == handle.end()) { ; }
 
     std::cout << "found key " << k << std::endl;
 }
@@ -70,10 +70,10 @@ void search_n_and_mean(Table_t& table, size_t n)
         size_t key = (randomizer(i) % n) + 1;
         auto temp = handle.find(key);
 
-        if (temp)
+        if (temp != handle.end())
         {
             ++count;
-            sum += temp.second;
+            sum += (*temp).second;
         }
     }
 
@@ -90,10 +90,12 @@ void update_every_scnd(Table_t& table, size_t n)
     size_t unsuccessful_updates = 0;
     for (int i = 1; i <= int(n); i+=2)
     {
-        auto ret = handle.update(i, 42,
-                                [](uint64_t& lhs, uint64_t /*key*/, uint64_t rhs)
-                                { lhs = lhs + rhs; });
-        if (!successful(ret))
+        auto ret = handle.update(i,
+                                [](size_t& lhs, size_t rhs)
+                                {
+                                    return lhs = lhs + rhs;
+                                }, 42);
+        if (! ret.second)
         {
             ++unsuccessful_updates;
             i-=2;
@@ -109,22 +111,22 @@ void check_update(Table_t& table, size_t n)
     for (size_t i = 1; i < n; ++i)
     {
         auto temp = handle.find(i);
-        if (temp)
+        if (temp != handle.end())
         {
             if (i & 1) // was updated!
             {
-                if (temp.second != i+42)
+                if ((*temp).second != i+42)
                 {
                     std::cout << "Unexpected data at key "
-                              << i << " found " << temp.second << std::endl;
+                              << i << " found " << (*temp).second << std::endl;
                 }
             }
             else // not updated!
             {
-                if (temp.second != i)
+                if ((*temp).second != i)
                 {
                     std::cout << "Unexpected data at key "
-                              << i << " found " << temp.second << std::endl;
+                              << i << " found " << (*temp).second << std::endl;
                 }
             }
         }

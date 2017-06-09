@@ -162,7 +162,7 @@ public:
         //static_assert(F::junction_compatible::value, //TJuncComp<F>::value,
         //              "Used update function is not Junction compatible!");
 
-        if (! F::junction_compatible::value) return ReturnCode::ERROR;
+        if (! F::junction_compatible::value) return insert_return_type(end(), false);
 
         bool inserted = false;
         auto temp     = mapped_type();
@@ -201,7 +201,7 @@ public:
         return insertOrUpdate(k,d,f,std::forward<Types>(args)...);
     }
 
-    inline size_t remove(const key_type& k)
+    inline size_t erase(const key_type& k)
     {
         size_t r = 0;
         {

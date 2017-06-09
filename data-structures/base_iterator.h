@@ -122,7 +122,6 @@ public:
 
     mapped_ref      second;
     const key_type& first;
-
 };
 
 

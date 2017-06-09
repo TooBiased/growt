@@ -18,7 +18,7 @@
 #include <atomic>
 #include <stdexcept>
 
-//#include "data-structures/returnelement.h"
+#include "data-structures/returnelement.h"
 #include "data-structures/base_iterator.h"
 #include "example/update_fcts.h"
 
@@ -74,11 +74,7 @@ public:
 
     ~BaseCircular();
 
-    Handle getHandle()
-    {
-        return *this;
-    }
-
+    Handle getHandle() { return *this; }
 
     iterator       begin();
     iterator       end();
@@ -348,7 +344,7 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_intern(const key_type& k, const map
 {
     size_type htemp = h(k);
 
-    for (size_type i = htemp; i < htemp+MaDis; ++i)
+    for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & bitmask;
         value_intern curr(t[temp]);
@@ -375,7 +371,7 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::update_intern(const key_type& k, F f, Type
 {
     size_type htemp = h(k);
 
-    for (size_type i = htemp; i < htemp+MaDis; ++i)
+    for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & bitmask;
         value_intern curr(t[temp]);
@@ -410,7 +406,7 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::update_unsafe_intern(const key_type& k, F 
 {
     size_type htemp = h(k);
 
-    for (size_type i = htemp; i < htemp+MaDis; ++i)
+    for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & bitmask;
         value_intern curr(t[temp]);
@@ -446,7 +442,7 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::insertOrUpdate_intern(const key_type& k, c
 {
     size_type htemp = h(k);
 
-    for (size_type i = htemp; i < htemp+MaDis; ++i)
+    for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & bitmask;
         value_intern curr(t[temp]);
@@ -483,7 +479,7 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::insertOrUpdate_unsafe_intern(const key_typ
 {
     size_type htemp = h(k);
 
-    for (size_type i = htemp; i < htemp+MaDis; ++i)
+    for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & bitmask;
         value_intern curr(t[temp]);
@@ -518,7 +514,7 @@ template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
 inline ReturnCode BaseCircular<E,HashFct,A,MaDis,MiSt>::erase_intern(const key_type& k)
 {
     size_type htemp = h(k);
-    for (size_type i = htemp; i < htemp+MaDis; ++i)
+    for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & bitmask;
         value_intern curr(t[temp]);
@@ -558,7 +554,7 @@ inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::iterator
 BaseCircular<E,HashFct,A,MaDis,MiSt>::find(const key_type& k)
 {
     size_type htemp = h(k);
-    for (size_type i = htemp; i < htemp+MaDis; ++i)
+    for (size_type i = htemp; ; ++i)
     {
         value_intern curr(t[i & bitmask]);
         if (curr.compareKey(k)) return makeIterator(k, curr.getData(), &t[i & bitmask]); // curr;
@@ -572,7 +568,7 @@ inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::const_iterator
 BaseCircular<E,HashFct,A,MaDis,MiSt>::find(const key_type& k) const
 {
     size_type htemp = h(k);
-    for (size_type i = htemp; i < htemp+MaDis; ++i)
+    for (size_type i = htemp; ; ++i)
     {
         value_intern curr(t[i & bitmask]);
         if (curr.compareKey(k)) return makeCIterator(k, curr.getData(), &t[i & bitmask]); // curr;
