@@ -61,7 +61,7 @@
 
 #ifdef XFOLKLORE
 #include "data-structures/simpleelement.h"
-#include "data-structures/tsxcircular.h"
+#include "data-structures/tsx_circular.h"
 #define HASHTYPE growt::TSXCircular<growt::SimpleElement, HASHFCT, \
                                     ALLOCATOR<> >
 #endif // XFOLKLORE
@@ -146,7 +146,7 @@
 
 #ifdef UAXGROW
 #include "data-structures/markableelement.h"
-#include "data-structures/tsxcircular.h"
+#include "data-structures/tsx_circular.h"
 #include "data-structures/strategy/wstrat_user.h"
 #include "data-structures/strategy/estrat_async.h"
 #include "data-structures/grow_table.h"
@@ -158,7 +158,7 @@
 
 #ifdef PAXGROW
 #include "data-structures/markableelement.h"
-#include "data-structures/tsxcircular.h"
+#include "data-structures/tsx_circular.h"
 #include "data-structures/strategy/wstrat_pool.h"
 #include "data-structures/strategy/estrat_async.h"
 #include "data-structures/grow_table.h"
@@ -170,7 +170,7 @@
 
 #ifdef USXGROW
 #include "data-structures/simpleelement.h"
-#include "data-structures/tsxcircular.h"
+#include "data-structures/tsx_circular.h"
 #include "data-structures/strategy/wstrat_user.h"
 #include "data-structures/strategy/estrat_sync.h"
 #include "data-structures/grow_table.h"
@@ -182,7 +182,7 @@
 
 #ifdef PSXGROW
 #include "data-structures/simpleelement.h"
-#include "data-structures/tsxcircular.h"
+#include "data-structures/tsx_circular.h"
 #include "data-structures/strategy/wstrat_pool.h"
 #include "data-structures/strategy/estrat_sync.h"
 #include "data-structures/grow_table.h"
@@ -194,7 +194,7 @@
 
 #ifdef USNXGROW
 #include "data-structures/simpleelement.h"
-#include "data-structures/tsxcircular.h"
+#include "data-structures/tsx_circular.h"
 #include "data-structures/strategy/wstrat_user.h"
 #include "data-structures/strategy/estrat_sync_alt.h"
 #include "data-structures/grow_table.h"
@@ -206,7 +206,7 @@
 
 #ifdef PSNXGROW
 #include "data-structures/simpleelement.h"
-#include "data-structures/tsxcircular.h"
+#include "data-structures/tsx_circular.h"
 #include "data-structures/strategy/wstrat_pool.h"
 #include "data-structures/strategy/estrat_sync_alt.h"
 #include "data-structures/grow_table.h"

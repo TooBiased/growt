@@ -137,7 +137,7 @@ public:
         return insertOrUpdate(k,d,f, std::forward<Types>(args)...);
     }
 
-    inline size_t remove(const key_type& k)
+    inline size_t erase(const key_type& k)
     {
         return hash.erase(k);
     }

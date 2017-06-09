@@ -162,7 +162,7 @@ public:
 
         local_data_t& operator=(local_data_t&& rhs)
         {
-            if (this == &rhs) return;
+            if (this == &rhs) return *this;
 
             this->~local_data_t();
             new (this) local_data_t(rhs);
