@@ -226,13 +226,13 @@ public:
 
 
     // Basic Iterator Functionality ********************************************
-    inline IteratorGrowT& operator++(int = 0)
+    inline IteratorGrowT& operator++()
     {
         tab.cexecute(
             [](HashPtrRef_t t, IteratorGrowT& sit) -> int
             {
                 sit.base_refresh_ptr(t);
-                sit.it++;
+                ++sit.it;
                 return 0;
             }, *this);
         return *this;

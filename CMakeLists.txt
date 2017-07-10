@@ -146,14 +146,32 @@ if (GROWT_ALLOCATOR STREQUAL NUMA_POOL)
   endif()
 endif()
 
+# if (GROWT_BUILD_CUCKOO)
+#   find_package(Cuckoo)
+#   if (NOT CUCKOO_FOUND)
+#     message("Cannot find libcuckoo. "
+#       "Therefore, Cuckoo-Tests cannot be created!")
+#     set(GROWT_BUILD_CUCKOO OFF)
+#   else()
+#     include_directories(SYSTEM ${CUCKOO_INCLUDE_DIRS})
+#   endif()
+# endif()
+
 if (GROWT_BUILD_CUCKOO)
-  find_package(Cuckoo)
-  if (NOT CUCKOO_FOUND)
-    message("Cannot find libcuckoo. "
+  message(STATUS "Looking for libcuckoo.")
+  find_path(CUCKOO_DIR libcuckoo/CMakeLists.txt
+    PATHS ENV PATH ENV CUCKOO_ROOT)
+  if (CUCKOO_DIR)
+    add_subdirectory(${CUCKOO_DIR}/libcuckoo libcuckoo)
+    message(STATUS ${CUCKOO_DIR})
+    include_directories(${CUCKOO_DIR}/libcuckoo)
+    #set(JUNCTIONLIST "junction_linear;junction_grampa;junction_leapfrog")
+    message(STATUS "Looking for libcuckoo -- found")
+  else()
+    message(STATUS "Looking for libcuckoo -- not found")
+    message("Cannot find libcuckoo root directory. "
       "Therefore, Cuckoo-Tests cannot be created!")
     set(GROWT_BUILD_CUCKOO OFF)
-  else()
-    include_directories(SYSTEM ${CUCKOO_INCLUDE_DIRS})
   endif()
 endif()
 
