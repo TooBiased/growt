@@ -168,10 +168,12 @@ public:
     ~IteratorBase() = default;
 
     // Basic Iterator Functionality ********************************************
-    inline IteratorBase& operator++(int = 0)
+    inline IteratorBase& operator++()
     {
         ++ptr;
         while ( ptr < eptr && (ptr->isEmpty() || ptr->isDeleted())) { ++ptr; }
+        copy.first  = ptr->getKey();
+        copy.second = ptr->getData();
         if (ptr == eptr)
         {
             ptr  = nullptr;

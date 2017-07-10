@@ -61,7 +61,7 @@ public:
     bool isMarked()  const;
     bool compareKey(const key_type & k) const;
     bool atomicMark(MarkableElement& expected);
-    key_type    getKey() const;
+    key_type    getKey()  const;
     mapped_type getData() const;
     bool setData(const mapped_type);
 
