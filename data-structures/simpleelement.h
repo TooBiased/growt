@@ -44,10 +44,13 @@ public:
     SimpleElement & operator=(const SimpleElement & e);
     SimpleElement(SimpleElement &&e);
 
-    static SimpleElement getEmpty()
+    static const SimpleElement getEmpty()
     { return SimpleElement( 0, 0 ); }
 
-    static SimpleElement getDeleted()
+    static const SimpleElement getMarkedEmpty()
+    { return SimpleElement( 0, 0 ); }
+
+    static const SimpleElement getDeleted()
     { return SimpleElement( (1ull<<63)-1ull, 0 ); }
 
     key_type    key;

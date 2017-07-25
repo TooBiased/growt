@@ -66,6 +66,21 @@
                                     ALLOCATOR<> >
 #endif // XFOLKLORE
 
+#ifdef DEAMBASE
+#include "data-structures/markableelement.h"
+#include "data-structures/deam_btable.h"
+#define HASHTYPE growt::BaseDeam<growt::MarkableElement, HASHFCT, \
+                                 ALLOCATOR<> >
+#endif // DEAMBASE
+
+#ifdef DEAMGROW
+#include "data-structures/markableelement.h"
+#include "data-structures/deam_btable.h"
+#include "data-structures/deam_table.h"
+#define HASHTYPE growt::DeamTable<growt::BaseDeam<growt::MarkableElement, \
+                                                  HASHFCT, \
+                                                  ALLOCATOR<> > >
+#endif // DEAMGROW
 
 
 

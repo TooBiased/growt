@@ -726,7 +726,7 @@ inline void BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_unsafe(const value_inte
     const key_type k = e.getKey();
 
     size_type htemp = h(k);
-    for (size_type i = htemp; i < htemp+MaDis; ++i)
+    for (size_type i = htemp; ; ++i)
     {
         size_type temp = i & bitmask;
         value_intern curr(t[temp]);

@@ -1,16 +1,27 @@
 ### ABOUT
-growt (GrowTable) is a header only library implementing a concurrent growing hash table.  There are different variants depending on the use case. See explanation below.
 
-Using the supplied cmake build system you can compile an example file (example/example.cpp) and a multitude of different tests/benchmarks. These were also used to generate the plots displayed in our scientific publication => https://arxiv.org/abs/1601.04017 (slightly outdated).
+growt (GrowTable) is a header only library implementing a
+concurrent growing hash table.  There are different variants depending
+on the use case. See explanation below.
+
+Using the supplied cmake build system you can compile an example file
+(example/example.cpp) and a multitude of different
+tests/benchmarks. These were also used to generate the plots displayed
+in our scientific publication => https://arxiv.org/abs/1601.04017
+(slightly outdated).
 
 
 ### USAGE OF THIRD PARTY CODE
-This package can be used all on its own (see example.cpp and ...test.cpp).  However third party codes are used for additional functionality/tests.
+
+This package can be used all on its own (see example.cpp and
+...test.cpp).  However third party codes are used for additional
+functionality/tests.
 
 ##### We use the following libraries:
 ###### for utility:
 - TBB - to implement a fixed memory pool allocator
 - xxHash - usable hash function
+- smhasher - murmur3 hash function
 
 ###### as third party hash tables (for benchmarks):
 - TBB - ```tbb::concurrent_hash_map and tbb::concurrent_unordered_map```

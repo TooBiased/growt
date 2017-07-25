@@ -41,6 +41,7 @@ public:
 
     MarkableElement();
     MarkableElement(const key_type& k, const mapped_type& d);
+    MarkableElement(const key_type& k, const mapped_type& d, bool);
     MarkableElement(const value_type& pair);
     MarkableElement(const MarkableElement& e);
     MarkableElement & operator=(const MarkableElement& e);
@@ -50,8 +51,11 @@ public:
     static MarkableElement getEmpty()
     { return MarkableElement( 0, 0 ); }
 
+    static MarkableElement getMarkedEmpty()
+    { return MarkableElement( MARKED_BIT, 0 ); }
+
     static MarkableElement getDeleted()
-    { return MarkableElement( (1ull<<63)-1ull, 0 ); }
+    { return MarkableElement( BITMASK   , 0 ); }
 
     key_type    key;
     mapped_type data;
@@ -61,6 +65,7 @@ public:
     bool isMarked()  const;
     bool compareKey(const key_type & k) const;
     bool atomicMark(MarkableElement& expected);
+    void unmark();
     key_type    getKey()  const;
     mapped_type getData() const;
     bool setData(const mapped_type);
@@ -110,6 +115,8 @@ private:
 
 inline MarkableElement::MarkableElement() { }
 inline MarkableElement::MarkableElement(const key_type& k, const mapped_type& d) : key(k), data(d) { }
+inline MarkableElement::MarkableElement(const key_type& k, const mapped_type& d, bool)
+    : key(k | MARKED_BIT), data(d) { }
 inline MarkableElement::MarkableElement(const value_type& p) : key(p.first), data(p.second) { }
 
 // Roman used: _mm_loadu_ps Think about using
@@ -159,6 +166,11 @@ inline bool MarkableElement::atomicMark(MarkableElement& expected)
     return __sync_bool_compare_and_swap_16(& as128i(),
                                expected.as128i(),
                                (expected.as128i() | MARKED_BIT));
+}
+
+inline void MarkableElement::unmark()
+{
+    key &= BITMASK;
 }
 
 inline bool MarkableElement::CAS( MarkableElement & expected,

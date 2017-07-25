@@ -95,7 +95,9 @@ int fill(Hash& hash, size_t end)
         [&hash, &err](size_t i)
         {
             auto key = keys[i];
-            if (! hash.insert(key, i+2).second )
+            auto temp = hash.insert(key, i+2);
+
+            if (! temp.second )
             {
                 // Insertion failed? Possibly already inserted.
                 ++err;
