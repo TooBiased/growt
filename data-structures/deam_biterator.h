@@ -66,18 +66,19 @@ public:
         while (temp.isEmpty() || temp.isDeleted())
         {
             ++ptr;
-            if (! checkPtr(ptr))
+            if (! checkPtr())
             {
                 ptr  = nullptr;
                 copy = std::make_pair(key_type(), mapped_type());
                 eptr = nullptr;
                 return *this;
             }
-            auto temp   = *ptr;
-            if (temp.isMarked) { --ptr; temp = value_intern::getEmpty(); }
+            temp   = *ptr;
+            if (temp.isMarked()) { --ptr; temp = value_intern::getEmpty(); }
         }
 
-        copy  = temp;
+        copy.first  = temp.key;
+        copy.second = temp.data;
         return *this;
     }
 
@@ -108,13 +109,14 @@ public:
         return false;
     }
 
-private:
+
     pair_type      copy;
     pointer_intern ptr;
+private:
     pointer_intern eptr;
     BTable_t*      table;
 
-    void checkPtr()
+    bool checkPtr()
     {
         if (ptr < eptr) return true;
         eptr = table->t.get() + table->capacity.load(std::memory_order_relaxed) + BTable_t::over_grow;

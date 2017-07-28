@@ -211,6 +211,17 @@ public:
     size_type element_count_approx() { return dtData.element_count_approx(); }
     size_type element_count_unsafe();
 
+    size_type hash(const key_type& k)
+    {
+        return table.h(k);
+    }
+
+    size_type hasher(const key_type& k)
+    {
+        return table.hash(k);
+    }
+
+
 private:
     // DATA+FUNCTIONS FOR MIGRATION STRATEGIES
     size_type      handle_id;

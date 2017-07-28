@@ -241,20 +241,41 @@ int test_in_stages(size_t p, size_t id, size_t n, size_t cap, size_t it)
             ThreadType::out (errors.load(), 7);
         }
 
-        // if (ThreadType::is_main)
-        // {
-        //     //const
-        //         Handle& chash = hash;
-        //     size_t count = 0;
-        //     for (auto it = chash.begin(); it != hash.end(); it++)
-        //     {
-        //         (*it) = 666666666;
-        //         count += std::pair<size_t, size_t>(*it).second;
-        //     }
-        //     ThreadType::out (count                      , 10);
-        //     ThreadType::out (hash.element_count_unsafe(), 10);
-        //     ThreadType::out (hash.element_count_approx(), 10);
-        // }
+        if (ThreadType::is_main)
+        {
+            //const
+            Handle& chash = hash;
+            size_t count = 0;
+            size_t cfalse = 0;
+            for (auto it = chash.begin(); it != hash.end() && cfalse < 20; ++it)
+            {
+                //(*it) = 666666666;
+                count += 1;
+                auto k = (*it).first;
+                if (hash.find(k) == hash.end())
+                {
+                    std::cout << std::endl
+                              << k << " "
+                              << hash.hasher(k) << " "
+                              << hash.hash(k) << " "
+                              << it.ptr - hash.begin().ptr;
+                    ++cfalse;
+                }
+            }
+            // if (cfalse) std::cout << std::endl;
+            // auto start = hash.begin().ptr + 131072;
+            // for (auto ptr = start; ptr < start + 4096; ++ptr)
+            // {
+            //     if (! ptr->isEmpty())
+            //         std::cout << hash.hash(ptr->getKey()) - 131072 << " " << ptr - start
+            //                   << std::endl;
+            // }
+
+            if (cfalse) std::cout << std::endl;
+            ThreadType::out (count                      , 10);
+            ThreadType::out (hash.element_count_unsafe(), 10);
+            ThreadType::out (hash.element_count_approx(), 10);
+        }
 
         // // STAGE4 n Finds Successful
         // {

@@ -337,7 +337,10 @@ template<class E, class HashFct, class A>
 inline typename BaseDeam<E,HashFct,A>::insert_return_intern
 BaseDeam<E,HashFct,A>::insert_intern(const key_type& k, const mapped_type& d)
 {
-    size_type htemp = h(k);
+    //size_type htemp = h(k);
+    size_type htemp = hash(k) & l_bitmask.load(std::memory_order_acquire);
+    size_type cap   = capacity.load(std::memory_order_acquire);
+    htemp = (htemp < cap) ? htemp : htemp & s_bitmask.load(std::memory_order_acquire);
 
     for (size_type i = htemp; ; ++i)
     {
@@ -345,8 +348,12 @@ BaseDeam<E,HashFct,A>::insert_intern(const key_type& k, const mapped_type& d)
         if (curr.isMarked()   )
         {
             do { curr = t[i]; } while ( curr.isMarked() );
-            i = htemp = h(k);
-            //return insert_intern(k,d);
+            //i = htemp = h(k);
+            // htemp = hash(k) & l_bitmask.load(std::memory_order_acquire);
+            // cap   = capacity.load(std::memory_order_acquire);
+            // htemp = (htemp < cap) ? htemp : htemp & s_bitmask.load(std::memory_order_acquire);
+            // i = htemp;
+            return insert_intern(k,d);
             //return makeInsertRet(end() , ReturnCode::UNSUCCESS_INVALID);
         }
         else if (curr.compareKey(k))
@@ -358,18 +365,27 @@ BaseDeam<E,HashFct,A>::insert_intern(const key_type& k, const mapped_type& d)
             auto marked_in = value_intern(k,d,true);
             if ( t[i].CAS(curr, marked_in) )
             {
-                if (htemp == h(k))
+                //if (htemp == h(k))
+                if (cap == capacity.load(std::memory_order_acquire))
                 {
                     t[i].unmark();
                     return makeInsertRet(k,d, &t[i], ReturnCode::SUCCESS_IN);
                 }
                 else
                 {
-                    t[i].CAS(marked_in, value_intern::getEmpty());
+                    while (! t[i].CAS(marked_in, value_intern::getEmpty()))
+                    { /* unmark */ }
+                    //t[i].data = mapped_type();
+                    //t[i].key  = key_type();
                 }
             }
+            return insert_intern(k,d);
             //somebody changed the current element! recheck it
-            --i;
+            // htemp = hash(k) & l_bitmask.load(std::memory_order_acquire);
+            // cap   = capacity.load(std::memory_order_acquire);
+            // htemp = (htemp < cap) ? htemp : htemp & s_bitmask.load(std::memory_order_acquire);
+            // i = htemp;
+            //--i;
         }
         else if (curr.isDeleted())
         {
@@ -694,10 +710,9 @@ BaseDeam<E,HashFct,A>::grow()
 {
     size_type r_start  = next_grow.fetch_add(block_grow, std::memory_order_acq_rel);
 
-    // std::cout << "hi " << r_start << std::endl;
 
     size_type lbit   = 1;
-    while (lbit < r_start) lbit <<=1;
+    while (lbit <= r_start) lbit <<=1;
     lbit   -= 1;
     size_type sbit = lbit >> 1;
 
@@ -709,17 +724,19 @@ BaseDeam<E,HashFct,A>::grow()
                t.get()+r_end+over_grow, value_intern::getEmpty());
 
     size_type temp  = r_start_p;
-    while (! init_grow.compare_exchange_weak(temp, r_end+over_grow))
-    { temp = r_start_p; /* wait for previous initialization */ }
+
+    while (init_grow.load(std::memory_order_acquire) < temp)
+    { /* wait for prev init */ }
 
     // std::cout << "1:" << std::endl;
 
-    // std::cout <<  "ls=" << l_start
+    // std::cout << std::endl
+    //           <<  "ls=" << l_start
     //           << " le=" << l_end
     //           << " rs=" << r_start
     //           << " re=" << r_end
     //           << " sb=" << sbit
-    //           << " lb=" << lbit << std::endl;
+    //           << " lb=" << lbit;
 
     size_type true_l_end = l_end;
     while (true)
@@ -749,6 +766,8 @@ BaseDeam<E,HashFct,A>::grow()
         ++true_r_start;
     }
 
+    init_grow.store(r_end+over_grow, std::memory_order_release);
+
     // std::cout << "3:" << std::endl;
 
     // std::cout << "tle=" << true_l_end
@@ -756,12 +775,12 @@ BaseDeam<E,HashFct,A>::grow()
 
     size_type curr_end = true_l_end;
     int il_start = l_start;
-    for (int i = true_l_end-1; i >= il_start; --i)
+    int i        = true_l_end-1;
+    for (; i >= il_start; --i)
     {
         auto curr = t[i];
         if (curr.isMarked())
         {
-            //std::cout << i << std::endl;
             while (curr.isMarked()) { curr = t[i]; }
         }
         if (! t[i].atomicMark(curr)) { ++i; }
@@ -771,14 +790,32 @@ BaseDeam<E,HashFct,A>::grow()
             {
                 // reinsert with some new marked insert function
                 curr = t[j];
-                t[j].CAS(curr, value_intern::getMarkedEmpty());
+                t[j] = value_intern::getMarkedEmpty();
                 key_type    k = curr.getKey();
                 mapped_type d = curr.getData();
 
                 size_type pos = hash(k) & lbit;
+                pos = (pos < r_end) ? pos : pos & sbit;
 
                 insert_unsafe(k,d,pos);
             }
+            curr_end = i;
+        }
+    }
+    if (curr_end != l_start)
+    {
+        for (size_type j = l_start; j < curr_end; ++j)
+        {
+            // reinsert with some new marked insert function
+            auto curr = t[j];
+            t[j] = value_intern::getMarkedEmpty();
+            key_type    k = curr.getKey();
+            mapped_type d = curr.getData();
+
+            size_type pos = hash(k) & lbit;
+            pos = (pos < r_end) ? pos : pos & sbit;
+
+            insert_unsafe(k,d,pos);
         }
     }
 
