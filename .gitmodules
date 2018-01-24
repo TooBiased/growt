@@ -1,0 +1,15 @@
+[submodule "misc/submodules/folly"]
+	path = misc/submodules/folly
+	url = https://github.com/facebook/folly.git
+[submodule "misc/submodules/junction"]
+	path = misc/submodules/junction
+	url = https://github.com/preshing/junction.git
+[submodule "misc/submodules/turf"]
+	path = misc/submodules/turf
+	url = https://github.com/preshing/turf.git
+[submodule "misc/submodules/xxhash"]
+	path = misc/submodules/xxhash
+	url = https://github.com/Cyan4973/xxHash.git
+[submodule "misc/submodules/libcuckoo"]
+	path = misc/submodules/libcuckoo
+	url = https://github.com/efficient/libcuckoo.git
