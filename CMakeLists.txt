@@ -157,10 +157,17 @@ endif()
 #   endif()
 # endif()
 
+
+
+##### SUBMODULE FINDS ##########################################################
+
 if (GROWT_BUILD_CUCKOO)
   message(STATUS "Looking for libcuckoo.")
+
   find_path(CUCKOO_DIR libcuckoo/CMakeLists.txt
-    PATHS ENV PATH ENV CUCKOO_ROOT)
+    PATHS HINTS ${CMAKE_CURRENT_SOURCE_DIR}/misc/submodules)
+      #PATHS ENV PATH ENV CUCKOO_ROOT)
+
   if (CUCKOO_DIR)
     add_subdirectory(${CUCKOO_DIR}/libcuckoo libcuckoo)
     message(STATUS ${CUCKOO_DIR})
@@ -175,24 +182,14 @@ if (GROWT_BUILD_CUCKOO)
   endif()
 endif()
 
-if(GROWT_BUILD_FOLLY)
-  find_package(Folly)
-  if (FOLLY_FOUND)
-    include_directories(${FOLLY_INCLUDE_DIRS})
-    link_directories(${FOLLY_LIBRARY_DIRS})
-    set(folly_lib ${FOLLY_LIBRARIES})
-  else()
-    message("Cannot find Folly. "
-      "Therefore, Folly-Tests cannot be created!")
-    set(GROWT_BUILD_FOLLY OFF)
-  endif()
-endif()
-
 
 if (GROWT_BUILD_JUNCTION)
   message(STATUS "Looking for junction")
+
   find_path(JUNCTION_DIR junction/CMakeLists.txt
-    PATHS ENV PATH ENV JUNCTION_ROOT)
+    PATHS ${CMAKE_CURRENT_SOURCE_DIR}/misc/submodules)
+      #PATHS ENV PATH ENV JUNCTION_ROOT)
+
   if (JUNCTION_DIR)
     add_subdirectory(${JUNCTION_DIR}/junction junction)
     include_directories(${JUNCTION_ALL_INCLUDE_DIRS})
@@ -206,11 +203,65 @@ if (GROWT_BUILD_JUNCTION)
   endif()
 endif()
 
-if (GROWT_HASHFCT STREQUAL XXHASH)
-  find_package(XXHash)
-  if (XXHASH_FOUND)
-    include_directories(${XXHASH_INCLUDE_DIRS})
+# if(GROWT_BUILD_FOLLY)
+#   find_package(Folly)
+#   if (FOLLY_FOUND)
+#     include_directories(${FOLLY_INCLUDE_DIRS})
+#     link_directories(${FOLLY_LIBRARY_DIRS})
+#     set(folly_lib ${FOLLY_LIBRARIES})
+#   else()
+#     message("Cannot find Folly. "
+#       "Therefore, Folly-Tests cannot be created!")
+#     set(GROWT_BUILD_FOLLY OFF)
+#   endif()
+# endif()
+
+if (GROWT_BUILD_FOLLY)
+  message(STATUS "Looking for folly")
+
+  # NECESSARY FOR SOME REASON
+  include(CheckIncludeFileCXX)
+
+  find_path(FOLLY_DIR folly/CMakeLists.txt
+    PATHS ${CMAKE_CURRENT_SOURCE_DIR}/misc/submodules)
+      #PATHS ENV PATH ENV JUNCTION_ROOT)
+
+  if (FOLLY_DIR)
+    add_subdirectory(${FOLLY_DIR}/folly folly)
+    include_directories(${FOLLY_DIR}/folly)
+    #set(JUNCTIONLIST "junction_linear;junction_grampa;junction_leapfrog")
+    message(STATUS "Looking for folly -- found")
   else()
+    message(STATUS "Looking for folly -- not found")
+    message("Cannot find folly root directory. "
+      "Therefore, Folly-Tests cannot be created!")
+    set(GROWT_BUILD_FOLLY OFF)
+  endif()
+endif()
+
+# if (GROWT_HASHFCT STREQUAL XXHASH)
+#   find_package(XXHash)
+#   if (XXHASH_FOUND)
+#     include_directories(${XXHASH_INCLUDE_DIRS})
+#   else()
+#     message("Cannot find xxHash. Use MURMUR2 instead.")
+#     set(GROWT_HASHFCT MURMUR2)
+#   endif()
+# endif()
+
+if (GROWT_HASHFCT STREQUAL XXHASH)
+  message(STATUS "Looking for xxhash")
+
+  find_path(XXHASH_DIR xxhash/xxhash.h
+    PATHS ${CMAKE_CURRENT_SOURCE_DIR}/misc/submodules)
+      #ENV ${CMAKE_CURRENT_SOURCE_DIR}/submodules) #ENV PATH ENV JUNCTION_ROOT)
+
+  if (XXHASH_DIR)
+    #add_subdirectory(${XXHASH_DIR}/xxHash xxHash)
+    include_directories(${XXHASH_DIR}/xxhash)
+    message(STATUS "Looking for xxhash -- found")
+  else()
+    message(STATUS "Looking for xxhash -- not found")
     message("Cannot find xxHash. Use MURMUR2 instead.")
     set(GROWT_HASHFCT MURMUR2)
   endif()
@@ -272,11 +323,11 @@ foreach(t in agg co mix del)
     target_link_libraries(${t}_cuckoo ${TEST_DEP_LIBRARIES})
   endif()
 
-  if (GROWT_BUILD_FOLLY)
-    add_executable(${t}_folly tests/${t}_test.cpp)
-    target_compile_definitions(${t}_folly  PRIVATE -D FOLLY  -D ${GROWT_HASHFCT})
-    #message(SYSTEM ${FOLLY_LIBRARIES})
-    target_link_libraries(${t}_folly ${TEST_DEP_LIBRARIES} ${FOLLY_LIBRARIES} libglog.so)
-  endif()
+  # if (GROWT_BUILD_FOLLY)
+  #   add_executable(${t}_folly tests/${t}_test.cpp)
+  #   target_compile_definitions(${t}_folly  PRIVATE -D FOLLY  -D ${GROWT_HASHFCT})
+  #   #message(SYSTEM ${FOLLY_LIBRARIES})
+  #   target_link_libraries(${t}_folly ${TEST_DEP_LIBRARIES} ${FOLLY_LIBRARIES} libglog.so)
+  # endif()
 
 endforeach()
