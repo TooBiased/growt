@@ -263,11 +263,12 @@ int main(int argn, char** argc)
     CommandLine c{argn, argc};
     size_t n     = c.intArg("-n"  , 10000000);
     size_t p     = c.intArg("-p"  , 4);
-    size_t cap   = c.intArg("-c"  , n);
     size_t it    = c.intArg("-it" , 5);
-    size_t pre   = c.intArg("-pre", n/10);
+    size_t pre   = c.intArg("-pre", p*block_size);
     size_t win   = c.intArg("-win", pre);
     double wperc = c.doubleArg("-wperc", 0.5);
+
+    size_t cap   = c.intArg("-c"  , pre+n*wperc);
     if (! c.report()) return 1;
 
     print_parameter_list();
