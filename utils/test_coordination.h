@@ -164,7 +164,7 @@ struct MainThread
     }
 
 
-    static const bool is_main = true;
+    static constexpr bool is_main = true;
 
 
     template<typename T>
@@ -234,7 +234,7 @@ struct SubThread
         return typename std::result_of<Functor(Types&& ...)>::type();
     }
 
-    static const bool is_main = false;
+    static constexpr bool is_main = false;
 
     template<typename T>
     inline SubThread& operator<<(T&&)

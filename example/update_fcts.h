@@ -12,7 +12,7 @@ struct Increment
 
     mapped_type operator()(mapped_type& lhs, const mapped_type& rhs) const
     {
-        return lhs+=rhs;;
+        return lhs+=rhs;
     }
 
     // an atomic implementation can improve the performance of updates in .sGrow

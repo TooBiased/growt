@@ -66,8 +66,12 @@ endif()
 set (GROWT_MAX_FILL 0.6)
 
 
-set (CMAKE_CXX_FLAGS
-  "${CMAKE_CXX_FLAGS} -std=c++1y -msse4.2 -mcx16 -Wall -Wextra -O3 -g")
+set (OLD_FLAGS ${CMAKE_CXX_FLAGS})
+
+# set (CMAKE_CXX_FLAGS
+#   "${CMAKE_CXX_FLAGS} -std=c++1y -g -msse4.2 -mcx16 -Wall -Wextra -O3")
+
+set (FLAGS "-std=c++1y -g -msse4.2 -mcx16 -Wall -Wextra -O3")
 
 include_directories(.)
 
@@ -230,6 +234,7 @@ include_directories(${PROJECT_BINARY_DIR})
 function( GrowTExecutable variant cpp directory name )
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${directory})
   add_executable(${name} tests/${cpp}.cpp)
+  set_target_properties(${name} PROPERTIES COMPILE_FLAGS "${FLAGS}")
   target_compile_definitions(${name} PRIVATE
     -D ${variant}
     -D ${GROWT_HASHFCT}
@@ -330,6 +335,7 @@ if (GROWT_BUILD_TBB)
   function( TBBExecutable variant cpp directory name )
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${directory})
     add_executable(${name} tests/${cpp}.cpp)
+    set_target_properties(${name} PROPERTIES COMPILE_FLAGS "${FLAGS}")
     target_compile_definitions(${name} PRIVATE
       -D ${variant}
       -D ${GROWT_HASHFCT})
@@ -347,26 +353,38 @@ if (GROWT_BUILD_TBB)
 endif()
 
 if (GROWT_BUILD_FOLLY)
+
+  message("message >>>>> ${CMAKE_CXX_FLAGS}")
+
+  # set(TEMP_FLAGS "${CMAKE_CXX_FLAGS}")
+  # set(CMAKE_CXX_FLAGS "${OLD_FLAGS}")
+
   function( FollyExecutable variant cpp directory name )
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${directory})
 
     add_executable(${name} tests/${cpp}.cpp  )
+    set_target_properties(${name} PROPERTIES COMPILE_FLAGS "-O2")
     target_compile_definitions(${name} PRIVATE
       -D ${variant}
       -D ${GROWT_HASHFCT})
     target_link_libraries( ${name} ${TEST_DEP_LIBRARIES} folly libglog.so )
   endfunction( FollyExecutable )
 
+  message("message >>>>> ${CMAKE_CXX_FLAGS}")
+
   FollyExecutable( FOLLY  ins_test ins ins_folly )
   FollyExecutable( FOLLY  mix_test mix mix_folly )
   FollyExecutable( FOLLY  con_test con con_folly )
   FollyExecutable( FOLLY  agg_test agg agg_folly )
+
+  # set(CMAKE_CXX_FLAGS "${TEMP_FLAGS}")
 endif()
 
 if (GROWT_BUILD_CUCKOO)
   function( CuckooExecutable variant cpp directory name )
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${directory})
     add_executable(${name} tests/${cpp}.cpp)
+    set_target_properties(${name} PROPERTIES COMPILE_FLAGS "${FLAGS}")
     target_compile_definitions(${name} PRIVATE
       -D ${variant}
       -D ${GROWT_HASHFCT})
@@ -383,6 +401,7 @@ if (GROWT_BUILD_JUNCTION)
   function( JunctionExecutable variant cpp directory name )
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${directory})
     add_executable(${name} tests/${cpp}.cpp)
+    set_target_properties(${name} PROPERTIES COMPILE_FLAGS "${FLAGS}")
     target_compile_definitions(${name} PRIVATE
       -D ${variant}
       -D ${GROWT_HASHFCT})
