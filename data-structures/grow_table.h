@@ -462,9 +462,10 @@ GrowTableHandle<GrowTableData>::insert(const key_type& k, const mapped_type& d)
     case ReturnCode::SUCCESS_IN:
     case ReturnCode::TSX_SUCCESS_IN:
         inc_inserted(v);
+        return makeInsertRet(result.first, v, true);
     case ReturnCode::UNSUCCESS_ALREADY_USED:
     case ReturnCode::TSX_UNSUCCESS_ALREADY_USED:
-        return makeInsertRet(result.first, v, true);
+        return makeInsertRet(result.first, v, false);
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow();
@@ -499,15 +500,18 @@ GrowTableHandle<GrowTableData>::update(const key_type& k, F f, Types&& ... args)
     {
     case ReturnCode::SUCCESS_UP:
     case ReturnCode::TSX_SUCCESS_UP:
+        return makeInsertRet(result.first, v, true);
     case ReturnCode::UNSUCCESS_NOT_FOUND:
     case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
-        return makeInsertRet(result.first, v, true);
+        //std::cout << "!" << std::flush;
+        return makeInsertRet(result.first, v, false);
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow();  // usually impossible as this collides with NOT_FOUND
         return update(k,f, std::forward<Types>(args)...);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
+        helpGrow();
         return update(k,f, std::forward<Types>(args)...);
     default:
         return makeInsertRet(bend(), v, false);
@@ -535,15 +539,17 @@ GrowTableHandle<GrowTableData>::update_unsafe(const key_type& k, F f, Types&& ..
     {
     case ReturnCode::SUCCESS_UP:
     case ReturnCode::TSX_SUCCESS_UP:
+        return makeInsertRet(result.first, v, true);
     case ReturnCode::UNSUCCESS_NOT_FOUND:
     case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
-        return makeInsertRet(result.first, v, true);
+        return makeInsertRet(result.first, v, false);
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow();
         return update_unsafe(k,f, std::forward<Types>(args)...);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
+        helpGrow();
         return update_unsafe(k,f, std::forward<Types>(args)...);
     default:
         return makeInsertRet(bend(), v, false);
