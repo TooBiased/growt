@@ -88,7 +88,7 @@ void update_every_scnd(Table_t& table, size_t n)
     auto handle = table.getHandle();
 
     size_t unsuccessful_updates = 0;
-    for (int i = 1; i <= int(n); i+=2)
+    for (size_t i = 1; i < n; i+=2)
     {
         auto ret = handle.update(i,
                                 [](size_t& lhs, size_t rhs)
