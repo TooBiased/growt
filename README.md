@@ -1,3 +1,5 @@
+## README IS OUT OF DATE!
+
 ### ABOUT
 growt (GrowTable) is a header only library implementing a concurrent growing hash table.  There are different variants depending on the use case. See explanation below.
 
