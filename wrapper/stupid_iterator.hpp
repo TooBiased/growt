@@ -1,8 +1,7 @@
 /*******************************************************************************
  * wrapper/junction_wrapper.h
  *
- * Wrapper to use junction's junction::ConcurrentMap_... in our benchmarks
- * use #define JUNCTION_TYPE junction::ConcurrentMap_Leapfrog to chose the table
+ * Iterator Stub that gets used to wrap some competitor implementations
  *
  * Part of Project growt - https://github.com/TooBiased/growt.git
  *
@@ -14,6 +13,7 @@
 #pragma once
 
 #include <tuple>
+//using namespace growt;
 
 template <class K, class D>
 class StupidIterator

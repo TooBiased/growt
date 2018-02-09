@@ -47,6 +47,8 @@ option(GROWT_BUILD_TBB
   "(optional) builds tests for tbb hash map and unordered map (using wrappers)!" OFF)
 option(GROWT_BUILD_JUNCTION
   "(optional) builds tests for junction tables (Linear, Grampa, Leapfrog)!" OFF)
+option(GROWT_BUILD_LEGACY
+  "(optional) builds tests for legacy tables (Julian Shun's Implementation, LeaHash, URCU, Hopscotch) only possible in the appropriate branch!" ON)
 
 option(GROWT_BUILD_MEMORY_TEST
   "(optional) builds tests that output memory (i.e. residential set size)" OFF)
@@ -94,7 +96,6 @@ endif()
 # set (FLAGS "${FLAGS} -g -ggdb -march=native -O3 -fsanitize=address")
 # set (TEST_DEP_LIBRARIES -lasan ${TEST_DEP_LIBRARIES})
 # endif()
-
 
 include_directories(.)
 
@@ -235,6 +236,31 @@ if (GROWT_BUILD_FOLLY)
   endif()
 endif()
 
+if (GROWT_BUILD_LEGACY)
+  message(STATUS "Looking for Hopscotch/LeaHash")
+  find_path(HOPSCOTCH_DIR ConcurrentHopscotchHashMap/data_structures/BitmapHopscotchHashMap.h
+    PATHS ${CMAKE_CURRENT_SOURCE_DIR}/misc/submodules/)
+  if (HOPSCOTCH_DIR)
+    message(STATUS "Looking for Hopscotch/LeaHash -- found")
+    set(HOPSCOTCH_INCLUDE ${HOPSCOTCH_DIR}/ConcurrentHopscotchHashMap/data_structures/)
+    include_directories(${HOPSCOTCH_INCLUDE})
+  else()
+    message(STATUS "Looking for Hopscotch/LeaHash -- not found")
+    message("Cannot find Hopscotch/LeaHash. Therefore, some tests cannot be created! Download their code into the submodules folder!")
+  endif()
+
+  message(STATUS "Looking for Shun's Table")
+  find_path(SHUN_DIR      shun/ndHash/ndHash.h
+    PATHS ${CMAKE_CURRENT_SOURCE_DIR}/misc/submodules)
+  if (SHUN_DIR)
+    message(STATUS "Looking for Shun's Table -- found")
+    set(SHUN_INCLUDE ${SHUN_DIR}/shun/ndHash/)
+    include_directories(${SHUN_INCLUDE})
+  else()
+    message(STATUS "Looking for Shun's Table -- not found")
+    message("Cannot find Shun's Table. Therefore, some tests cannot be created! Download their code into the submodules/shun folder!")
+  endif()
+endif()
 
 if ((GROWT_HASHFCT STREQUAL XXHASH) OR
     (GROWT_HASHFCT STREQUAL XXH3))
@@ -253,7 +279,6 @@ if ((GROWT_HASHFCT STREQUAL XXHASH) OR
     set(GROWT_HASHFCT MURMUR2)
   endif()
 endif()
-
 
 configure_file ("misc/growt_config.h.in" "${PROJECT_BINARY_DIR}/growt_config.h")
 include_directories(${PROJECT_BINARY_DIR})
@@ -428,6 +453,29 @@ if (TBB_FOUND)
     text_none_folklore
     text_full_uaGrowT    text_full_usGrowT
     text_full_uaGrowT    text_full_usGrowT)
+endif()
+
+if (GROWT_BUILD_LEGACY)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ins)
+  add_executable(ins_hopscotch tests/ins_test.cpp)
+  set_target_properties(ins_hopscotch PROPERTIES COMPILE_FLAGS "${FLAGS}")
+  target_compile_definitions(ins_hopscotch PRIVATE
+    -D HOPSCOTCH -D${GROWT_HASHFCT})
+  target_link_libraries(ins_hopscotch ${TEST_DEP_LIBRARIES})
+
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ins)
+  add_executable(ins_leahash tests/ins_test.cpp)
+  set_target_properties(ins_leahash PROPERTIES COMPILE_FLAGS "${FLAGS}")
+  target_compile_definitions(ins_leahash PRIVATE
+    -D LEAHASH -D${GROWT_HASHFCT})
+  target_link_libraries(ins_leahash ${TEST_DEP_LIBRARIES})
+
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ins)
+  add_executable(ins_shunhash tests/ins_test.cpp)
+  set_target_properties(ins_shunhash PROPERTIES COMPILE_FLAGS "${FLAGS}")
+  target_compile_definitions(ins_shunhash PRIVATE
+    -D SHUNHASH -D${GROWT_HASHFCT})
+  target_link_libraries(ins_shunhash ${TEST_DEP_LIBRARIES})
 endif()
 
 if (GROWT_BUILD_TBB)
