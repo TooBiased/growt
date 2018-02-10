@@ -14,7 +14,8 @@
 #ifndef SHUN_WRAPPER
 #define SHUN_WRAPPER
 
-#include "ndHash.h"
+//#include "ndHash.h"
+#include "deterministicHash.h"
 #include "data-structures/simpleelement.h"
 
 #include "wrapper/stupid_iterator.h"
