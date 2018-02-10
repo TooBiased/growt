@@ -261,10 +261,28 @@ if (GROWT_BUILD_LEGACY)
     message("Cannot find Shun's Table. Therefore, some tests cannot be created! Download their code into the submodules/shun folder!")
   endif()
 
-    include_directories(${SHUN_INCLUDE})
+   message(STATUS "Looking for Shun's nd Table")
+  find_path(SHUN_ND_DIR      shun_nd/ndHash.h
+    PATHS ${CMAKE_CURRENT_SOURCE_DIR}/misc/submodules)
+  if (SHUN_ND_DIR)
+    message(STATUS "Looking for Shun's nd Table -- found")
+    set(SHUN_ND_INCLUDE ${SHUN_ND_DIR}/shun_nd/)
+    include_directories(${SHUN_ND_INCLUDE})
   else()
-    message(STATUS "Looking for Shun's Table -- not found")
-    message("Cannot find Shun's Table. Therefore, some tests cannot be created! Download their code into the submodules/shun folder!")
+    message(STATUS "Looking for Shun's nd Table -- not found")
+    message("Cannot find Shun's Table. Therefore, some tests cannot be created! Download their code into the submodules/shun_nd folder!")
+  endif()
+
+  message(STATUS "Looking for urcu package")
+  find_path(URCU_DIR      userspace-rcu/blablablablablablablablabla
+    PATHS ${CMAKE_CURRENT_SOURCE_DIR}/misc/submodules)
+  if (URCU_DIR)
+    message(STATUS "Looking for urcu package -- found")
+    set(SHUN_INCLUDE ${URCU_DIR}/userspace-rcu/)
+    include_directories(${URCU_INCLUDE})
+  else()
+    message(STATUS "Looking for urcu package -- not found")
+    message("Cannot find userspace rcu implementation. Therefore, some tests cannot be created! Download compile and install their code into the submodules/userspace-rcu folder!")
   endif()
 endif()
 
@@ -482,6 +500,13 @@ if (GROWT_BUILD_LEGACY)
   target_compile_definitions(ins_shunhash PRIVATE
     -D SHUNHASH -D${GROWT_HASHFCT})
   target_link_libraries(ins_shunhash ${TEST_DEP_LIBRARIES})
+
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ins)
+  add_executable(ins_shunhash_nd tests/ins_test.cpp)
+  set_target_properties(ins_shunhash_nd PROPERTIES COMPILE_FLAGS "${FLAGS_NO_WARNING}")
+  target_compile_definitions(ins_shunhash_nd PRIVATE
+    -D SHUNHASH -D${GROWT_HASHFCT} -DSHUN_ND)
+  target_link_libraries(ins_shunhash_nd ${TEST_DEP_LIBRARIES})
 endif()
 
 if (GROWT_BUILD_TBB)
