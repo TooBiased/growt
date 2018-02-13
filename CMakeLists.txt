@@ -79,7 +79,7 @@ endif()
 set (GROWT_MAX_FILL 0.6)
 
 
-set (OLD_FLAGS ${CMAKE_CXX_FLAGS})
+set (CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -std=c++1y -g -O2")
 
 set (FLAGS "-std=c++17 -msse4.2 -mcx16 -Wall -Wextra")
 
@@ -274,12 +274,18 @@ if (GROWT_BUILD_LEGACY)
   endif()
 
   message(STATUS "Looking for urcu package")
-  find_path(URCU_DIR      userspace-rcu/blablablablablablablablabla
+  find_path(URCU_DIR      userspace-rcu/install/include/urcu/rculfhash.h
     PATHS ${CMAKE_CURRENT_SOURCE_DIR}/misc/submodules)
   if (URCU_DIR)
     message(STATUS "Looking for urcu package -- found")
-    set(SHUN_INCLUDE ${URCU_DIR}/userspace-rcu/)
+    set(URCU_INCLUDE ${URCU_DIR}/userspace-rcu/install/include/)
     include_directories(${URCU_INCLUDE})
+    set(URCU_LIBRARIES -lurcu -lurcu-cds
+      -L${URCU_DIR}/userspace-rcu/install/lib/
+      -Wl,-rpath,${URCU_DIR}/userspace-rcu/install/lib)
+    set(URCU_QSBR_LIBRARIES -lurcu-qsbr -lurcu-cds
+      -L${URCU_DIR}/userspace-rcu/install/lib/
+      -Wl,-rpath,${URCU_DIR}/userspace-rcu/install/lib)
   else()
     message(STATUS "Looking for urcu package -- not found")
     message("Cannot find userspace rcu implementation. Therefore, some tests cannot be created! Download compile and install their code into the submodules/userspace-rcu folder!")
@@ -505,8 +511,22 @@ if (GROWT_BUILD_LEGACY)
   add_executable(ins_shunhash_nd tests/ins_test.cpp)
   set_target_properties(ins_shunhash_nd PROPERTIES COMPILE_FLAGS "${FLAGS_NO_WARNING}")
   target_compile_definitions(ins_shunhash_nd PRIVATE
-    -D SHUNHASH -D${GROWT_HASHFCT} -DSHUN_ND)
+    -D SHUNHASH -D${GROWT_HASHFCT} -D SHUN_ND)
   target_link_libraries(ins_shunhash_nd ${TEST_DEP_LIBRARIES})
+
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ins)
+  add_executable(ins_rcu_base tests/ins_test.cpp)
+  set_target_properties(ins_rcu_base PROPERTIES COMPILE_FLAGS "${FLAGS_NO_WARNING}")
+  target_compile_definitions(ins_rcu_base PRIVATE
+    -D RCU_BASE -D${GROWT_HASHFCT})
+  target_link_libraries(ins_rcu_base ${TEST_DEP_LIBRARIES} ${URCU_LIBRARIES})
+
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ins)
+  add_executable(ins_rcu_qsbr tests/ins_test.cpp)
+  set_target_properties(ins_rcu_qsbr PROPERTIES COMPILE_FLAGS "${FLAGS_NO_WARNING}")
+  target_compile_definitions(ins_rcu_qsbr PRIVATE
+    -D RCU_BASE -D${GROWT_HASHFCT} -D QSBR)
+  target_link_libraries(ins_rcu_qsbr ${TEST_DEP_LIBRARIES} ${URCU_QSBR_LIBRARIES})
 endif()
 
 if (GROWT_BUILD_TBB)
@@ -541,7 +561,6 @@ if (GROWT_BUILD_TBB)
     mix_full_TBBhm mix_full_TBBum
     con_full_TBBhm con_full_TBBum
     agg_full_TBBhm agg_full_TBBum)
-
   if (GROWT_BUILD_MEMORY_TEST)
     GrowTExecutable( TBBHM ins_test mem mem_full_TBBhm )
     target_compile_definitions(mem_full_TBBhm PRIVATE -D GROWT_RSS_MODE)
