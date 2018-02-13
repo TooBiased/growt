@@ -252,7 +252,7 @@
 //<junction::ConcurrentMap_Linear<turf::u64, turf::u64> >
 #endif // JUNCTION_GRAMPA
 
-#ifdef JUNCTION_LEAPFROG
+#ifdef JUNCTION_LEAP
 #define JUNCTION_TYPE junction::ConcurrentMap_Leapfrog
 #include "wrapper/junction_wrapper.h"
 #define HASHTYPE JunctionWrapper
@@ -273,5 +273,10 @@
 #include "legacy_wrapper/shun_wrapper.h"
 #define HASHTYPE ShunWrapper<HASHFCT>
 #endif // SHUNHASH
+
+#ifdef RCU_BASE
+#include "legacy_wrapper/rcubase_wrapper.h"
+#define HASHTYPE RCUBaseWrapper<HASHFCT>
+#endif // RCU_BASE
 
 #endif // SELECTION
