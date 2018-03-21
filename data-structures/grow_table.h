@@ -131,7 +131,7 @@ public:
 
 
     GrowTableData(size_type size_)
-        : global_exclusion(size_), global_worker(), handle_ptr(64),
+        : global_exclusion(size_), global_worker(), // handle_ptr(64),
           elements(0), dummies(0), grow_count(0)
     { }
 
@@ -148,7 +148,7 @@ private:
     mutable typename ExclusionStrat_t::global_data_t global_exclusion;
     mutable typename WorkerStrat_t   ::global_data_t global_worker;
 
-    mutable ConcurrentPtrArray<Handle> handle_ptr;
+    // mutable ConcurrentPtrArray<Handle> handle_ptr;
 
     // APPROXIMATE COUNTS
     alignas(64) std::atomic_int elements;
@@ -254,7 +254,7 @@ public:
 
 
     size_type element_count_approx() { return gtData.element_count_approx(); }
-    size_type element_count_unsafe();
+    //size_type element_count_unsafe();
 
 private:
     // DATA+FUNCTIONS FOR MIGRATION STRATEGIES
@@ -367,7 +367,7 @@ GrowTableHandle<GrowTableData>::GrowTableHandle(GrowTableData &data)
       max_fill_factor(0.666),
       counts()
 {
-    handle_id = gtData.handle_ptr.push_back(this);
+    //handle_id = gtData.handle_ptr.push_back(this);
 
     //INITIALIZE STRATEGY DEPENDENT DATA MEMBERS
     local_exclusion.init();
@@ -381,7 +381,7 @@ GrowTableHandle<GrowTableData>::GrowTableHandle(Parent_t      &parent)
       max_fill_factor(0.666),
       counts()
 {
-    handle_id = gtData.handle_ptr.push_back(this);
+    //handle_id = gtData.handle_ptr.push_back(this);
 
     //INITIALIZE STRATEGY DEPENDENT DATA MEMBERS
     local_exclusion.init();
@@ -398,8 +398,8 @@ GrowTableHandle<GrowTableData>::GrowTableHandle(GrowTableHandle&& source)
       max_fill_factor(source.max_fill_factor),
       counts(std::move(source.counts))
 {
-    gtData.handle_ptr.update(handle_id, this);
-    source.handle_id = std::numeric_limits<size_t>::max();
+    //gtData.handle_ptr.update(handle_id, this);
+    //source.handle_id = std::numeric_limits<size_t>::max();
 }
 
 template<class GrowTableData>
@@ -419,10 +419,10 @@ template<class GrowTableData>
 GrowTableHandle<GrowTableData>::~GrowTableHandle()
 {
 
-    if (handle_id < std::numeric_limits<size_t>::max())
-    {
-        gtData.handle_ptr.remove(handle_id);
-    }
+    // if (handle_id < std::numeric_limits<size_t>::max())
+    // {
+    //     gtData.handle_ptr.remove(handle_id);
+    // }
     if (counts.version >= 0)
     {
         update_numbers();
@@ -809,27 +809,27 @@ inline void GrowTableHandle<GrowTableData>::inc_deleted(int v)
     }
 }
 
-template <typename GrowTableData>
-inline typename GrowTableHandle<GrowTableData>::size_type
-GrowTableHandle<GrowTableData>::element_count_unsafe()
-{
-    int v = getTable()->version;
-    rlsTable();
+// template <typename GrowTableData>
+// inline typename GrowTableHandle<GrowTableData>::size_type
+// GrowTableHandle<GrowTableData>::element_count_unsafe()
+// {
+//     int v = getTable()->version;
+//     rlsTable();
 
-    int temp = gtData.elements.load();
-    temp    -= gtData.dummies.load();
-    temp    += gtData.handle_ptr.forall([v](This_t* h, int res)
-                                        {
-                                            if (h->counts.version != v)
-                                            {
-                                                return res;
-                                            }
-                                            int temp = res;
-                                            temp += h->counts.inserted;
-                                            temp -= h->counts.deleted;
-                                            return temp;
-                                        });
-    return temp;
-}
+//     int temp = gtData.elements.load();
+//     temp    -= gtData.dummies.load();
+//     temp    += gtData.handle_ptr.forall([v](This_t* h, int res)
+//                                         {
+//                                             if (h->counts.version != v)
+//                                             {
+//                                                 return res;
+//                                             }
+//                                             int temp = res;
+//                                             temp += h->counts.inserted;
+//                                             temp -= h->counts.deleted;
+//                                             return temp;
+//                                         });
+//     return temp;
+// }
 
 }
