@@ -157,9 +157,9 @@ public:
                 }
             }
 
-            worker_strat.execute_migration(*this, epoch);// table);
+            worker_strat.execute_migration(*this, epoch);
 
-            /*/ TEST STUFF =========================================================
+            /*/ TEST STUFF =====================================================
             static std::atomic_size_t already{0};
             auto temp = already.fetch_add(1);
             if (temp == 0)
@@ -186,7 +186,7 @@ public:
             }
 
             leave_migration();
-            //*/// ====================================================================
+            //*/// =============================================================
 
             endGrow();
         }
@@ -194,7 +194,7 @@ public:
 
         void helpGrow()
         {
-            worker_strat.execute_migration(*this, epoch);//, table);
+            worker_strat.execute_migration(*this, epoch);
             endGrow();
         }
 
@@ -220,9 +220,9 @@ public:
                 return next->version;
             }
 
-            // parent.grow_count.fetch_add(
+            //global.g_count.fetch_add(
             blockwise_migrate(curr, next);//,
-            //     std::memory_order_acq_rel);
+            //std::memory_order_acq_rel);
 
 
             // leave_migration(): nhelper --
@@ -254,10 +254,13 @@ public:
                     global.g_table_r = global.g_table_w;
                     global.g_epoch_r.store(global.g_epoch_w.load(std::memory_order_acquire),
                                            std::memory_order_release);
-                    // parent.elements.store(parent.grow_count.load(std::memory_order_acquire),
-                    //                       std::memory_order_release);
-                    // parent.dummies.store(0, std::memory_order_release);
-                    // parent.grow_count.store(0, std::memory_order_release);
+
+                    //auto temp = global.g_count.load(std::memory_order_acquire);
+                    //parent.elements.store(temp, std::memory_order_release);
+                    //parent.dummies .store(   0, std::memory_order_release);
+                    //global.g_count .store(   0, std::memory_order_release);
+                    auto temp = parent.dummies.exchange(0, std::memory_order_acq_rel);
+                    parent.elements.fetch_sub(temp, std::memory_order_release);
                 }
             }
 

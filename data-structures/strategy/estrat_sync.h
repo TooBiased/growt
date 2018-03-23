@@ -251,10 +251,10 @@ public:
 
             waitForMigration();
 
-            parent.elements.store(parent.grow_count.load(std::memory_order_acquire),
-                                  std::memory_order_release);
-            parent.dummies.store(0, std::memory_order_release);
-            parent.grow_count.store(0, std::memory_order_release);
+            //parent.elements.store(parent.grow_count.load(std::memory_order_acquire),
+            //                      std::memory_order_release);
+            //parent.dummies.store(0, std::memory_order_release);
+            //parent.grow_count.store(0, std::memory_order_release);
 
             if (! global.g_table_r.compare_exchange_strong(t_cur,
                                                            t_next,
@@ -276,7 +276,7 @@ public:
             worker_strat.execute_migration(*this, epoch);
 
                 //wait till growmaster replaced the current table
-            while (global.currently_growing.load(std::memory_order_acquire));
+            while (global.currently_growing.load(std::memory_order_acquire)) { }
         }
 
 
@@ -298,7 +298,8 @@ public:
 
                 return next->version;
             }
-            parent.grow_count.fetch_add(blockwise_migrate(curr, next));//,
+            //parent.grow_count.fetch_add(
+                blockwise_migrate(curr, next);//);//,
             //std::memory_order_release);
 
             // leave_migration();
