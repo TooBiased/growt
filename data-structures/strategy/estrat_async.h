@@ -220,9 +220,9 @@ public:
                 return next->version;
             }
 
-            parent.grow_count.fetch_add(
-                blockwise_migrate(curr, next),
-                std::memory_order_acq_rel);
+            // parent.grow_count.fetch_add(
+            blockwise_migrate(curr, next);//,
+            //     std::memory_order_acq_rel);
 
 
             // leave_migration(): nhelper --
@@ -254,10 +254,10 @@ public:
                     global.g_table_r = global.g_table_w;
                     global.g_epoch_r.store(global.g_epoch_w.load(std::memory_order_acquire),
                                            std::memory_order_release);
-                    parent.elements.store(parent.grow_count.load(std::memory_order_acquire),
-                                          std::memory_order_release);
-                    parent.dummies.store(0, std::memory_order_release);
-                    parent.grow_count.store(0, std::memory_order_release);
+                    // parent.elements.store(parent.grow_count.load(std::memory_order_acquire),
+                    //                       std::memory_order_release);
+                    // parent.dummies.store(0, std::memory_order_release);
+                    // parent.grow_count.store(0, std::memory_order_release);
                 }
             }
 

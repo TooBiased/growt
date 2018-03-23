@@ -74,11 +74,13 @@
 #include "data-structures/base_circular.h"
 #include "data-structures/strategy/wstrat_user.h"
 #include "data-structures/strategy/estrat_async.h"
-#include "data-structures/grow_table.h"
+//#include "data-structures/grow_table.h"
+#include "data-structures/ancient_grow.h"
 #define HASHTYPE growt::GrowTable<growt::BaseCircular<growt::MarkableElement, \
                                                   HASHFCT, \
                                                   ALLOCATOR<> >, \
                                   growt::WStratUser, growt::EStratAsync>
+
 #endif // UAGROW
 
 #ifdef PAGROW
