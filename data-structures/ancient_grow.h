@@ -20,7 +20,7 @@
 
 
 #include "data-structures/grow_iterator.h"
-//#include "data-structures/returnelement.h"
+#include "example/update_fcts.h"
 
 #include <atomic>
 #include <memory>
@@ -227,19 +227,22 @@ public:
     { return const_iterator(bcend(), 0, *this); }
 
     insert_return_type insert(const key_type& k, const mapped_type& d);
+    iterator           find (const key_type& k);
+    const_iterator     find (const key_type& k) const;
+
+    mapped_reference operator[](const key_type& k)
+    { return (*insert(k, mapped_type())).second; }
+    insert_return_type insert_or_assign(const key_type& k, const mapped_type& d)
+    { return insertOrUpdate(k, d, example::Overwrite(), d); }
+
+    size_type          erase(const key_type& k);
 
     template <class F, class ... Types>
-    insert_return_type update(const key_type& k, F f, Types&& ... args);
-
+    insert_return_type update        (const key_type& k, F f, Types&& ... args);
     template <class F, class ... Types>
     insert_return_type insertOrUpdate(const key_type& k, const mapped_type& d, F f, Types&& ... args);
-
-    iterator           find (const key_type& k);
-    size_type          erase(const key_type& k);
-    //ReturnCode         remove(const key_type& k);
-
     template <class F, class ... Types>
-    insert_return_type update_unsafe(const key_type& k, F f, Types&& ...args);
+    insert_return_type update_unsafe (const key_type& k, F f, Types&& ...args);
     template <class F, class ... Types>
     insert_return_type insertOrUpdate_unsafe(const key_type& k, const mapped_type& d, F f, Types&& ... args);
 
@@ -266,15 +269,16 @@ private:
         return result;
     }
 
-    insert_return_type insert(const InternElement_t & e);
-    template <class F>
-    ReturnCode update(const InternElement_t & e, F f);
-    template <class F>
-    ReturnCode insertOrUpdate(const InternElement_t & e, F f);
-    template <class F>
-    ReturnCode update_unsafe(const InternElement_t & e, F f);
-    template <class F>
-    ReturnCode insertOrUpdate_unsafe(const InternElement_t & e, F f);
+    template<typename Functor, typename ... Types>
+    inline typename std::result_of<Functor(HashPtrRef_t, Types&& ...)>::type
+    cexecute (Functor f, Types&& ... param) const
+    {
+        HashPtrRef_t temp = local_exclusion.getTable();
+        auto result = std::forward<Functor>(f)
+                          (temp, std::forward<Types>(param)...);
+        rlsTable();
+        return result;
+    }
 
     double max_fill_factor;
 
@@ -419,28 +423,67 @@ GrowTableHandle<GrowTableData>::insert(const key_type& k, const mapped_type& d)
 }
 
 template<class GrowTableData>
-inline typename GrowTableHandle<GrowTableData>::insert_return_type GrowTableHandle<GrowTableData>::insert(const InternElement_t& e)
+inline typename GrowTableHandle<GrowTableData>::iterator
+GrowTableHandle<GrowTableData>::find(const key_type& k)
 {
-    return insert(e.key, e.data);
-    // switch(result)
-    // {
-    // case ReturnCode::SUCCESS_IN:
-    // case ReturnCode::TSX_SUCCESS_IN:
-    //     inc_inserted();
-    // case ReturnCode::UNSUCCESS_ALREADY_USED:
-    // case ReturnCode::TSX_UNSUCCESS_ALREADY_USED:
-    //     return result;
-    // case ReturnCode::UNSUCCESS_FULL:
-    // case ReturnCode::TSX_UNSUCCESS_FULL:
-    //     grow();
-    //     return insert(e);
-    // case ReturnCode::UNSUCCESS_INVALID:
-    // case ReturnCode::TSX_UNSUCCESS_INVALID:
-    //     helpGrow();
-    //     return insert(e);
-    // default:
-    //     return ReturnCode::ERROR;
-    // }
+    base_iterator it = bend();
+    size_t        v  = 0;
+    std::tie(v, it)  =
+        execute([this](HashPtrRef_t t, const key_type& k)
+                -> std::pair<size_t, base_iterator>
+                { return std::make_pair(t->version, t->find(k)); },
+                      k);
+    return iterator(it, v, *this);
+}
+
+template<class GrowTableData>
+inline typename GrowTableHandle<GrowTableData>::const_iterator
+GrowTableHandle<GrowTableData>::find(const key_type& k) const
+{
+    base_citerator it = bcend();
+    size_t         v  = 0;
+    std::tie(v, it)   =
+        execute([this](HashPtrRef_t t, const key_type& k)
+                -> std::pair<size_t, base_citerator>
+                { return std::make_pair(t->version, t->find(k)); },
+                      k);
+    return const_iterator(it, v, *this);
+}
+
+template<class GrowTableData>
+inline typename GrowTableHandle<GrowTableData>::size_type
+GrowTableHandle<GrowTableData>::erase(const key_type& k)
+{
+    int v = -1;
+    ReturnCode result = ReturnCode::ERROR;
+    std::tie (v, result) = execute([](HashPtrRef_t t, const key_type& k)
+                                     ->std::pair<int,ReturnCode>
+                                   {
+                                       std::pair<int,ReturnCode> result =
+                                           std::make_pair(t->version,
+                                                          t->erase_intern(k));
+                                       return result;
+                                   },
+                                   k);
+
+    switch(result)
+    {
+    case ReturnCode::SUCCESS_DEL:
+        inc_deleted();
+        return 1;
+    case ReturnCode::TSX_SUCCESS_DEL:
+        inc_deleted(); // TSX DELETION COULD BE USED TO AVOID DUMMIES => dec_inserted()
+        return 1;
+    case ReturnCode::UNSUCCESS_INVALID:
+    case ReturnCode::TSX_UNSUCCESS_INVALID:
+        helpGrow();
+        return erase(k);
+    case ReturnCode::UNSUCCESS_NOT_FOUND:
+    case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
+        return 0;
+    default:
+        return 0;
+    }
 }
 
 template<class GrowTableData> template <class F, class ... Types>
@@ -468,7 +511,6 @@ GrowTableHandle<GrowTableData>::update(const key_type& k, F f, Types&& ... args)
                // makeInsertRet(result.first, v, true);
     case ReturnCode::UNSUCCESS_NOT_FOUND:
     case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
-        //std::cout << "!" << std::flush;
         return std::make_pair(iterator(result.first,v,*this), false);
                // makeInsertRet(result.first, v, false);
     case ReturnCode::UNSUCCESS_FULL:
@@ -483,43 +525,8 @@ GrowTableHandle<GrowTableData>::update(const key_type& k, F f, Types&& ... args)
         return std::make_pair(end(), false);
                // makeInsertRet(bend(), v, false);
     }
-
-    //return update(InternElement_t(k,d), f);
 }
 
-template<class GrowTableData> template <class F>
-inline ReturnCode GrowTableHandle<GrowTableData>::update(const InternElement_t& e, F f)
-{
-    int v = -1;
-    ReturnCode result = ReturnCode::ERROR;
-
-    std::tie (v, result) = execute([](HashPtrRef_t t, const InternElement_t& e, F f)->std::pair<int,ReturnCode>
-                                   {
-                                       std::pair<int, ReturnCode> result =
-                                           std::make_pair(t->version,
-                                                          t->update(e, f));
-                                       return result;
-                                   },
-                                   e, f);
-
-    switch(result)
-    {
-    case ReturnCode::SUCCESS_UP:
-    case ReturnCode::TSX_SUCCESS_UP:
-    case ReturnCode::UNSUCCESS_NOT_FOUND:
-    case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
-        return result;
-    case ReturnCode::UNSUCCESS_FULL:
-    case ReturnCode::TSX_UNSUCCESS_FULL:
-        grow();  // usually impossible as this collides with NOT_FOUND
-        return update(e, f);
-    case ReturnCode::UNSUCCESS_INVALID:
-    case ReturnCode::TSX_UNSUCCESS_INVALID:
-        return update(e, f);
-    default:
-        return ReturnCode::ERROR;
-    }
-}
 
 template<class GrowTableData> template <class F, class ... Types>
 inline typename GrowTableHandle<GrowTableData>::insert_return_type
@@ -561,46 +568,7 @@ GrowTableHandle<GrowTableData>::insertOrUpdate(const key_type& k, const mapped_t
         return std::make_pair(end(), false);
             // makeInsertRet(bend(), v, false);
     }
-    //return insertOrUpdate(InternElement_t(k,d), f);
 }
-
-template<class GrowTableData> template <class F>
-inline ReturnCode GrowTableHandle<GrowTableData>::insertOrUpdate(const InternElement_t& e, F f)
-{
-    int v = -1;
-    ReturnCode result = ReturnCode::ERROR;
-
-    std::tie (v, result) = execute([](HashPtrRef_t t, const InternElement_t& e, F f)->std::pair<int,ReturnCode>
-                                   {
-                                       std::pair<int, ReturnCode> result =
-                                           std::make_pair(t->version,
-                                                          t->insertOrUpdate(e, f));
-                                       return result;
-                                   },
-                                   e, f);
-
-    switch(result)
-    {
-    case ReturnCode::SUCCESS_IN:
-    case ReturnCode::TSX_SUCCESS_IN:
-        inc_inserted();
-        return result;
-    case ReturnCode::SUCCESS_UP:
-    case ReturnCode::TSX_SUCCESS_UP:
-        return result;
-    case ReturnCode::UNSUCCESS_FULL:
-    case ReturnCode::TSX_UNSUCCESS_FULL:
-        grow();
-        return insertOrUpdate(e, f);
-    case ReturnCode::UNSUCCESS_INVALID:
-    case ReturnCode::TSX_UNSUCCESS_INVALID:
-        helpGrow();
-        return insertOrUpdate(e, f);
-    default:
-        return ReturnCode::ERROR;
-    }
-}
-
 
 template<class GrowTableData> template <class F, class ... Types>
 inline typename GrowTableHandle<GrowTableData>::insert_return_type
@@ -642,52 +610,8 @@ GrowTableHandle<GrowTableData>::update_unsafe(const key_type& k, F f, Types&& ..
         return std::make_pair(end(), false);
                // makeInsertRet(bend(), v, false);
     }
-
-    //return update(InternElement_t(k,d), f);
 }
 
-
-// template<class GrowTableData> template <class F>
-// inline ReturnCode GrowTableHandle<GrowTableData>::update_unsafe(const key_type& k, const mapped_type& d, F f)
-// {   return update_unsafe(InternElement_t(k,d), f);  }
-
-template<class GrowTableData> template <class F>
-inline ReturnCode GrowTableHandle<GrowTableData>::update_unsafe(const InternElement_t& e, F f)
-{
-    int v = -1;
-    ReturnCode result = ReturnCode::ERROR;
-
-    std::tie (v, result) = execute([](HashPtrRef_t t, const InternElement_t& e, F f)->std::pair<int,ReturnCode>
-                                   {
-                                       std::pair<int, ReturnCode> result =
-                                           std::make_pair(t->version,
-                                                          t->update_unsafe(e, f));
-                                       return result;
-                                   },
-                                   e, f);
-
-    switch(result)
-    {
-    case ReturnCode::SUCCESS_UP:
-    case ReturnCode::TSX_SUCCESS_UP:
-    case ReturnCode::UNSUCCESS_NOT_FOUND:
-    case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
-        return result;
-    case ReturnCode::UNSUCCESS_FULL:
-    case ReturnCode::TSX_UNSUCCESS_FULL:
-        grow();
-        return update_unsafe(e, f);
-    case ReturnCode::UNSUCCESS_INVALID:
-    case ReturnCode::TSX_UNSUCCESS_INVALID:
-        return update_unsafe(e, f);
-    default:
-        return ReturnCode::ERROR;
-    }
-}
-
-// template<class GrowTableData> template <class F>
-// inline ReturnCode GrowTableHandle<GrowTableData>::insertOrUpdate_unsafe(const key_type& k, const mapped_type& d, F f)
-// {   return insertOrUpdate_unsafe(InternElement_t(k,d), f);  }
 
 template<class GrowTableData> template <class F, class ... Types>
 inline typename GrowTableHandle<GrowTableData>::insert_return_type
@@ -729,128 +653,11 @@ GrowTableHandle<GrowTableData>::insertOrUpdate_unsafe(const key_type& k, const m
         return std::make_pair(end(), false);
             // makeInsertRet(bend(), v, false);
     }
-    //return insertOrUpdate(InternElement_t(k,d), f);
 }
 
 
-template<class GrowTableData> template <class F>
-inline ReturnCode GrowTableHandle<GrowTableData>::insertOrUpdate_unsafe(const InternElement_t& e, F f)
-{
-    int v = -1;
-    ReturnCode result = ReturnCode::ERROR;
 
-    std::tie (v, result) = execute([](HashPtrRef_t t, const InternElement_t& e, F f)->std::pair<int,ReturnCode>
-                                   {
-                                       std::pair<int, ReturnCode> result =
-                                           std::make_pair(t->version,
-                                                          t->insertOrUpdate_unsafe(e, f));
-                                       return result;
-                                   },
-                                   e, f);
-
-    switch(result)
-    {
-    case ReturnCode::SUCCESS_IN:
-    case ReturnCode::TSX_SUCCESS_IN:
-        inc_inserted();
-        return result;
-    case ReturnCode::SUCCESS_UP:
-    case ReturnCode::TSX_SUCCESS_UP:
-        return result;
-    case ReturnCode::UNSUCCESS_FULL:
-    case ReturnCode::TSX_UNSUCCESS_FULL:
-        grow();
-        return insertOrUpdate_unsafe(e, f);
-    case ReturnCode::UNSUCCESS_INVALID:
-    case ReturnCode::TSX_UNSUCCESS_INVALID:
-        helpGrow();
-        return insertOrUpdate_unsafe(e, f);
-    default:
-        return ReturnCode::ERROR;
-    }
-}
-
-template<class GrowTableData>
-inline typename GrowTableHandle<GrowTableData>::iterator GrowTableHandle<GrowTableData>::
-    find(const key_type& k)
-{
-    base_iterator it = bend();
-    size_t        v  = 0;
-    std::tie(v, it)  = execute([this](HashPtrRef_t t, const key_type& k) -> std::pair<size_t, base_iterator>
-                              { return std::make_pair(t->version, t->find(k)); },
-                     k);
-    return iterator(it, v, *this);
-}
-
-template<class GrowTableData>
-inline typename GrowTableHandle<GrowTableData>::size_type
-GrowTableHandle<GrowTableData>::erase(const key_type& k)
-{
-    int v = -1;
-    ReturnCode result = ReturnCode::ERROR;
-    std::tie (v, result) = execute([](HashPtrRef_t t, const key_type& k)
-                                     ->std::pair<int,ReturnCode>
-                                   {
-                                       std::pair<int,ReturnCode> result =
-                                           std::make_pair(t->version,
-                                                          t->erase_intern(k));
-                                       return result;
-                                   },
-                                   k);
-
-    switch(result)
-    {
-    case ReturnCode::SUCCESS_DEL:
-        inc_deleted();//v);
-        return 1;
-    case ReturnCode::TSX_SUCCESS_DEL:
-        inc_deleted();//v);  // TSX DELETION COULD BE USED TO AVOID DUMMIES => dec_inserted()
-        return 1;
-    case ReturnCode::UNSUCCESS_INVALID:
-    case ReturnCode::TSX_UNSUCCESS_INVALID:
-        helpGrow();
-        return erase(k);
-    case ReturnCode::UNSUCCESS_NOT_FOUND:
-    case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
-        return 0;
-    default:
-        return 0;
-    }
-}
-
-// template<class GrowTableData>
-// inline ReturnCode GrowTableHandle<GrowTableData>::remove(const key_type& k)
-// {
-//     int v = -1;
-//     ReturnCode result = ReturnCode::ERROR;
-//     std::tie (v, result) = execute([](HashPtrRef_t t, const key_type& k)->std::pair<int,ReturnCode>
-//                                    {
-//                                        std::pair<int, ReturnCode> result =
-//                                            std::make_pair(t->version,
-//                                                           t->remove(k));
-//                                        return result;
-//                                    },
-//                                    k);
-
-//     switch(result)
-//     {
-//     case ReturnCode::SUCCESS_DEL:
-//         inc_deleted();
-//         return result;
-//     case ReturnCode::TSX_SUCCESS_DEL:
-//         inc_deleted();  // TSX DELETION COULD BE USED TO AVOID DUMMIES => dec_inserted()
-//         return result;
-//     case ReturnCode::UNSUCCESS_INVALID:
-//     case ReturnCode::TSX_UNSUCCESS_INVALID:
-//         helpGrow();
-//         return remove(k);
-//     case ReturnCode::UNSUCCESS_NOT_FOUND:
-//     case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
-//         return result;
-//     default:
-//         return ReturnCode::ERROR;
-//     }
-// }
+// ELEMENT COUNTING STUFF ******************************************************
 
 template<class GrowTableData>
 inline void GrowTableHandle<GrowTableData>::update_numbers()
