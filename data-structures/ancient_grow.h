@@ -91,7 +91,7 @@ public:
     using Handle           = GrowTableHandle<GTD_t>;
     friend Handle;
 
-    GrowTable (size_t size) : gtData(new GTD_t(size)) { }
+    GrowTable (size_t size) : gtData(std::make_unique<GTD_t>(size)) { }
 
     GrowTable (const GrowTable& source)            = delete;
     GrowTable& operator= (const GrowTable& source) = delete;
@@ -343,10 +343,10 @@ GrowTableHandle<GrowTableData>& GrowTableHandle<GrowTableData>::operator=(GrowTa
     gtData(source.gtData);
     local_worker   (std::move(source.local_worker));
     local_exclusion(std::move(source.local_exclusion));
-    max_fill_factor(source.max_fill_factor);
-    updates        (source.updates);
-    inserted       (source.inserted);
-    deleted        (source.deleted);
+    max_fill_factor = source.max_fill_factor;
+    updates         = source.updates;
+    inserted        = source.inserted;
+    deleted         = source.deleted;
     source.inserted = 0;
     source.deleted  = 0;
     return *this;
@@ -673,7 +673,7 @@ inline void GrowTableHandle<GrowTableData>::update_numbers()
     int cap = getTable()->capacity * max_fill_factor;
     rlsTable();
 
-    if ((temp + inserted > cap) && (temp <= cap))
+    if (temp + inserted > cap)
     {
         //rlsTable();
         grow();

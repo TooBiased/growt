@@ -244,7 +244,7 @@ public:
         inline void endGrow()
         {
             //wait for other helpers
-            while (global.n_helper.load(std::memory_order_acquire)) {}
+            while (global.n_helper.load(std::memory_order_acquire)) { }
 
             //CAS table into R-Position
             {
@@ -259,6 +259,8 @@ public:
                     //parent.elements.store(temp, std::memory_order_release);
                     //parent.dummies .store(   0, std::memory_order_release);
                     //global.g_count .store(   0, std::memory_order_release);
+
+
                     auto temp = parent.dummies.exchange(0, std::memory_order_acq_rel);
                     parent.elements.fetch_sub(temp, std::memory_order_release);
                 }
