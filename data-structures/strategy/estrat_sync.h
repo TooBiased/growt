@@ -90,7 +90,7 @@ public:
 
         // prevents false sharing between handlespecific flags
         // essential for good performance
-        struct alignas(64) HandleFlags
+        struct alignas(128) HandleFlags
         {
             std::atomic_size_t in_use;
             std::atomic_size_t table_op;
@@ -101,11 +101,11 @@ public:
 
 
         // align to cache line
-        alignas(64) std::atomic_size_t currently_growing;
-        /*same*/    std::atomic_size_t handle_id;
-        /*same*/    HashPtr g_table_r;
-        /*same*/    HashPtr g_table_w;
-        alignas(64) HandleFlags handle_flags[max_sim_threads];
+        std::atomic_size_t currently_growing;
+        std::atomic_size_t handle_id;
+        HashPtr g_table_r;
+        HashPtr g_table_w;
+        alignas(128) HandleFlags handle_flags[max_sim_threads];
 
         size_t registerHandle()
         {
