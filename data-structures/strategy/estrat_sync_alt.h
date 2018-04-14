@@ -238,7 +238,7 @@ public:
 
             auto t_cur   = global.g_table_r.load();//std::memory_order_acquire);
             auto t_next  = new BaseTable_t(//t_cur->size << 1, t_cur->version+1);
-                        BaseTable_t::resize(t_cur->size,
+                        BaseTable_t::resize(t_cur->capacity,
                                            parent.elements.load(),//std::memory_order_acquire),
                                            parent.dummies.load()),//std::memory_order_acquire)),
                         t_cur->version+1);
@@ -267,10 +267,14 @@ public:
 
             waitForMigration();
 
-            parent.elements.store(parent.grow_count.load(std::memory_order_acquire),
-                                  std::memory_order_release);
-            parent.dummies.store(0, std::memory_order_release);
-            parent.grow_count(0, std::memory_order_release);
+            auto temp = parent.dummies.load();
+            parent.dummies .fetch_sub(temp);
+            parent.elements.fetch_sub(temp);
+
+            // parent.elements.store(parent.grow_count.load(std::memory_order_acquire),
+            //                       std::memory_order_release);
+            // parent.dummies.store(0, std::memory_order_release);
+            // parent.grow_count(0, std::memory_order_release);
 
             if (! global.g_table_r.compare_exchange_strong(t_cur,
                                                            t_next))//,
@@ -310,7 +314,8 @@ public:
 
                 return next->version;
             }
-            parent.grow_count.fetch_add(blockwise_migrate(curr, next));//,
+            //parent.grow_count.fetch_add(
+            blockwise_migrate(curr, next);//);//,
             //std::memory_order_release);
 
             // leave_migration();

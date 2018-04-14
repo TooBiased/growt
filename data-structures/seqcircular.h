@@ -189,13 +189,15 @@ private:
     size_t n_elem;
     size_t thresh;
 
-    inline void inc_n()
+    inline bool inc_n()
     {
-        ++n_elem;
+        n_elem += 1;
         if (n_elem > thresh)
         {
             grow();
+            return true;
         }
+        return false;
     }
 
     inline void grow()
@@ -317,8 +319,8 @@ SeqCircular<E,HF,A,MD,MS>::insert(const key_type& k, const mapped_type& d)
         if (curr.compareKey(k)) return insert_return_type(make_it(&t[temp], k), false); // already hashed
         else if (curr.isEmpty())
         {
+            if (inc_n()) { n_elem--; return insert(k,d); }
             t[temp] = E(k,d);
-            inc_n();
             return insert_return_type(make_it(&t[temp], k), true);
         }
         else if (curr.isDeleted())
@@ -370,13 +372,13 @@ SeqCircular<E,HF,A,MD,MS>::insertOrUpdate(const key_type& k, const mapped_type& 
         if (curr.compareKey(k))
         {
             t[temp].nonAtomicUpdate(f, std::forward<Types>(args) ...);
-            insert_return_type(make_it(&t[temp], k), false);
+            return insert_return_type(make_it(&t[temp], k), false);
         }
         else if (curr.isEmpty())
         {
+            if (inc_n()) { n_elem--; return insert(k,d); }
             t[temp] = E(k,d);
-            inc_n();
-            insert_return_type(make_it(&t[temp], k), true);
+            return insert_return_type(make_it(&t[temp], k), true);
         }
         else if (curr.isDeleted())
         {
