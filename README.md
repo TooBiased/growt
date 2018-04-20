@@ -217,7 +217,7 @@ submodules (downloaded through git).
 - Folly - ```folly::AtomicHashMap```
 
 
-### BUILD NOTES]
+### BUILD NOTES
 Tested using current versions of g++.
 
 ##### Easy build without third party code
