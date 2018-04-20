@@ -30,7 +30,7 @@ option(GTOWT_BUILD_ALTERNATE_VARIANT
   "(optional) builds another variant of our synchroneously growing hash tables (usnGrow and psnGrow)." OFF)
 
 option(GROWT_BUILD_ALL_THIRD_PARTIES
-  "(optional) builds tests for third party hash tables." ON)
+  "(optional) builds tests for third party hash tables." OFF)
 
 option(GROWT_BUILD_FOLLY
   "(optional) builds tests for folly (using a wrapper)!" OFF)
