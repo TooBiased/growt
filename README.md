@@ -1,5 +1,5 @@
 
-*** ABOUT
+### ABOUT
 growt (GrowTable) is a header only library implementing a concurrent
 growing hash table.  There are different variants depending on the use
 case. See explanation below.
@@ -10,7 +10,7 @@ tests/benchmarks. These were also used to generate the plots displayed
 in our scientific publication => https://arxiv.org/abs/1601.04017
 (slightly outdated).
 
-*** Hash table interface
+### Hash table interface
 To remain fast while storing some per thread data, we use
 handles.  These help us to remain fast when accessing the hash
 table.  Even though this is a change from the traditional interface, we
@@ -68,7 +68,7 @@ Using handles is not necessary for our non-growing tables.
   reference).
 
 
-***** About UpdateFunctions
+##### About UpdateFunctions
 Our update interface uses a user implemented update function. Any
 object given as an update function should have an
 `operator()(uint64_t& cur_data, uint64_t key, uint64_t new_data)`
@@ -101,12 +101,12 @@ struct Increment
 };
 ```
 
-*** Content
+### Content
 This package contains many different hash table variants. You can find some example instanciations in `data-structures/definitions.h` (alternatively look at `tests/selection.h`, which is used to select a hash table at compile time using compile time definitions).
 
 All our data structures and connected classes are declared in the `growt` namespace.
 
-***** Non-growing hash tables
+##### Non-growing hash tables
 - `folklore ` (or `Circular<SimpleElement, HASHFUNCTION, ALLOCATOR>`)
 is a simple linear probing hash table using atomic operations, to change cell contents.
 
@@ -114,7 +114,7 @@ is a simple linear probing hash table using atomic operations, to change cell co
 similar to Folklore, but uses Intel TSX transactional memory extensions to ensure atomicity instead of atomics.
 Your machine has to support Intel TSX transactions for this to work (check your cpu-flags and try compiling with `-mrtm`)
 
-***** Growing hash tables
+##### Growing hash tables
 Our growing variants use the above non-growing tables. They grow by migrating the entire hash table once it gets too full for the current size. Migration is done in the background without the user knowing about it. During the migration hash table accesses may be delayed until the table is migrated (usually the waiting thread will help with the migration).
 
 Threads can only access our growing hash tables by creating a thread specific handle. These handles cannot be shared between threads.
@@ -134,19 +134,19 @@ combining the thread pool of `paGrow` with the synchronized growing approach of 
 All growing variants can also be built using the `TSXCircular` table instead of `Circular`.
 For a more in-depth description of our growing variants, check out our paper (https://arxiv.org/abs/1601.04017).
 
-***** Our tests and Benchmarks
+##### Our tests and Benchmarks
 All generated tests (`make` recipes) have the same name structure.
 
 `<test_abbrv>_<growing_indicator>_<hash_table_name>` => e.g. `ins_full_uaGrow`
 
-****** test_abbrv
+###### test_abbrv
 - `ins` - insertion and find test (seperate)
 - `mix` - mixed inserts and finds
 - `agg` - aggregation using insertOrUpdate on a skewed key sequence
 - `con` - updates and finds on a skewed key sequence
 - `del` - alternating inserts and deletions (approx. constant table size)
 
-****** full list of hash tables
+###### full list of hash tables
 Some of the following tables have to be activated through cmake options.
 - `sequential` - our sequential table (use only one thread!)
 - `folklore` - our non growing tables
@@ -160,9 +160,9 @@ tables. These depend on some additional wrappers and are not
 reproduced here. Wrappers for their libraries can be found in a branch
 called legacy_wrappers.
 
-*** Usage in your own projects
+### Usage in your own projects
 
-***** Including our project
+##### Including our project
 To make it easy, you can include the header
 `data-structures/definitions.h`, which includes all necessary files
 and offers the nice type definitions used above. Of course, this may
@@ -184,7 +184,7 @@ using uaGrow = GrowTable<Circular<MarkableElement, HASHFCT, ALLOCATOR<MarkableEl
                          WStratUser, EStratAsync>
 ```
 
-***** About our utility functions
+##### About our utility functions
 `utils/alignedallocator.h` - a very simple allocator returning only aligned data elements.
 
 `utils/poolallocator.h` - in many of our growing tests, mapping virtual to physical memory has been a bottleneck. Therefore, we use this allocator it starts by allocating a big amount of memory and uses it as a memory pool for future allocations. Memory mapping is forced in the beginning by writing into the buffer. Different variants of this allocator are available using different malloc variants to allocate the buffer (malloc, libnuma interleaved allocation, huge TLB page allocator).
@@ -198,29 +198,29 @@ using uaGrow = GrowTable<Circular<MarkableElement, HASHFCT, ALLOCATOR<MarkableEl
 `utils/commandline.h` - simple command line parser, to read user inputs (used for our tests).
 
 
-*** USAGE OF THIRD PARTY CODE
+### USAGE OF THIRD PARTY CODE
 This package can be used all on its own (see example.cpp and
 ...test.cpp).  However third party codes are used for additional
 functionality/tests. Most of the third party libraries are either
 searched on your machine (TBB, pthread), or they are placed in
 submodules (downloaded through git).
 
-***** We use the following libraries:
-****** for utility:
+##### We use the following libraries:
+###### for utility:
 - TBB    - to implement a fixed memory pool allocator
 - xxHash - usable hash function
 
-****** as third party hash tables (for benchmarks):
+###### as third party hash tables (for benchmarks):
 - TBB - ```tbb::concurrent_hash_map and tbb::concurrent_unordered_map```
 - LibCuckoo - ```cuckoohash_map```
 - Junction - ```junction::ConcurrentMap_Linear ..._Grampa ..._Leapfrog```
 - Folly - ```folly::AtomicHashMap```
 
 
-*** BUILD NOTES]
+### BUILD NOTES]
 Tested using current versions of g++.
 
-***** Easy build without third party code
+##### Easy build without third party code
 
 ```bash
 git clone https://github.com/TooBiased/growt.git
@@ -232,7 +232,7 @@ make
 ```
 
 
-***** Building with third party libraries
+##### Building with third party libraries
 Third party libraries are either installed using your package manager
 or they are downloaded into the `misc/submodules` folder.
 
