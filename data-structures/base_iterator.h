@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <tuple>
+
 namespace growt
 {
 
@@ -194,7 +196,6 @@ public:
     inline bool erase()
     {
         auto temp   = value_intern(reinterpret_cast<value_type>(copy));
-        auto result = false;
         while (!temp.isDeleted)
         {
             if (ptr->atomicDelete(temp))

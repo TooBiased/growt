@@ -10,7 +10,9 @@
 
 #pragma once
 
-#include"base_iterator.h"
+#include <functional>
+
+#include "base_iterator.h"
 
 namespace growt
 {

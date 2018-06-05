@@ -21,6 +21,7 @@
 #include <memory>
 //#include <iostream>
 
+#include "data-structures/returnelement.h"
 #include "data-structures/grow_iterator.h"
 #include "example/update_fcts.h"
 #include "utils/concurrentptrarray.h"
@@ -398,6 +399,7 @@ GrowTableHandle<GrowTableData>::GrowTableHandle(GrowTableHandle&& source)
       max_fill_factor(source.max_fill_factor),
       counts(std::move(source.counts))
 {
+    source.counts = LocalCount();
     //gtData.handle_ptr.update(handle_id, this);
     //source.handle_id = std::numeric_limits<size_t>::max();
 }
