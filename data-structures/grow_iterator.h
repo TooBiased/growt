@@ -216,8 +216,16 @@ public:
 
     IteratorGrowT(const IteratorGrowT& rhs)
         : tab(rhs.tab), version(rhs.version), it(rhs.it) { }
+
     IteratorGrowT& operator=(const IteratorGrowT& r)
-    { tab = r.tab; version = r.version; it = r.it; return *this; }
+    {
+        if (this == &r) return *this;
+        this->~IteratorGrowT();
+
+        new (this) IteratorGrowT(r);
+
+        return *this;
+    }
 
     //template <bool is_const2 = is_const>
     //typename std::enable_if<is_const2, IteratorGrowT<Table, is_const>&>::type
