@@ -348,12 +348,13 @@ template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
 inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::range_iterator
 BaseCircular<E,HashFct,A,MaDis,MiSt>::range(size_t rstart, size_t rend)
 {
-    for (size_t i = rstart; i < rend; ++i)
+    auto temp_rend = std::min(rend, _capacity);
+    for (size_t i = rstart; i < temp_rend; ++i)
     {
         auto temp = t[i];
         if (!temp.isEmpty() && !temp.isDeleted())
             return range_iterator(std::make_pair(temp.getKey(), temp.getData()),
-                                  &t[i], &t[rend]);
+                                  &t[i], &t[temp_rend]);
     }
     return range_end();
 }
@@ -362,12 +363,13 @@ template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
 inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::const_range_iterator
 BaseCircular<E,HashFct,A,MaDis,MiSt>::crange(size_t rstart, size_t rend)
 {
-    for (size_t i = rstart; i < rend; ++i)
+    auto temp_rend = std::min(rend, _capacity);
+    for (size_t i = rstart; i < temp_rend; ++i)
     {
         auto temp = t[i];
         if (!temp.isEmpty() && !temp.isDeleted())
             return const_range_iterator(std::make_pair(temp.getKey(), temp.getData()),
-                                  &t[i], &t[rend]);
+                                  &t[i], &t[temp_rend]);
     }
     return range_cend();
 }
