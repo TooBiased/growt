@@ -94,6 +94,10 @@ add_executable(example example/example.cpp)
 set_target_properties(example PROPERTIES COMPILE_FLAGS "${FLAGS}")
 target_link_libraries(example ${TEST_DEP_LIBRARIES})
 
+add_executable(range_example example/range_example.cpp)
+set_target_properties(range_example PROPERTIES COMPILE_FLAGS "${FLAGS}")
+target_link_libraries(range_example ${TEST_DEP_LIBRARIES})
+
 
 # if necessary find tbb
 if (USE_TBB_MEMPOOL OR GROWT_BUILD_TBB)

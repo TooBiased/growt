@@ -142,17 +142,17 @@ public:
             //std::shared_ptr<BaseTable_t> w_table;
             { // should be atomic (therefore locked)
                 std::lock_guard<std::mutex> lock(global.grow_mutex);
-                if (global.g_table_w->version == table->version)
+                if (global.g_table_w->_version == table->_version)
                 {
                     // first one to get here allocates new table
                     auto w_table = std::make_shared<BaseTable_t>(
-                       BaseTable_t::resize(table->capacity,
+                       BaseTable_t::resize(table->_capacity,
                            parent.elements.load(std::memory_order_acquire),
                            parent.dummies.load(std::memory_order_acquire)),
-                       table->version+1);
+                       table->_version+1);
 
                     global.g_table_w = w_table;
-                    global.g_epoch_w.store(w_table->version,
+                    global.g_epoch_w.store(w_table->_version,
                                            std::memory_order_release);
                 }
             }
@@ -211,13 +211,13 @@ public:
                 next = global.g_table_w;
             }
 
-            if (curr->version >= next->version)
+            if (curr->_version >= next->_version)
             {
                 // late to the party
                 // leave_migration(): nhelper --
                 global.n_helper.fetch_sub(1, std::memory_order_release);
 
-                return next->version;
+                return next->_version;
             }
 
             //global.g_count.fetch_add(
@@ -228,7 +228,7 @@ public:
             // leave_migration(): nhelper --
             global.n_helper.fetch_sub(1, std::memory_order_release);
 
-            return next->version;
+            return next->_version;
         }
 
     private:
@@ -249,7 +249,7 @@ public:
             //CAS table into R-Position
             {
                 std::lock_guard<std::mutex> lock(global.grow_mutex);
-                if (global.g_table_r->version == epoch)
+                if (global.g_table_r->_version == epoch)
                 {
                     global.g_table_r = global.g_table_w;
                     global.g_epoch_r.store(global.g_epoch_w.load(std::memory_order_acquire),

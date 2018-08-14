@@ -217,7 +217,7 @@ public:
                 return getTable();
             }
             auto temp = global.g_table_r.load(); //std::memory_order_acquire);
-            epoch = temp->version;
+            epoch = temp->_version;
             return temp;
         }
 
@@ -237,11 +237,11 @@ public:
             if (! changeStage<false>(stage, 1u)) { helpGrow(); return; }
 
             auto t_cur   = global.g_table_r.load();//std::memory_order_acquire);
-            auto t_next  = new BaseTable_t(//t_cur->size << 1, t_cur->version+1);
-                        BaseTable_t::resize(t_cur->capacity,
+            auto t_next  = new BaseTable_t(//t_cur->size << 1, t_cur->_version+1);
+                        BaseTable_t::resize(t_cur->_capacity,
                                            parent.elements.load(),//std::memory_order_acquire),
                                            parent.dummies.load()),//std::memory_order_acquire)),
-                        t_cur->version+1);
+                        t_cur->_version+1);
 
             waitForTableOp();
 
@@ -308,11 +308,11 @@ public:
             auto curr = global.g_table_r.load(std::memory_order_acquire);
             auto next = global.g_table_w.load(std::memory_order_acquire);
 
-            if (curr->version >= next->version)
+            if (curr->_version >= next->_version)
             {
                 flags.migrating.store(0);//, std::memory_order_release);
 
-                return next->version;
+                return next->_version;
             }
             //parent.grow_count.fetch_add(
             blockwise_migrate(curr, next);//);//,
@@ -321,7 +321,7 @@ public:
             // leave_migration();
             flags.migrating.store(0);//, std::memory_order_release);
 
-            return next->version;
+            return next->_version;
         }
 
     private:

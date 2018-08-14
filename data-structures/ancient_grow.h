@@ -35,13 +35,13 @@ size_t blockwise_migrate(Table_t source, Table_t target)
     size_t n = 0;
 
     //get block + while block legal migrate and get new block
-    size_t temp = source->currentCopyBlock.fetch_add(migration_block_size);
-    while (temp < source->capacity)
+    size_t temp = source->_current_copy_block.fetch_add(migration_block_size);
+    while (temp < source->_capacity)
     {
         n += source->migrate(*target, temp,
                              std::min(uint(temp+migration_block_size),
-                                      uint(source->capacity)));
-        temp = source->currentCopyBlock.fetch_add(migration_block_size);
+                                      uint(source->_capacity)));
+        temp = source->_current_copy_block.fetch_add(migration_block_size);
     }
     return n;
 }
@@ -374,7 +374,7 @@ GrowTableHandle<GrowTableData>::begin()
     return execute([](HashPtrRef_t t, GrowTableHandle& gt)
                    -> iterator
                    {
-                       return iterator(t->begin(), t->version, gt);
+                       return iterator(t->begin(), t->_version, gt);
                    }, *this);
 }
 
@@ -385,7 +385,7 @@ GrowTableHandle<GrowTableData>::cbegin() const
     return cexecute([](HashPtrRef_t t, const GrowTableHandle& gt)
                     -> const_iterator
                     {
-                      return const_iterator(t->cbegin(), t->version, gt);
+                      return const_iterator(t->cbegin(), t->_version, gt);
                     }, *this);
 }
 
@@ -404,7 +404,7 @@ GrowTableHandle<GrowTableData>::insert(const key_type& k, const mapped_type& d)
                                      ->std::pair<int,base_intern_insert_return_type>
                                    {
                                        std::pair<int,base_intern_insert_return_type> result =
-                                           std::make_pair(t->version,
+                                           std::make_pair(t->_version,
                                                           t->insert_intern(k,d));
                                        return result;
                                    }, k,d);
@@ -440,7 +440,7 @@ GrowTableHandle<GrowTableData>::find(const key_type& k)
     std::tie(v, it)  =
         execute([this](HashPtrRef_t t, const key_type& k)
                 -> std::pair<size_t, base_iterator>
-                { return std::make_pair(t->version, t->find(k)); },
+                { return std::make_pair(t->_version, t->find(k)); },
                       k);
     return iterator(it, v, *this);
 }
@@ -454,7 +454,7 @@ GrowTableHandle<GrowTableData>::find(const key_type& k) const
     std::tie(v, it)   =
         execute([this](HashPtrRef_t t, const key_type& k)
                 -> std::pair<size_t, base_citerator>
-                { return std::make_pair(t->version, t->find(k)); },
+                { return std::make_pair(t->_version, t->find(k)); },
                       k);
     return const_iterator(it, v, *this);
 }
@@ -469,7 +469,7 @@ GrowTableHandle<GrowTableData>::erase(const key_type& k)
                                      ->std::pair<int,ReturnCode>
                                    {
                                        std::pair<int,ReturnCode> result =
-                                           std::make_pair(t->version,
+                                           std::make_pair(t->_version,
                                                           t->erase_intern(k));
                                        return result;
                                    },
@@ -507,7 +507,7 @@ GrowTableHandle<GrowTableData>::update(const key_type& k, F f, Types&& ... args)
         ->std::pair<int,base_intern_insert_return_type>
         {
             std::pair<int,base_intern_insert_return_type> result =
-                std::make_pair(t->version,
+                std::make_pair(t->_version,
                                t->update_intern(k,f,std::forward<Types>(args)...));
             return result;
         },k,f,std::forward<Types>(args)...);
@@ -546,7 +546,7 @@ GrowTableHandle<GrowTableData>::insertOrUpdate(const key_type& k, const mapped_t
         ->std::pair<int,base_intern_insert_return_type>
         {
             std::pair<int,base_intern_insert_return_type> result =
-                std::make_pair(t->version,
+                std::make_pair(t->_version,
                                t->insertOrUpdate_intern(k,d,f,std::forward<Types>(args)...));
             return result;
         },k,d,f,std::forward<Types>(args)...);
@@ -585,7 +585,7 @@ GrowTableHandle<GrowTableData>::update_unsafe(const key_type& k, F f, Types&& ..
         ->std::pair<int,base_intern_insert_return_type>
         {
             std::pair<int,base_intern_insert_return_type> result =
-                std::make_pair(t->version,
+                std::make_pair(t->_version,
                                t->update_unsafe_intern(k,f,std::forward<Types>(args)...));
             return result;
         },k,f,std::forward<Types>(args)...);
@@ -627,7 +627,7 @@ GrowTableHandle<GrowTableData>::insertOrUpdate_unsafe(const key_type& k, const m
         ->std::pair<int,base_intern_insert_return_type>
         {
             std::pair<int,base_intern_insert_return_type> result =
-                std::make_pair(t->version,
+                std::make_pair(t->_version,
                                t->insertOrUpdate_unsafe_intern(k,d,f,std::forward<Types>(args)...));
             return result;
         },k,d,f,std::forward<Types>(args)...);
@@ -670,7 +670,7 @@ inline void GrowTableHandle<GrowTableData>::update_numbers()
     // temp     += inserted;
     // inserted  = 0;
 
-    int cap = getTable()->capacity * max_fill_factor;
+    int cap = getTable()->_capacity * max_fill_factor;
     rlsTable();
 
     if (temp + inserted > cap)

@@ -114,9 +114,9 @@ public:
 
     size_type migrate(This_t& target, size_type s, size_type e);
 
-    size_type capacity;
-    size_type version;
-    std::atomic_size_t currentCopyBlock;
+    size_type _capacity;
+    size_type _version;
+    std::atomic_size_t _current_copy_block;
 
     static size_type resize(size_type current, size_type inserted, size_type deleted)
     {
@@ -133,12 +133,12 @@ protected:
     static_assert(std::is_same<typename Allocator_t::value_type, value_intern>::value,
                   "Wrong allocator type given to BaseCircular!");
 
-    size_type bitmask;
-    size_type right_shift;
-    HashFct hash;
+    size_type _bitmask;
+    size_type _right_shift;
+    HashFct   hash;
 
     value_intern* t;
-    size_type h(const key_type & k) const { return hash(k) >> right_shift; }
+    size_type h(const key_type & k) const { return hash(k) >> _right_shift; }
 
 private:
     insert_return_intern insert_intern(const key_type& k, const mapped_type& d);
@@ -169,10 +169,10 @@ private:
 
     inline iterator           makeIterator (const key_type& k, const mapped_type& d,
                                             value_intern* ptr)
-    { return iterator(std::make_pair(k,d), ptr, t+capacity); }
+    { return iterator(std::make_pair(k,d), ptr, t+_capacity); }
     inline const_iterator     makeCIterator (const key_type& k, const mapped_type& d,
                                             value_intern* ptr) const
-    { return const_iterator(std::make_pair(k,d), ptr, t+capacity); }
+    { return const_iterator(std::make_pair(k,d), ptr, t+_capacity); }
     inline insert_return_type makeInsertRet(const key_type& k, const mapped_type& d,
                                             value_intern* ptr, bool succ)
     { return std::make_pair(makeIterator(k,d, ptr), succ); }
@@ -205,6 +205,18 @@ private:
         while (capacity >>= 1) log_size++;
         return HashFct::significant_digits - log_size;
     }
+
+public:
+    using range_iterator = iterator;
+    using const_range_iterator = const_iterator;
+
+    /* size has to divide capacity */
+    range_iterator       range (size_t rstart, size_t rend);
+    const_range_iterator crange(size_t rstart, size_t rend);
+    range_iterator       range_end ()       { return  end(); }
+    const_range_iterator range_cend() const { return cend(); }
+    size_t               capacity()   const { return _capacity; }
+
 };
 
 
@@ -219,49 +231,49 @@ private:
 
 template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
 BaseCircular<E,HashFct,A,MaDis,MiSt>::BaseCircular(size_type capacity_)
-    : capacity(compute_capacity(capacity_)),
-      version(0),
-      currentCopyBlock(0),
-      bitmask(capacity-1),
-      right_shift(compute_right_shift(capacity))
+    : _capacity(compute_capacity(capacity_)),
+      _version(0),
+      _current_copy_block(0),
+      _bitmask(_capacity-1),
+      _right_shift(compute_right_shift(_capacity))
 
 {
-    t = allocator.allocate(capacity);
+    t = allocator.allocate(_capacity);
     if ( !t ) std::bad_alloc();
 
-    std::fill( t ,t + capacity , value_intern::getEmpty() );
+    std::fill( t ,t + _capacity , value_intern::getEmpty() );
 }
 
 /*should always be called with a capacity_=2^k  */
 template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
 BaseCircular<E,HashFct,A,MaDis,MiSt>::BaseCircular(size_type capacity_, size_type version_)
-    : capacity(capacity_),
-      version(version_),
-      currentCopyBlock(0),
-      bitmask(capacity-1),
-      right_shift(compute_right_shift(capacity))
+    : _capacity(capacity_),
+      _version(version_),
+      _current_copy_block(0),
+      _bitmask(_capacity-1),
+      _right_shift(compute_right_shift(_capacity))
 {
-    t = allocator.allocate(capacity);
+    t = allocator.allocate(_capacity);
     if ( !t ) std::bad_alloc();
 }
 
 template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
 BaseCircular<E,HashFct,A,MaDis,MiSt>::~BaseCircular()
 {
-    if (t) allocator.deallocate(t, capacity);
+    if (t) allocator.deallocate(t, _capacity);
 }
 
 
 template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
 BaseCircular<E,HashFct,A,MaDis,MiSt>::BaseCircular(BaseCircular&& rhs)
-    : capacity(rhs.capacity), version(rhs.version),
-      currentCopyBlock(rhs.currentCopyBlock.load()),
-      bitmask(rhs.bitmask), right_shift(rhs.right_shift), t(nullptr)
+    : _capacity(rhs._capacity), _version(rhs._version),
+      _current_copy_block(rhs._current_copy_block.load()),
+      _bitmask(rhs._bitmask), _right_shift(rhs._right_shift), t(nullptr)
 {
-    if (currentCopyBlock.load()) std::invalid_argument("Cannot move a growing table!");
-    rhs.capacity = 0;
-    rhs.bitmask = 0;
-    rhs.right_shift = HashFct::significant_digits;
+    if (_current_copy_block.load()) std::invalid_argument("Cannot move a growing table!");
+    rhs._capacity = 0;
+    rhs._bitmask = 0;
+    rhs._right_shift = HashFct::significant_digits;
     std::swap(t, rhs.t);
 }
 
@@ -269,15 +281,15 @@ template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
 BaseCircular<E,HashFct,A,MaDis,MiSt>&
 BaseCircular<E,HashFct,A,MaDis,MiSt>::operator=(BaseCircular&& rhs)
 {
-    if (rhs.currentCopyBlock.load()) std::invalid_argument("Cannot move a growing table!");
-    capacity        = rhs.capacity;
-    version     = rhs.version;
-    currentCopyBlock.store(0);;
-    bitmask     = rhs.bitmask;
-    right_shift = rhs.right_shift;
-    rhs.capacity    = 0;
-    rhs.bitmask = 0;
-    rhs.right_shift = HashFct::significant_digits;
+    if (rhs._current_copy_block.load()) std::invalid_argument("Cannot move a growing table!");
+    _capacity   = rhs._capacity;
+    _version    = rhs._version;
+    _current_copy_block.store(0);;
+    _bitmask     = rhs._bitmask;
+    _right_shift = rhs._right_shift;
+    rhs._capacity    = 0;
+    rhs._bitmask = 0;
+    rhs._right_shift = HashFct::significant_digits;
     std::swap(t, rhs.t);
 
     return *this;
@@ -296,7 +308,7 @@ template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
 inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::iterator
 BaseCircular<E,HashFct,A,MaDis,MiSt>::begin()
 {
-    for (size_t i = 0; i<capacity; ++i)
+    for (size_t i = 0; i<_capacity; ++i)
     {
         auto temp = t[i];
         if (!temp.isEmpty() && !temp.isDeleted())
@@ -315,7 +327,7 @@ template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
 inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::const_iterator
 BaseCircular<E,HashFct,A,MaDis,MiSt>::cbegin() const
 {
-    for (size_t i = 0; i<capacity; ++i)
+    for (size_t i = 0; i<_capacity; ++i)
     {
         auto temp = t[i];
         if (!temp.isEmpty() && !temp.isDeleted())
@@ -330,9 +342,35 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::cend() const
 { return const_iterator(std::make_pair(key_type(), mapped_type()),nullptr,nullptr); }
 
 
+// RANGE ITERATOR FUNCTIONALITY!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
+inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::range_iterator
+BaseCircular<E,HashFct,A,MaDis,MiSt>::range(size_t rstart, size_t rend)
+{
+    for (size_t i = rstart; i < rend; ++i)
+    {
+        auto temp = t[i];
+        if (!temp.isEmpty() && !temp.isDeleted())
+            return range_iterator(std::make_pair(temp.getKey(), temp.getData()),
+                                  &t[i], &t[rend]);
+    }
+    return range_end();
+}
 
-
+template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
+inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::const_range_iterator
+BaseCircular<E,HashFct,A,MaDis,MiSt>::crange(size_t rstart, size_t rend)
+{
+    for (size_t i = rstart; i < rend; ++i)
+    {
+        auto temp = t[i];
+        if (!temp.isEmpty() && !temp.isDeleted())
+            return const_range_iterator(std::make_pair(temp.getKey(), temp.getData()),
+                                  &t[i], &t[rend]);
+    }
+    return range_cend();
+}
 
 
 
@@ -346,7 +384,7 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_intern(const key_type& k, const map
 
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
-        size_type temp = i & bitmask;
+        size_type temp = i & _bitmask;
         value_intern curr(t[temp]);
         if (curr.isMarked()   ) return makeInsertRet(end() , ReturnCode::UNSUCCESS_INVALID);
         else if (curr.compareKey(k)) return makeInsertRet(k, curr.getData(), &t[temp],ReturnCode::UNSUCCESS_ALREADY_USED);
@@ -373,7 +411,7 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::update_intern(const key_type& k, F f, Type
 
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
-        size_type temp = i & bitmask;
+        size_type temp = i & _bitmask;
         value_intern curr(t[temp]);
         if (curr.isMarked())
         {
@@ -408,7 +446,7 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::update_unsafe_intern(const key_type& k, F 
 
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
-        size_type temp = i & bitmask;
+        size_type temp = i & _bitmask;
         value_intern curr(t[temp]);
         if (curr.isMarked())
         {
@@ -444,7 +482,7 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::insertOrUpdate_intern(const key_type& k, c
 
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
-        size_type temp = i & bitmask;
+        size_type temp = i & _bitmask;
         value_intern curr(t[temp]);
         if (curr.isMarked())
         {
@@ -481,7 +519,7 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::insertOrUpdate_unsafe_intern(const key_typ
 
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
-        size_type temp = i & bitmask;
+        size_type temp = i & _bitmask;
         value_intern curr(t[temp]);
         if (curr.isMarked())
         {
@@ -516,7 +554,7 @@ inline ReturnCode BaseCircular<E,HashFct,A,MaDis,MiSt>::erase_intern(const key_t
     size_type htemp = h(k);
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
-        size_type temp = i & bitmask;
+        size_type temp = i & _bitmask;
         value_intern curr(t[temp]);
         if (curr.isMarked())
         {
@@ -556,8 +594,8 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::find(const key_type& k)
     size_type htemp = h(k);
     for (size_type i = htemp; ; ++i)
     {
-        value_intern curr(t[i & bitmask]);
-        if (curr.compareKey(k)) return makeIterator(k, curr.getData(), &t[i & bitmask]); // curr;
+        value_intern curr(t[i & _bitmask]);
+        if (curr.compareKey(k)) return makeIterator(k, curr.getData(), &t[i & _bitmask]); // curr;
         if (curr.isEmpty()) return end(); // ReturnElement::getEmpty();
     }
     return end(); // ReturnElement::getEmpty();
@@ -570,8 +608,8 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::find(const key_type& k) const
     size_type htemp = h(k);
     for (size_type i = htemp; ; ++i)
     {
-        value_intern curr(t[i & bitmask]);
-        if (curr.compareKey(k)) return makeCIterator(k, curr.getData(), &t[i & bitmask]); // curr;
+        value_intern curr(t[i & _bitmask]);
+        if (curr.compareKey(k)) return makeCIterator(k, curr.getData(), &t[i & _bitmask]); // curr;
         if (curr.isEmpty()) return cend(); // ReturnElement::getEmpty();
     }
     return cend(); // ReturnElement::getEmpty();
@@ -661,7 +699,7 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::migrate(This_t& target, size_type s, size_
 
     //HOW MUCH BIGGER IS THE TARGET TABLE
     auto shift = 0u;
-    while (target.capacity > (capacity << shift)) ++shift;
+    while (target._capacity > (_capacity << shift)) ++shift;
 
 
     //FINDS THE FIRST EMPTY BUCKET (START OF IMPLICIT BLOCK)
@@ -703,7 +741,7 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::migrate(This_t& target, size_type s, size_
     //THE TARGET POSITIONS WILL NOT BE INITIALIZED
     for (; b; ++i)
     {
-        auto pos  = i&bitmask;
+        auto pos  = i&_bitmask;
         auto t_pos= pos<<shift;
         for (size_type j = 0; j < 1ull<<shift; ++j) target.t[t_pos+j] = value_intern::getEmpty();
         //target.t[t_pos] = E::getEmpty();
@@ -728,7 +766,7 @@ inline void BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_unsafe(const value_inte
     size_type htemp = h(k);
     for (size_type i = htemp; i < htemp+MaDis; ++i)
     {
-        size_type temp = i & bitmask;
+        size_type temp = i & _bitmask;
         value_intern curr(t[temp]);
         if (curr.isEmpty())
         {
