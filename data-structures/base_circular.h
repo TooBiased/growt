@@ -339,10 +339,13 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::cbegin() const
 template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
 inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::const_iterator
 BaseCircular<E,HashFct,A,MaDis,MiSt>::cend() const
-{ return const_iterator(std::make_pair(key_type(), mapped_type()),nullptr,nullptr); }
+{
+    return const_iterator(std::make_pair(key_type(),mapped_type()),
+                          nullptr,nullptr);
+}
 
 
-// RANGE ITERATOR FUNCTIONALITY!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// RANGE ITERATOR FUNCTIONALITY ************************************************
 
 template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
 inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::range_iterator
@@ -380,7 +383,8 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::crange(size_t rstart, size_t rend)
 
 template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
 inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_return_intern
-BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_intern(const key_type& k, const mapped_type& d)
+BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_intern(const key_type& k,
+                                                    const mapped_type& d)
 {
     size_type htemp = h(k);
 
