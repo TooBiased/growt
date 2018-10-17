@@ -68,7 +68,7 @@ void dynamic_blockwise_load(Table_t& table, size_t block_size)
     size_t curr_block = work_counter.fetch_add(block_size);
 
     size_t temp       = 0;
-    while (curr_block < handle.capacity())
+    while (curr_block < capacity)
     {
         auto block_range_it = handle.range(curr_block, curr_block + block_size);
         // this is save, even if curr_block + block_size > capacity
