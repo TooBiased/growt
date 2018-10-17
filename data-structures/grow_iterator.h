@@ -41,13 +41,13 @@ public:
     //using value_type   = typename RefBase_t::value_type;
 
     MappedRefGrowT(MappedRefBase_t mref, size_t ver, Table_t& table)
-        : tab(table), version(ver), mref(mref) { }
+        : _tab(table), _version(ver), _mref(mref) { }
 
 
     // Functions necessary for concurrency *************************************
     inline void refresh()
     {
-        tab.execute(
+        _tab.execute(
             [](HashPtrRef_t t, MappedRefGrowT& sref) -> int
             {
                 sref.base_refresh_ptr(t);
@@ -59,7 +59,7 @@ public:
     template<bool is_const2 = is_const>
     inline typename std::enable_if<!is_const2>::type operator=(const mapped_type& value)
     {
-        tab.execute(
+        _tab.execute(
             [](HashPtrRef_t t, MappedRefGrowT& sref, const mapped_type& value) -> int
             {
                 sref.base_refresh_ptr(t);
@@ -70,7 +70,7 @@ public:
     template<class F>
     inline void update   (const mapped_type& value, F f)
     {
-        tab.execute(
+        _tab.execute(
             [](HashPtrRef_t t, MappedRefGrowT& sref, const mapped_type& value, F f) -> int
             {
                 sref.base_refresh_ptr(t);
@@ -80,7 +80,7 @@ public:
     }
     inline bool compare_exchange(mapped_type& exp, const mapped_type &val)
     {
-        return tab.execute(
+        return _tab.execute(
             [](HashPtrRef_t t, MappedRefGrowT& sref,
                mapped_type& exp, const mapped_type& val)
             {
@@ -89,22 +89,22 @@ public:
             }, *this, std::ref(exp), val);
     }
 
-    inline operator mapped_type()  const { return mapped_type (mref); }
+    inline operator mapped_type()  const { return mapped_type (_mref); }
 
 private:
-    Table_t&  tab;
-    size_t    version;
-    MappedRefBase_t mref;
+    Table_t&        _tab;
+    size_t          _version;
+    MappedRefBase_t _mref;
 
     // the table should be locked, while this is called
     inline bool base_refresh_ptr(HashPtrRef_t ht)
     {
-        if (ht->version == version) return false;
+        if (ht->_version == _version) return false;
 
-        version = ht->version;
-        auto it = ht->find(mref.copy.first);
-        mref.copy = it.copy;
-        mref.ptr  = it.ptr;
+        _version = ht->_version;
+        auto it = ht->find(_mref.copy.first);
+        _mref.copy = it.copy;
+        _mref.ptr  = it.ptr;
         return true;
     }
 
@@ -132,7 +132,7 @@ public:
 
     ReferenceGrowT(RefBase_t ref, size_t ver, Table_t& table)
         : second(ref.second, ver, table),
-          first(second.mref.copy.first) { }
+          first(second._mref.copy.first) { }
 
 
     // Functions necessary for concurrency *************************************
@@ -149,15 +149,15 @@ public:
 
 private:
     // Table_t&  tab;
-    // size_t    version;
+    // size_t    _version;
     // RefBase_t ref;
 
     // the table should be locked, while this is called
     // inline bool base_refresh_ptr(HashPtrRef_t ht)
     // {
-    //     if (ht->version == version) return false;
+    //     if (ht->_version == _version) return false;
 
-    //     version = ht->version;
+    //     _version = ht->_version;
     //     auto it = ht->find(ref.copy.first);
     //     ref.copy = it.copy;
     //     ref.ptr  = it.ptr;
@@ -212,10 +212,10 @@ public:
 
     // Constructors ************************************************************
     IteratorGrowT(BIterator_t it, size_t version, Table_t& table)
-        : tab(table), version(version), it(it) { }
+        : _tab(table), _version(version), _it(it) { }
 
     IteratorGrowT(const IteratorGrowT& rhs)
-        : tab(rhs.tab), version(rhs.version), it(rhs.it) { }
+        : _tab(rhs._tab), _version(rhs._version), _it(rhs._it) { }
 
     IteratorGrowT& operator=(const IteratorGrowT& r)
     {
@@ -230,7 +230,7 @@ public:
     //template <bool is_const2 = is_const>
     //typename std::enable_if<is_const2, IteratorGrowT<Table, is_const>&>::type
     //operator=(const IteratorGrowT<Table,false>& r)
-    //{ tab = r.tab; version = r.version; it = r.it; return *this; }
+    //{ tab = r.tab; _version = r._version; it = r.it; return *this; }
 
     ~IteratorGrowT() = default;
 
@@ -238,47 +238,47 @@ public:
     // Basic Iterator Functionality ********************************************
     inline IteratorGrowT& operator++()
     {
-        tab.cexecute(
+        _tab.cexecute(
             [](HashPtrRef_t t, IteratorGrowT& sit) -> int
             {
                 sit.base_refresh_ptr(t);
-                ++sit.it;
+                ++sit._it;
                 return 0;
             }, *this);
         return *this;
     }
 
-    inline reference operator* () const { return reference(*it, version, tab); }
+    inline reference operator* () const { return reference(*_it, _version, _tab); }
     // pointer   operator->() const { return  ptr; }
 
-    inline bool operator==(const IteratorGrowT& rhs) const { return it == rhs.it; }
-    inline bool operator!=(const IteratorGrowT& rhs) const { return it != rhs.it; }
+    inline bool operator==(const IteratorGrowT& rhs) const { return _it == rhs._it; }
+    inline bool operator!=(const IteratorGrowT& rhs) const { return _it != rhs._it; }
 
     // Functions necessary for concurrency *************************************
     inline void refresh()
     {
-        tab.cexecute(
+        _tab.cexecute(
             [](HashPtrRef_t t, IteratorGrowT& sit) -> int
             {
                 sit.base_refresh_ptr(t);
-                sit.it.refresh();
+                sit._it.refresh();
                 return 0;
             },
             *this);
     }
 
 private:
-    Table_t&    tab;
-    size_t      version;
-    BIterator_t it;
+    Table_t&    _tab;
+    size_t      _version;
+    BIterator_t _it;
 
     // the table should be locked, while this is called
     inline bool base_refresh_ptr(HashPtrRef_t ht)
     {
-        if (ht->version == version) return false;
+        if (ht->_version == _version) return false;
 
-        version = ht->version;
-        it      = static_cast<BTable_t&>(*ht).find(it.copy.first);
+        _version = ht->_version;
+        _it      = static_cast<BTable_t&>(*ht).find(_it.copy.first);
         return true;
     }
 };

@@ -137,6 +137,36 @@ void check_update(Table_t& table, size_t n)
     }
 }
 
+void check_function_compile(Table_t& table)
+{
+    auto handle = table.getHandle();
+    if (handle[11] != 53) std::cout << "[] operator returns "
+                                    << handle[11] << "expected 53!" << std::endl;
+    //else std::cout << "[] operator works" << std::endl;
+
+    /*
+
+      begin
+      end
+      cbegin
+      cend
+
+      erase
+
+      update_unsafe
+
+      element_count_approx
+
+      range
+      crange
+      range_end
+      range_cend
+
+      capacity
+     */
+
+}
+
 int main (int, char**)
 {
 
@@ -160,6 +190,8 @@ int main (int, char**)
     std::thread check_thread(check_update     , std::ref(hashTable), n);
     rfind_thread.join();
     check_thread.join();
+
+    check_function_compile(hashTable);
     std::cout << "Second Round Done|" << std::endl;
 
     return 0;

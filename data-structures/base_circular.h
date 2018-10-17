@@ -92,7 +92,7 @@ public:
     { return insertOrUpdate(k, d, example::Overwrite(), d); }
 
     mapped_reference operator[](const key_type& k)
-    { return (*insert(k, mapped_type())).second; }
+    { return (*(insert(k, mapped_type()).first)).second; }
 
     template <class F, class ... Types>
     insert_return_type update
@@ -194,7 +194,7 @@ private:
 
     static size_type compute_capacity(size_type desired_capacity)
     {
-        auto temp = 4096u;
+        auto temp = 16384u;
         while (temp < desired_capacity*(MiSt/100.)) temp <<= 1;
         return temp;
     }
