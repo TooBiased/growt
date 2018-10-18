@@ -69,7 +69,7 @@ public:
     inline SeqIterator& operator++(int = 0)
     {
         if (_tab._version != _ver) refresh();
-        while ( _ptr < _tab._t + _tab._capacity && _ptr->isEmpty()) _ptr++;
+        while ( _ptr < _tab._t + _tab._capacity && _ptr->is_empty()) _ptr++;
         if (_ptr == _tab._t+ _tab._capacity) { _ptr = nullptr; _key = key_type(); }
         else { _key = _ptr->getKey(); }
         return *this;
@@ -221,14 +221,14 @@ private:
 
     inline size_t migrate( SeqCircular& target )
     {
-        std::fill( target._t ,target._t + target._capacity , E::getEmpty() );
+        std::fill( target._t ,target._t + target._capacity , E::get_empty() );
 
         auto count = 0u;
 
         for (size_t i = 0; i < _capacity; ++i)
         {
             auto curr = _t[i];
-            if ( ! curr.isEmpty() )
+            if ( ! curr.is_empty() )
             {
                 count++;
                 //target.insert( curr );
@@ -250,7 +250,7 @@ SeqCircular<E,HF,A,MD,MS>::begin()
     for (size_t i = 0; i < _capacity; ++i)
     {
         auto curr = _t[i];
-        if (! curr.isEmpty()) return make_it(&_t[i], curr.getKey());
+        if (! curr.is_empty()) return make_it(&_t[i], curr.getKey());
     }
     return end();
 }
@@ -269,7 +269,7 @@ SeqCircular<E,HF,A,MD,MS>::cbegin() const
     for (size_t i = 0; i < _capacity; ++i)
     {
         auto curr = _t[i];
-        if (! curr.isEmpty()) return make_cit(&_t[i], curr.getKey());
+        if (! curr.is_empty()) return make_cit(&_t[i], curr.getKey());
     }
     return cend();
 }
@@ -289,8 +289,8 @@ SeqCircular<E,HF,A,MD,MS>::find(const key_type & k)
     for (size_t i = htemp;;++i)  // i < htemp+MaDis
     {
         E curr(_t[i & _bitmask]);
-        if (curr.compareKey(k)) return make_it(&_t[i&_bitmask], k);
-        else if (curr.isEmpty()) return end();
+        if (curr.compare_key(k)) return make_it(&_t[i&_bitmask], k);
+        else if (curr.is_empty()) return end();
     }
 }
 
@@ -302,8 +302,8 @@ SeqCircular<E,HF,A,MD,MS>::find(const key_type & k) const
     for (size_t i = htemp;;++i)
     {
         E curr(_t[i & _bitmask]);
-        if (curr.compareKey(k)) return make_cit(&_t[i&_bitmask], k);
-        else if (curr.isEmpty()) return cend();
+        if (curr.compare_key(k)) return make_cit(&_t[i&_bitmask], k);
+        else if (curr.is_empty()) return cend();
     }
 }
 
@@ -316,14 +316,14 @@ SeqCircular<E,HF,A,MD,MS>::insert(const key_type& k, const mapped_type& d)
     {
         const size_t temp = i & _bitmask;
         E curr(_t[temp]);
-        if (curr.compareKey(k)) return insert_return_type(make_it(&_t[temp], k), false); // already hashed
-        else if (curr.isEmpty())
+        if (curr.compare_key(k)) return insert_return_type(make_it(&_t[temp], k), false); // already hashed
+        else if (curr.is_empty())
         {
             if (inc_n()) { _n_elem--; return insert(k,d); }
             _t[temp] = E(k,d);
             return insert_return_type(make_it(&_t[temp], k), true);
         }
-        else if (curr.isDeleted())
+        else if (curr.is_deleted())
         {
             //do something appropriate
         }
@@ -342,17 +342,17 @@ SeqCircular<E,HF,A,MD,MS>::update(const key_type& k, F f, Types&& ... args)
     {
         const size_t temp = i & _bitmask;
         E curr(_t[temp]);
-        if (curr.compareKey(k))
+        if (curr.compare_key(k))
         {
             _t[temp].nonAtomicUpdate(f, std::forward<Types>(args)...);
             // return ReturnCode::SUCCESS_UP;
             return insert_return_type(make_it(&_t[temp], k), true);
         }
-        else if (curr.isEmpty())
+        else if (curr.is_empty())
         {
             return insert_return_type(end(), false);
         }
-        else if (curr.isDeleted())
+        else if (curr.is_deleted())
         {
             //do something appropriate
         }
@@ -369,18 +369,18 @@ SeqCircular<E,HF,A,MD,MS>::insertOrUpdate(const key_type& k, const mapped_type& 
     {
         const size_t temp = i & _bitmask;
         E curr(_t[temp]);
-        if (curr.compareKey(k))
+        if (curr.compare_key(k))
         {
             _t[temp].nonAtomicUpdate(f, std::forward<Types>(args) ...);
             return insert_return_type(make_it(&_t[temp], k), false);
         }
-        else if (curr.isEmpty())
+        else if (curr.is_empty())
         {
             if (inc_n()) { _n_elem--; return insert(k,d); }
             _t[temp] = E(k,d);
             return insert_return_type(make_it(&_t[temp], k), true);
         }
-        else if (curr.isDeleted())
+        else if (curr.is_deleted())
         {
             //do something appropriate
         }
@@ -396,20 +396,20 @@ SeqCircular<E,HF,A,MD,MS>::erase(const key_type & k)
     for (;;++i)
     {
         E curr(_t[i & _bitmask]);
-        if (curr.compareKey(k)) break;
-        else if (curr.isEmpty()) return 0;
+        if (curr.compare_key(k)) break;
+        else if (curr.is_empty()) return 0;
     }
     i &= _bitmask;
-    _t[i] = value_intern::getEmpty();
+    _t[i] = value_intern::get_empty();
     for (size_type j = i+1;; ++j)
     {
         E curr(_t[j & _bitmask]);
-        if (curr.isEmpty())
+        if (curr.is_empty())
             return 1;
         else if (h(curr.getKey()) <= i)
         {
             _t[i] = curr;
-            _t[j&_bitmask] = value_intern::getEmpty();
+            _t[j&_bitmask] = value_intern::get_empty();
             i = j & _bitmask;
             if (j > _bitmask) j &= _bitmask;
         }

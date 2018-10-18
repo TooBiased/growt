@@ -63,10 +63,10 @@ size_t many_moving_handles()
     std::mt19937_64 re(rand());
 
     size_t j = 0;
-    Handle h = hash_table.getHandle();
+    Handle h = hash_table.get_handle();
     while (unfinished.load(std::memory_order_acquire))
     {
-        Handle g = hash_table.getHandle();
+        Handle g = hash_table.get_handle();
         for (size_t i=0; i<32; ++i)
         {
             g.insert(dis(re), 5);
@@ -82,7 +82,7 @@ size_t calling_size_repeatedly()
     std::uniform_int_distribution<uint64_t> dis(2, range);
     std::mt19937_64 re(rand());
 
-    Handle h = hash_table.getHandle();
+    Handle h = hash_table.get_handle();
     size_t j = 0;
     while (unfinished.load(std::memory_order_acquire))
     {
@@ -122,7 +122,7 @@ int test(size_t p, size_t id)
         );
     ThreadType::synchronized([](){ return 0; }, ++stage, p-1);
 
-    Handle hash = hash_table.getHandle();
+    Handle hash = hash_table.get_handle();
 
 
     ThreadType() << "begin prefill!" << std::endl;

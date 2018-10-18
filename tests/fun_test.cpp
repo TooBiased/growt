@@ -134,7 +134,7 @@ int update(Hash& hash, size_t n, size_t val)
 
 
 template <class Hash>
-int insertOrIncrement(Hash& hash, size_t n, size_t p)
+int insert_or_increment(Hash& hash, size_t n, size_t p)
 {
     auto err = 0u;
 
@@ -147,7 +147,7 @@ int insertOrIncrement(Hash& hash, size_t n, size_t p)
         {
             auto key = bitmask &
                 __builtin_ia32_crc32di(34390210450981235ull,i*12037459812355ull);
-            if (hash.insertOrUpdate(key+2, 1, growt::example::Increment(),1).first == hash.end())
+            if (hash.insert_or_update(key+2, 1, growt::example::Increment(),1).first == hash.end())
             {
                 ++ err;
             }
@@ -273,7 +273,7 @@ int test_in_stages(size_t p, size_t id, size_t n, size_t it)
         // Needed for synchronization (main thread has finished set_up_hash)
         ThreadType::synchronized([]{ return 0; }, ++stage, p-1);
 
-        Handle hash = hash_table.getHandle();
+        Handle hash = hash_table.get_handle();
         //Handle hash(hash_table); //= Handle(*ht);//ht->getHandle(glob_registration);
 
         // STAGE 0.1 still empty
@@ -347,12 +347,12 @@ int test_in_stages(size_t p, size_t id, size_t n, size_t it)
             if (ThreadType::is_main) check_errors(0);
         }
 
-        // STAGE 4   insertOrIncrement
+        // STAGE 4   insert_or_increment
         {
             if (ThreadType::is_main) current_block.store(0);
             if (ThreadType::is_main) errors.store (0);
 
-            ThreadType::synchronized(insertOrIncrement<Handle>,
+            ThreadType::synchronized(insert_or_increment<Handle>,
                                      ++stage, p-1, hash, n, p);
         }
 

@@ -30,7 +30,7 @@
 /*
  * This Test is meant to test the tables performance on uniform random inputs.
  * 0. Creating n random keys with zipf distribution between [2..n+1]
- * 1. Inserting n random keys using the insertOrUpdate Function
+ * 1. Inserting n random keys using the insert_or_update Function
  *    [1..n]
  * 2. Validating the end result looking for each key and accumulating the results
  */
@@ -98,7 +98,7 @@ int aggregate(Hash& hash, size_t n)
                      [&hash, &err](size_t i)
         {
             auto key = keys[i];
-            if (hash.insertOrUpdate(key, 1, growt::example::Increment(), 1).first == hash.end()) ++err;
+            if (hash.insert_or_update(key, 1, growt::example::Increment(), 1).first == hash.end()) ++err;
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);
@@ -155,7 +155,7 @@ int test_in_stages(size_t p, size_t id, size_t n, size_t cap, size_t it, double 
 
         ThreadType::synchronized([]{ return 0; }, ++stage, p-1);
 
-        Handle hash = hash_table.getHandle();
+        Handle hash = hash_table.get_handle();
 
 
         // STAGE2 n Insertions [2 .. n+1]

@@ -33,7 +33,7 @@ using Table_t = growt::uaGrow<murmur2_hasher, growt::AlignedAllocator<> >;
 void insertions(Table_t& table, size_t n)
 {
     // obtain a handle
-    auto handle = table.getHandle();
+    auto handle = table.get_handle();
 
     for (size_t i = 1; i <= n; ++i)
     {
@@ -59,7 +59,7 @@ void wait_for_k(Table_t& table, size_t k)
 // after n tries it prints the success rate and the average data height
 void search_n_and_mean(Table_t& table, size_t n)
 {
-    auto handle = table.getHandle();
+    auto handle = table.get_handle();
 
     size_t count = 0;
     size_t sum   = 0;
@@ -85,7 +85,7 @@ void search_n_and_mean(Table_t& table, size_t n)
 // this keeps repeating updates until one was successful (waits till key was inserted)
 void update_every_scnd(Table_t& table, size_t n)
 {
-    auto handle = table.getHandle();
+    auto handle = table.get_handle();
 
     size_t unsuccessful_updates = 0;
     for (size_t i = 1; i < n; i+=2)
@@ -106,7 +106,7 @@ void update_every_scnd(Table_t& table, size_t n)
 // check update
 void check_update(Table_t& table, size_t n)
 {
-    auto handle = table.getHandle();
+    auto handle = table.get_handle();
 
     for (size_t i = 1; i < n; ++i)
     {
@@ -139,7 +139,7 @@ void check_update(Table_t& table, size_t n)
 
 void check_function_compile(Table_t& table)
 {
-    auto handle = table.getHandle();
+    auto handle = table.get_handle();
     if (handle[11] != 53) std::cout << "[] operator returns "
                                     << handle[11] << "expected 53!" << std::endl;
     //else std::cout << "[] operator works" << std::endl;
@@ -153,7 +153,8 @@ void check_function_compile(Table_t& table)
 
       erase
 
-      update_unsafe
+      update(_unsafe)
+      insert_or_update(_unsafe)
 
       element_count_approx
 

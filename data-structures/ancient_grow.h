@@ -19,6 +19,7 @@
 #define GROWTABLE_H
 
 
+#include "data-structures/returnelement.h"
 #include "data-structures/grow_iterator.h"
 #include "example/update_fcts.h"
 
@@ -84,14 +85,14 @@ private:
 
     //const double max_fill  = MaxFill/100.;
 
-    std::unique_ptr<GTD_t> gtData;
+    std::unique_ptr<GTD_t> _gt_data;
 
 public:
     using Element          = ReturnElement;
     using Handle           = GrowTableHandle<GTD_t>;
     friend Handle;
 
-    GrowTable (size_t size) : gtData(std::make_unique<GTD_t>(size)) { }
+    GrowTable (size_t size) : _gt_data(std::make_unique<GTD_t>(size)) { }
 
     GrowTable (const GrowTable& source)            = delete;
     GrowTable& operator= (const GrowTable& source) = delete;
@@ -101,9 +102,9 @@ public:
 
     ~GrowTable() = default;
 
-    Handle getHandle()
+    Handle get_handle()
     {
-        return Handle(*gtData);
+        return Handle(*_gt_data);
     }
 };
 
@@ -134,8 +135,8 @@ public:
     friend Handle;
 
     GrowTableData(size_t size_)
-        : global_exclusion(size_), global_worker(),
-          elements(0), dummies(0)
+        : _global_exclusion(size_), _global_worker(),
+          _elements(0), _dummies(0)
     { }
 
     GrowTableData(const GrowTableData& source) = delete;
@@ -144,12 +145,12 @@ public:
 
 private:
     // DATA+FUNCTIONS FOR MIGRATION STRATEGIES
-    typename ExclusionStrat_t::global_data_t global_exclusion;
-    typename WorkerStrat_t   ::global_data_t global_worker;
+    typename ExclusionStrat_t::global_data_t _global_exclusion;
+    typename WorkerStrat_t   ::global_data_t _global_worker;
 
     // APPROXIMATE COUNTS
-    alignas(64) std::atomic_int elements;
-    alignas(64) std::atomic_int dummies;
+    alignas(64) std::atomic_int _elements;
+    alignas(64) std::atomic_int _dummies;
 };
 
 
@@ -237,39 +238,39 @@ public:
     mapped_reference operator[](const key_type& k)
     { return (*insert(k, mapped_type())).second; }
     insert_return_type insert_or_assign(const key_type& k, const mapped_type& d)
-    { return insertOrUpdate(k, d, example::Overwrite(), d); }
+    { return insert_or_Update(k, d, example::Overwrite(), d); }
 
     size_type          erase(const key_type& k);
 
     template <class F, class ... Types>
     insert_return_type update        (const key_type& k, F f, Types&& ... args);
     template <class F, class ... Types>
-    insert_return_type insertOrUpdate(const key_type& k, const mapped_type& d, F f, Types&& ... args);
+    insert_return_type insert_or_update(const key_type& k, const mapped_type& d, F f, Types&& ... args);
     template <class F, class ... Types>
     insert_return_type update_unsafe (const key_type& k, F f, Types&& ...args);
     template <class F, class ... Types>
-    insert_return_type insertOrUpdate_unsafe(const key_type& k, const mapped_type& d, F f, Types&& ... args);
+    insert_return_type insert_or_update_unsafe(const key_type& k, const mapped_type& d, F f, Types&& ... args);
 
 private:
     // DATA+FUNCTIONS FOR MIGRATION STRATEGIES
-    GrowTableData& gtData;
-    mutable typename WorkerStrat_t   ::local_data_t local_worker;
-    mutable typename ExclusionStrat_t::local_data_t local_exclusion;
+    GrowTableData& _gt_data;
+    mutable typename WorkerStrat_t   ::local_data_t _local_worker;
+    mutable typename ExclusionStrat_t::local_data_t _local_exclusion;
 
 
-    inline void         grow()     { local_exclusion.grow(); }
-    inline void         helpGrow() { local_exclusion.helpGrow(); }
-    inline void         rlsTable() { local_exclusion.rlsTable(); }
-    inline HashPtrRef_t getTable() { return local_exclusion.getTable(); }
+    inline void         grow()      { _local_exclusion.grow(); }
+    inline void         help_grow() { _local_exclusion.help_grow(); }
+    inline void         rls_table() { _local_exclusion.rls_table(); }
+    inline HashPtrRef_t get_table() { return _local_exclusion.get_table(); }
 
     template<typename Functor, typename ... Types>
     typename std::result_of<Functor(HashPtrRef_t, Types&& ...)>::type
     execute (Functor f, Types&& ... param)
     {
-        HashPtrRef_t temp = local_exclusion.getTable();
+        HashPtrRef_t temp = _local_exclusion.get_table();
         auto result = std::forward<Functor>(f)
                           (temp, std::forward<Types>(param)...);
-        rlsTable();
+        rls_table();
         return result;
     }
 
@@ -277,14 +278,14 @@ private:
     inline typename std::result_of<Functor(HashPtrRef_t, Types&& ...)>::type
     cexecute (Functor f, Types&& ... param) const
     {
-        HashPtrRef_t temp = local_exclusion.getTable();
+        HashPtrRef_t temp = _local_exclusion.get_table();
         auto result = std::forward<Functor>(f)
                           (temp, std::forward<Types>(param)...);
-        rlsTable();
+        rls_table();
         return result;
     }
 
-    double max_fill_factor;
+    static constexpr double _max_fill_factor = 0.666;
 
     // LOCAL COUNTERS FOR SIZE ESTIMATION WITH SOME PADDING FOR
     // REDUCING CACHE EFFECTS
@@ -292,47 +293,44 @@ private:
     void inc_inserted();
     void inc_deleted();
 
-    alignas(64) int  updates;
-    alignas(64) int  inserted;
-    alignas(64) int  deleted;
+    alignas(64) int  _updates;
+    alignas(64) int  _inserted;
+    alignas(64) int  _deleted;
 };
 
 
 template<class GrowTableData>
 GrowTableHandle<GrowTableData>::GrowTableHandle(GrowTableData &data)
-    : gtData(data), local_worker(data), local_exclusion(data, local_worker),
-      max_fill_factor(0.666),
-      updates(0),
-      inserted(0), deleted(0)
+    : _gt_data(data), _local_worker(data), _local_exclusion(data, _local_worker),
+      _updates(0),
+      _inserted(0), _deleted(0)
 {
     //INITIALIZE STRATEGY DEPENDENT DATA MEMBERS
-    local_exclusion.init();
-    local_worker   .init(local_exclusion);
+    _local_exclusion.init();
+    _local_worker   .init(_local_exclusion);
 }
 
 template<class GrowTableData>
 GrowTableHandle<GrowTableData>::GrowTableHandle(Parent_t      &parent)
-    : gtData(*(parent.gtData)), local_worker(*(parent.gtData)),
-      local_exclusion(*(parent.gtData), local_worker),
-      max_fill_factor(0.666),
-      updates(0),
-      inserted(0), deleted(0)
+    : _gt_data(*(parent._gt_data)), _local_worker(*(parent._gt_data)),
+      _local_exclusion(*(parent._gt_data), _local_worker),
+      _updates(0),
+      _inserted(0), _deleted(0)
 {
     //INITIALIZE STRATEGY DEPENDENT DATA MEMBERS
-    local_exclusion.init();
-    local_worker   .init(local_exclusion);
+    _local_exclusion.init();
+    _local_worker   .init(_local_exclusion);
 }
 
 
 template<class GrowTableData>
 GrowTableHandle<GrowTableData>::GrowTableHandle(GrowTableHandle&& source) :
-    gtData(source.gtData),
-    local_worker   (std::move(source.local_worker)),
-    local_exclusion(std::move(source.local_exclusion)),
-    max_fill_factor(source.max_fill_factor),
-    updates        (source.updates),
-    inserted       (source.inserted),
-    deleted        (source.deleted)
+    _gt_data(source._gt_data),
+    _local_worker   (std::move(source._local_worker)),
+    _local_exclusion(std::move(source._local_exclusion)),
+    _updates        (source._updates),
+    _inserted       (source._inserted),
+    _deleted        (source._deleted)
 {
 
 };
@@ -340,15 +338,14 @@ GrowTableHandle<GrowTableData>::GrowTableHandle(GrowTableHandle&& source) :
 template<class GrowTableData>
 GrowTableHandle<GrowTableData>& GrowTableHandle<GrowTableData>::operator=(GrowTableHandle&& source)
 {
-    gtData(source.gtData);
-    local_worker   (std::move(source.local_worker));
-    local_exclusion(std::move(source.local_exclusion));
-    max_fill_factor = source.max_fill_factor;
-    updates         = source.updates;
-    inserted        = source.inserted;
-    deleted         = source.deleted;
-    source.inserted = 0;
-    source.deleted  = 0;
+    _gt_data(source._gt_data);
+    _local_worker   (std::move(source._local_worker));
+    _local_exclusion(std::move(source._local_exclusion));
+    _updates         = source._updates;
+    _inserted        = source._inserted;
+    _deleted         = source._deleted;
+    source._inserted = 0;
+    source._deleted  = 0;
     return *this;
 };
 
@@ -358,8 +355,8 @@ template<class GrowTableData>
 GrowTableHandle<GrowTableData>::~GrowTableHandle()
 {
     update_numbers();
-    local_worker   .deinit();
-    local_exclusion.deinit();
+    _local_worker   .deinit();
+    _local_exclusion.deinit();
 }
 
 
@@ -424,7 +421,7 @@ GrowTableHandle<GrowTableData>::insert(const key_type& k, const mapped_type& d)
         return insert(k,d);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
-        helpGrow();
+        help_grow();
         return insert(k,d);
     default:
         return insert_return_type(end(), false);
@@ -485,7 +482,7 @@ GrowTableHandle<GrowTableData>::erase(const key_type& k)
         return 1;
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
-        helpGrow();
+        help_grow();
         return erase(k);
     case ReturnCode::UNSUCCESS_NOT_FOUND:
     case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
@@ -526,7 +523,7 @@ GrowTableHandle<GrowTableData>::update(const key_type& k, F f, Types&& ... args)
         return update(k,f, std::forward<Types>(args)...);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
-        helpGrow();
+        help_grow();
         return update(k,f, std::forward<Types>(args)...);
     default:
         return std::make_pair(end(), false);
@@ -536,7 +533,7 @@ GrowTableHandle<GrowTableData>::update(const key_type& k, F f, Types&& ... args)
 
 template<class GrowTableData> template <class F, class ... Types>
 inline typename GrowTableHandle<GrowTableData>::insert_return_type
-GrowTableHandle<GrowTableData>::insertOrUpdate(const key_type& k, const mapped_type& d, F f, Types&& ... args)
+GrowTableHandle<GrowTableData>::insert_or_update(const key_type& k, const mapped_type& d, F f, Types&& ... args)
 {
     int v = -1;
     base_intern_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
@@ -547,7 +544,7 @@ GrowTableHandle<GrowTableData>::insertOrUpdate(const key_type& k, const mapped_t
         {
             std::pair<int,base_intern_insert_return_type> result =
                 std::make_pair(t->_version,
-                               t->insertOrUpdate_intern(k,d,f,std::forward<Types>(args)...));
+                               t->insert_or_update_intern(k,d,f,std::forward<Types>(args)...));
             return result;
         },k,d,f,std::forward<Types>(args)...);
 
@@ -563,11 +560,11 @@ GrowTableHandle<GrowTableData>::insertOrUpdate(const key_type& k, const mapped_t
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow();
-        return insertOrUpdate(k,d,f, std::forward<Types>(args)...);
+        return insert_or_update(k,d,f, std::forward<Types>(args)...);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
-        helpGrow();
-        return insertOrUpdate(k,d,f, std::forward<Types>(args)...);
+        help_grow();
+        return insert_or_update(k,d,f, std::forward<Types>(args)...);
     default:
         return std::make_pair(end(), false);
     }
@@ -607,7 +604,7 @@ GrowTableHandle<GrowTableData>::update_unsafe(const key_type& k, F f, Types&& ..
         return update_unsafe(k,f, std::forward<Types>(args)...);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
-        helpGrow();
+        help_grow();
         return update_unsafe(k,f, std::forward<Types>(args)...);
     default:
         return std::make_pair(end(), false);
@@ -617,7 +614,7 @@ GrowTableHandle<GrowTableData>::update_unsafe(const key_type& k, F f, Types&& ..
 
 template<class GrowTableData> template <class F, class ... Types>
 inline typename GrowTableHandle<GrowTableData>::insert_return_type
-GrowTableHandle<GrowTableData>::insertOrUpdate_unsafe(const key_type& k, const mapped_type& d, F f, Types&& ... args)
+GrowTableHandle<GrowTableData>::insert_or_update_unsafe(const key_type& k, const mapped_type& d, F f, Types&& ... args)
 {
     int v = -1;
     base_intern_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
@@ -628,7 +625,7 @@ GrowTableHandle<GrowTableData>::insertOrUpdate_unsafe(const key_type& k, const m
         {
             std::pair<int,base_intern_insert_return_type> result =
                 std::make_pair(t->_version,
-                               t->insertOrUpdate_unsafe_intern(k,d,f,std::forward<Types>(args)...));
+                               t->insert_or_update_unsafe_intern(k,d,f,std::forward<Types>(args)...));
             return result;
         },k,d,f,std::forward<Types>(args)...);
 
@@ -644,11 +641,11 @@ GrowTableHandle<GrowTableData>::insertOrUpdate_unsafe(const key_type& k, const m
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow();
-        return insertOrUpdate_unsafe(k,d,f, std::forward<Types>(args)...);
+        return insert_or_update_unsafe(k,d,f, std::forward<Types>(args)...);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
-        helpGrow();
-        return insertOrUpdate_unsafe(k,d,f, std::forward<Types>(args)...);
+        help_grow();
+        return insert_or_update_unsafe(k,d,f, std::forward<Types>(args)...);
     default:
         return std::make_pair(end(), false);
     }
@@ -661,32 +658,32 @@ GrowTableHandle<GrowTableData>::insertOrUpdate_unsafe(const key_type& k, const m
 template<class GrowTableData>
 inline void GrowTableHandle<GrowTableData>::update_numbers()
 {
-    updates = 0;
+    _updates = 0;
 
-    gtData.dummies.fetch_add(deleted,std::memory_order_relaxed);
-    deleted   = 0;
+    _gt_data._dummies.fetch_add(_deleted,std::memory_order_relaxed);
+    _deleted   = 0;
 
-    auto temp = gtData.elements.fetch_add(inserted, std::memory_order_relaxed);
-    // temp     += inserted;
-    // inserted  = 0;
+    auto temp = _gt_data._elements.fetch_add(_inserted, std::memory_order_relaxed);
+    // temp     += _inserted;
+    // _inserted  = 0;
 
-    int cap = getTable()->_capacity * max_fill_factor;
-    rlsTable();
+    int cap = get_table()->_capacity * _max_fill_factor;
+    rls_table();
 
-    if (temp + inserted > cap)
+    if (temp + _inserted > cap)
     {
-        //rlsTable();
+        //rls_table();
         grow();
     }
-    inserted = 0;
-    //rlsTable();
+    _inserted = 0;
+    //rls_table();
 }
 
 template<class GrowTableData>
 inline void GrowTableHandle<GrowTableData>::inc_inserted()
 {
-    ++inserted;
-    if (++updates > 64)
+    ++_inserted;
+    if (++_updates > 64)
     {
         update_numbers();
     }
@@ -695,8 +692,8 @@ inline void GrowTableHandle<GrowTableData>::inc_inserted()
 template<class GrowTableData>
 inline void GrowTableHandle<GrowTableData>::inc_deleted()
 {
-    ++deleted;
-    if (++updates > 64)
+    ++_deleted;
+    if (++_updates > 64)
     {
         update_numbers();
     }

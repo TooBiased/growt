@@ -47,55 +47,52 @@ public:
     MarkableElement(MarkableElement &&e);
     //MarkableElement & operator=(MarkableElement && e);
 
-    static MarkableElement getEmpty()
+    static MarkableElement get_empty()
     { return MarkableElement( 0, 0 ); }
-
-    static MarkableElement getDeleted()
-    { return MarkableElement( (1ull<<63)-1ull, 0 ); }
 
     key_type    key;
     mapped_type data;
 
-    bool isEmpty()   const;
-    bool isDeleted() const;
-    bool isMarked()  const;
-    bool compareKey(const key_type & k) const;
-    bool atomicMark(MarkableElement& expected);
-    key_type    getKey()  const;
-    mapped_type getData() const;
-    bool setData(const mapped_type);
+    bool is_empty()   const;
+    bool is_deleted() const;
+    bool is_marked()  const;
+    bool compare_key(const key_type & k) const;
+    bool atomic_mark(MarkableElement& expected);
+    key_type    get_key()  const;
+    mapped_type get_data() const;
+    bool set_data(const mapped_type);
 
-    bool CAS(      MarkableElement & expected,
+    bool cas(      MarkableElement & expected,
              const MarkableElement & desired);
 
-    bool atomicDelete(const MarkableElement & expected);
+    bool atomic_delete(const MarkableElement & expected);
 
     template<class F>
-    bool atomicUpdate(      MarkableElement & expected,
-                      const MarkableElement & desired,
+    bool atomic_update(      MarkableElement & expected,
+                       const MarkableElement & desired,
                             F f);
     template<class F>
-    bool nonAtomicUpdate(   MarkableElement & expected,
-                      const MarkableElement & desired,
-                            F f);
+    bool non_atomic_update(  MarkableElement & expected,
+                       const MarkableElement & desired,
+                             F f);
 
     template<class F, class ...Types>
-    std::pair<mapped_type, bool> atomicUpdate(   MarkableElement & expected,
+    std::pair<mapped_type, bool> atomic_update(   MarkableElement & expected,
                          F f, Types&& ... args);
     template<class F, class ...Types>
-    std::pair<mapped_type, bool> nonAtomicUpdate(F f, Types&& ... args);
+    std::pair<mapped_type, bool> non_atomic_update(F f, Types&& ... args);
 
     inline bool operator==(MarkableElement& r) { return (key == r.key); }
     inline bool operator!=(MarkableElement& r) { return (key != r.key); }
 
-    inline ReturnElement getReturn() const
-    {  return ReturnElement(getKey(), getData());  }
+    inline ReturnElement get_return() const
+    {  return ReturnElement(get_key(), get_data());  }
 
     inline operator ReturnElement()
-    {  return ReturnElement(getKey(), getData());  }
+    {  return ReturnElement(get_key(), get_data());  }
 
     inline operator value_type() const
-    {  return std::make_pair(getKey(), getData()); }
+    {  return std::make_pair(get_key(), get_data()); }
 
 private:
     int128_t       &as128i();
@@ -138,30 +135,30 @@ inline MarkableElement::MarkableElement(MarkableElement &&e)
 // }
 
 
-inline bool MarkableElement::isEmpty()   const { return (key & BITMASK) == 0; }
-inline bool MarkableElement::isDeleted() const { return (key & BITMASK) == BITMASK; }
-inline bool MarkableElement::isMarked()  const { return (key & MARKED_BIT); }
-inline bool MarkableElement::compareKey(const key_type & k) const
+inline bool MarkableElement::is_empty()   const { return (key & BITMASK) == 0; }
+inline bool MarkableElement::is_deleted() const { return (key & BITMASK) == BITMASK; }
+inline bool MarkableElement::is_marked()  const { return (key & MARKED_BIT); }
+inline bool MarkableElement::compare_key(const key_type & k) const
 { return (key & BITMASK) == k; }
-inline MarkableElement::key_type    MarkableElement::getKey()  const
+inline MarkableElement::key_type    MarkableElement::get_key()  const
 { return (key != BITMASK) ? (key & BITMASK) : 0; }
-inline MarkableElement::mapped_type MarkableElement::getData() const { return data; }
-inline bool MarkableElement::setData(const mapped_type d)
+inline MarkableElement::mapped_type MarkableElement::get_data() const { return data; }
+inline bool MarkableElement::set_data(const mapped_type d)
 {
     MarkableElement temp = *this;
-    if (temp.isMarked()) return false;
+    if (temp.is_marked()) return false;
     return __sync_bool_compare_and_swap_16(& as128i(), temp.as128i(),
                                            MarkableElement(temp.key, d).as128i());
 }
 
-inline bool MarkableElement::atomicMark(MarkableElement& expected)
+inline bool MarkableElement::atomic_mark(MarkableElement& expected)
 {
     return __sync_bool_compare_and_swap_16(& as128i(),
                                expected.as128i(),
                                (expected.as128i() | MARKED_BIT));
 }
 
-inline bool MarkableElement::CAS( MarkableElement & expected,
+inline bool MarkableElement::cas( MarkableElement & expected,
                             const MarkableElement & desired)
 {
     return __sync_bool_compare_and_swap_16(& as128i(),
@@ -169,7 +166,7 @@ inline bool MarkableElement::CAS( MarkableElement & expected,
                                            desired.as128i());
 }
 
-inline bool MarkableElement::atomicDelete(const MarkableElement & expected)
+inline bool MarkableElement::atomic_delete(const MarkableElement & expected)
 {
     auto temp = expected;
     temp.key = BITMASK;
@@ -189,20 +186,20 @@ inline const int128_t &MarkableElement::as128i() const
 
 
 template<class F>
-inline bool MarkableElement::atomicUpdate(MarkableElement & expected,
-                                    const MarkableElement & desired,
-                                          F f)
+inline bool MarkableElement::atomic_update(MarkableElement & expected,
+                                     const MarkableElement & desired,
+                                           F f)
 {
     mapped_type td = expected.data;
     f(td, desired.key, desired.data);
-    return CAS(expected, MarkableElement(desired.key, td));
+    return cas(expected, MarkableElement(desired.key, td));
 
 }
 
 template<class F>
-inline bool MarkableElement::nonAtomicUpdate(MarkableElement &,
-                                       const MarkableElement & desired,
-                                             F f)
+inline bool MarkableElement::non_atomic_update(MarkableElement &,
+                                         const MarkableElement & desired,
+                                               F f)
 {
     f(data, desired.key, desired.data);
     return true;
@@ -210,18 +207,18 @@ inline bool MarkableElement::nonAtomicUpdate(MarkableElement &,
 
 template<class F, class ...Types>
 inline std::pair<typename MarkableElement::mapped_type, bool>
-MarkableElement::atomicUpdate(MarkableElement &exp,
+MarkableElement::atomic_update(MarkableElement &exp,
                               F f, Types&& ... args)
 {
-    auto temp = exp.getData();
+    auto temp = exp.get_data();
     f(temp, std::forward<Types>(args)...);
-    return std::make_pair(temp, CAS(exp, MarkableElement(exp.key, temp)));
+    return std::make_pair(temp, cas(exp, MarkableElement(exp.key, temp)));
 
 }
 
 template<class F, class ...Types>
 inline std::pair<typename MarkableElement::mapped_type, bool>
-MarkableElement::nonAtomicUpdate(F f, Types&& ... args)
+MarkableElement::non_atomic_update(F f, Types&& ... args)
 {
     return std::make_pair(f(data, std::forward<Types>(args)...),
                           true);

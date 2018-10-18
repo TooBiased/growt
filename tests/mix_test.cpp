@@ -217,7 +217,7 @@ int test_in_stages(size_t p, size_t id, size_t n, size_t cap, size_t it,
         if (ThreadType::is_main) print_parameters(i, p, n, cap, wperc);
         ThreadType::synchronized([]{ return 0; }, ++stage, p-1);
 
-        Handle hash = hash_table.getHandle();
+        Handle hash = hash_table.get_handle();
 
         // STAGE0.2 prefill table with pre elements
         {

@@ -31,10 +31,10 @@
  *  - subclass: local_data_t       (is stored at each handle)
  *     - init()
  *     - deinit()
- *     - getTable()   (gets current table and protects it from destruction)
- *     - rlsTable()   (stops protecting the table)
+ *     - get_table()   (gets current table and protects it from destruction)
+ *     - rls_table()   (stops protecting the table)
  *     - grow()       (creates a new table and initiates a growing step)
- *     - helpGrow()   (called when an operation is unsuccessful,
+ *     - help_grow()   (called when an operation is unsuccessful,
  *                     because the table is growing)
  *     - migrate()    (called by the worker strategy to execute the migration.
  *                     Done here to ensure the table is not concurrently freed.)
@@ -207,22 +207,22 @@ public:
         Flag_t         _flags;
 
     public:
-        inline HashPtrRef getTable()
+        inline HashPtrRef get_table()
         {
             _flags.table_op.store(1);//, std::memory_order_release);
 
             if (_global._currently_growing.load()) //std::memory_order_acquire))
             {
-                rlsTable();
-                helpGrow();
-                return getTable();
+                rls_table();
+                help_grow();
+                return get_table();
             }
             auto temp = _global._g_table_r.load(); //std::memory_order_acquire);
             _epoch = temp->_version;
             return temp;
         }
 
-        inline void rlsTable()
+        inline void rls_table()
         {
             //own_flag = 0;
             _flags.table_op.store(0); //, std::memory_order_release);
@@ -230,12 +230,12 @@ public:
 
         void grow()
         {
-            rlsTable();
+            rls_table();
 
             size_t stage = 0;
 
             // STAGE 1 GENERATE TABLE AND SWAP IT INTO NEXT
-            if (! changeStage<false>(stage, 1u)) { helpGrow(); return; }
+            if (! change_stage<false>(stage, 1u)) { help_grow(); return; }
 
             auto t_cur   = _global._g_table_r.load();//std::memory_order_acquire);
             auto t_next  = new BaseTable_t(//t_cur->size << 1, t_cur->_version+1);
@@ -244,7 +244,7 @@ public:
                                            _parent._dummies.load()),//std::memory_order_acquire)),
                         t_cur->_version+1);
 
-            waitForTableOp();
+            wait_for_table_op();
 
             if (! _global._g_table_w.compare_exchange_strong(t_cur,
                                                            t_next))//,
@@ -258,15 +258,15 @@ public:
             //parent.dummies.store(0);//, std::memory_order_release);
 
             // STAGE 2 ALL THREADS CAN ENTER THE MIGRATION
-            if (! changeStage(stage, 2u)) return;
+            if (! change_stage(stage, 2u)) return;
 
             //blockwise_migrate(t_cur, t_next);
             _worker_strat.execute_migration(*this, _epoch);
 
             //STAGE 3 WAIT FOR ALL THREADS, THEN CHANGE CURRENT TABLE
-            if (! changeStage(stage, 3u)) return;
+            if (! change_stage(stage, 3u)) return;
 
-            waitForMigration();
+            wait_for_migration();
 
             auto temp = _parent._dummies.load();
             _parent._dummies .fetch_sub(temp);
@@ -286,12 +286,12 @@ public:
             }
 
             //STAGE 4ISH THREADS MAY CONTINUE MASTER WILL DELETE THE OLD TABLE
-            if (! changeStage(stage, 0)) return;
+            if (! change_stage(stage, 0)) return;
 
             delete t_cur;
         }
 
-        inline void helpGrow()
+        inline void help_grow()
         {
             _worker_strat.execute_migration(*this, _epoch);
 
@@ -327,7 +327,7 @@ public:
 
     private:
         template<bool ErrorMsg = true>
-        inline bool changeStage(size_t& stage, size_t next)
+        inline bool change_stage(size_t& stage, size_t next)
         {
             auto result = _global._currently_growing
                 .compare_exchange_strong(stage, next);//,
@@ -343,7 +343,7 @@ public:
             return result;
         }
 
-        inline void waitForTableOp()
+        inline void wait_for_table_op()
         {
             auto end = _global._handle_id.load();//std::memory_order_acquire);
             for (size_t i = 0; i < end; ++i)
@@ -356,7 +356,7 @@ public:
             }
         }
 
-        inline void waitForMigration()
+        inline void wait_for_migration()
         {
             auto end = _global._handle_id.load();//std::memory_order_acquire);
             for (size_t i = 0; i < end; ++i)

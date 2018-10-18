@@ -127,7 +127,7 @@ public:
 
 
     public:
-        inline HashPtrRef getTable()
+        inline HashPtrRef get_table()
         {
             size_t t_epoch = _global._g_epoch_r.load(std::memory_order_acquire);
             if (t_epoch > _epoch)
@@ -137,7 +137,7 @@ public:
             return _table;
         }
 
-        inline void rlsTable() {   }
+        inline void rls_table() {   }
 
         void grow()
         {
@@ -190,14 +190,14 @@ public:
             leave_migration();
             //*/// =============================================================
 
-            endGrow();
+            end_grow();
         }
 
 
-        void helpGrow()
+        void help_grow()
         {
             _worker_strat.execute_migration(*this, _epoch);
-            endGrow();
+            end_grow();
         }
 
         inline size_t migrate()
@@ -243,7 +243,7 @@ public:
             }
         }
 
-        inline void endGrow()
+        inline void end_grow()
         {
             //wait for other helpers
             while (_global._n_helper.load(std::memory_order_acquire)) { }

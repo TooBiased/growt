@@ -44,51 +44,50 @@ public:
     SimpleElement & operator=(const SimpleElement & e);
     SimpleElement(SimpleElement &&e);
 
-    static SimpleElement getEmpty()
+    static SimpleElement get_empty()
     { return SimpleElement( 0, 0 ); }
 
-    static SimpleElement getDeleted()
+    static SimpleElement get_deleted()
     { return SimpleElement( (1ull<<63)-1ull, 0 ); }
 
     key_type    key;
     mapped_type data;
 
-    bool isEmpty() const;
-    bool isDeleted() const;
-    bool isMarked() const;
-    bool compareKey(const key_type & k) const;
-    bool atomicMark(SimpleElement& expected);
-    key_type    getKey()  const;
-    mapped_type getData() const;
-    bool setData(const mapped_type);
+    bool is_empty() const;
+    bool is_deleted() const;
+    bool is_marked() const;
+    bool compare_key(const key_type & k) const;
+    bool atomic_mark(SimpleElement& expected);
+    key_type    get_key()  const;
+    mapped_type get_data() const;
+    bool set_data(const mapped_type);
 
-    bool CAS(      SimpleElement & expected,
-             const SimpleElement & desired);
+    bool cas(SimpleElement & expected,
+       const SimpleElement & desired);
 
     bool atomicDelete(const SimpleElement & expected);
 
     template<class F>
-    bool atomicUpdate(      SimpleElement & expected,
-                      const SimpleElement & desired,
-                            F f);
+    bool atomic_update(SimpleElement & expected,
+                 const SimpleElement & desired,
+                       F f);
     template<class F>
-    bool nonAtomicUpdate(   SimpleElement & expected,
-                      const SimpleElement & desired,
-                            F f);
+    bool non_atomic_update(SimpleElement & expected,
+                     const SimpleElement & desired,
+                           F f);
 
     template<class F, class ...Types>
-    std::pair<mapped_type, bool> atomicUpdate(      SimpleElement & expected,
-                            F f, Types&& ...args);
+    std::pair<mapped_type, bool> atomic_update(SimpleElement & expected,
+                                               F f, Types&& ...args);
     template<class F, class ...Types>
-    std::pair<mapped_type, bool> nonAtomicUpdate(   F f, Types&& ...args);
-
+    std::pair<mapped_type, bool> non_atomic_update(F f, Types&& ...args);
 
     inline bool operator==(SimpleElement& other) { return (key == other.key); }
     inline bool operator!=(SimpleElement& other) { return (key != other.key); }
 
-    inline ReturnElement getReturn() const { return ReturnElement (getKey(), getData()); }
-    inline operator ReturnElement()        { return ReturnElement (getKey(), getData()); }
-    inline operator value_type() const     { return std::make_pair(getKey(), getData()); }
+    inline ReturnElement get_return() const { return ReturnElement (get_key(), get_data()); }
+    inline operator ReturnElement()         { return ReturnElement (get_key(), get_data()); }
+    inline operator value_type()      const { return std::make_pair(get_key(), get_data()); }
 
 private:
     int128_t       &as128i();
@@ -100,8 +99,10 @@ private:
 
 
 inline SimpleElement::SimpleElement() { }
-inline SimpleElement::SimpleElement(const key_type& k, const mapped_type& d) : key(k), data(d) { }
-inline SimpleElement::SimpleElement(const value_type& p) : key(p.first), data(p.second) {}
+inline SimpleElement::SimpleElement(const key_type& k, const mapped_type& d)
+    : key(k), data(d) { }
+inline SimpleElement::SimpleElement(const value_type& p)
+    : key(p.first), data(p.second) { }
 inline SimpleElement::SimpleElement(const SimpleElement &e)
 {
     //as128i() = (int128_t) _mm_loadu_ps((float *) &e);
@@ -113,20 +114,21 @@ inline SimpleElement & SimpleElement::operator=(const SimpleElement & e)
     as128i() = reinterpret_cast<int128_t>(_mm_loadu_si128((__m128i*) &e));
     return *this;
 }
-inline SimpleElement::SimpleElement(SimpleElement &&e) : key(e.key), data(e.data) { }
+inline SimpleElement::SimpleElement(SimpleElement &&e)
+    : key(e.key), data(e.data) { }
 
 
 
+inline bool SimpleElement::is_empty()   const { return key == 0; }
+inline bool SimpleElement::is_deleted() const { return key == BITMASK; }
+inline bool SimpleElement::is_marked()  const { return false; }
+inline bool SimpleElement::compare_key(const key_type & k)  const { return key == k; }
+inline bool SimpleElement::atomic_mark(SimpleElement&)            { return true; }
 
+inline SimpleElement::key_type    SimpleElement::get_key()  const { return key;  }
+inline SimpleElement::mapped_type SimpleElement::get_data() const { return data; }
 
-inline bool SimpleElement::isEmpty() const { return key == 0; }
-inline bool SimpleElement::isDeleted() const { return key == BITMASK; }
-inline bool SimpleElement::isMarked() const { return false; }
-inline bool SimpleElement::compareKey(const key_type & k) const { return key == k; }
-inline bool SimpleElement::atomicMark(SimpleElement&) { return true; }
-inline SimpleElement::key_type    SimpleElement::getKey()  const { return key; }
-inline SimpleElement::mapped_type SimpleElement::getData() const { return data;}
-inline bool SimpleElement::setData(const mapped_type d)
+    inline bool SimpleElement::set_data(const mapped_type d)
 {
     data = d;
     return true;
@@ -134,7 +136,7 @@ inline bool SimpleElement::setData(const mapped_type d)
 
 
 
-inline bool SimpleElement::CAS(SimpleElement & expected,
+inline bool SimpleElement::cas(SimpleElement & expected,
                   const SimpleElement & desired)
 {
     return __sync_bool_compare_and_swap_16(& as128i(),
@@ -178,7 +180,8 @@ template <bool TTrue>
 struct TAtomic
 {
     template <class TFunctor>
-    inline static bool execute(SimpleElement& that, SimpleElement&, const SimpleElement& desired, TFunctor f)
+    inline static bool execute(SimpleElement& that, SimpleElement&,
+                         const SimpleElement& desired, TFunctor f)
     {
         f.atomic(that.data, desired.key, desired.data);
         return true;
@@ -199,7 +202,8 @@ template <>
 struct TAtomic<false>
 {
     template <class TFunctor>
-    inline static bool execute(SimpleElement& that, SimpleElement& exp, const SimpleElement& des, TFunctor f)
+    inline static bool execute(SimpleElement& that, SimpleElement& exp,
+                         const SimpleElement& des, TFunctor f)
     {
         SimpleElement::mapped_type td = exp.data;
         f(td, des.key, des.data);
@@ -223,9 +227,9 @@ struct TAtomic<false>
 
 
 template<class F>
-inline bool SimpleElement::atomicUpdate(SimpleElement & expected,
-                           const SimpleElement & desired,
-                                            F f)
+inline bool SimpleElement::atomic_update(SimpleElement & expected,
+                                   const SimpleElement & desired,
+                                         F f)
 {
     return TAtomic<THasAtomic<F>::value>::execute(*this, expected, desired, f);
 }
@@ -233,9 +237,9 @@ inline bool SimpleElement::atomicUpdate(SimpleElement & expected,
 
 
 template<class F>
-inline bool SimpleElement::nonAtomicUpdate(SimpleElement &,
-                              const SimpleElement & desired,
-                                    F f)
+inline bool SimpleElement::non_atomic_update(SimpleElement &,
+                                       const SimpleElement & desired,
+                                             F f)
 {
     f(data, desired.key, desired.data);
     return true;
@@ -243,8 +247,8 @@ inline bool SimpleElement::nonAtomicUpdate(SimpleElement &,
 
 template<class F, class ... Types>
 inline std::pair<typename SimpleElement::mapped_type, bool>
-SimpleElement::atomicUpdate(SimpleElement & expected,
-                                        F f, Types&& ... args)
+SimpleElement::atomic_update(SimpleElement & expected,
+                             F f, Types&& ... args)
 {
     return TAtomic<THasAtomic<F>::value>::execute
         (*this, expected, f, std::forward<Types>(args)...);
@@ -254,7 +258,7 @@ SimpleElement::atomicUpdate(SimpleElement & expected,
 
 template<class F, class ... Types>
 inline std::pair<typename SimpleElement::mapped_type, bool>
-SimpleElement::nonAtomicUpdate(F f, Types&& ... args)
+SimpleElement::non_atomic_update(F f, Types&& ... args)
 {
     return std::make_pair(f(data, std::forward<Types>(args)...),
                           true);
