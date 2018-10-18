@@ -1,6 +1,6 @@
 /*******************************************************************************
  * data-structures/strategy/wstrat_pool.h
- * 
+ *
  * see below
  *
  * Part of Project growt - https://github.com/TooBiased/growt.git
@@ -31,7 +31,7 @@
  *
  * This specific strategy uses a thread-pool for growing.
  * Every thread who creates a handle will generate a growing
- * thread, which will help with each migration. The thread will 
+ * thread, which will help with each migration. The thread will
  * be stopped once the handle is deleted.
  *
  * NOTE: The migration thread will be pinned to the core, it was created from.
@@ -51,14 +51,14 @@ public:
     class global_data_t
     {
     public:
-        global_data_t() : grow_wait(0), user_wait(0) {}
+        global_data_t() : _grow_wait(0), _user_wait(0) {}
         global_data_t(const global_data_t &) = delete;
         global_data_t & operator = (const global_data_t &) = delete;
 
         ~global_data_t() = default;
 
-        counting_wait grow_wait;
-        counting_wait user_wait;
+        counting_wait _grow_wait;
+        counting_wait _user_wait;
     };
 
 
@@ -76,13 +76,13 @@ public:
 
         while (true)
         {
-            global.grow_wait.wait_if(epoch);
+            global._grow_wait.wait_if(epoch);
             if (finished) break;
 
             auto next = estrat.migrate();
 
-            global.user_wait.inc_if(epoch);
-            global.user_wait.wake();
+            global._user_wait.inc_if(epoch);
+            global._user_wait.wake();
             epoch = next;
         }
         finished.store(2, std::memory_order_release);
@@ -95,33 +95,33 @@ public:
     class local_data_t
     {
     public:
-        Parent           &parent;
-        global_data_t    &global;
-        std::thread      grow_thread;
-        std::unique_ptr<std::atomic_size_t> finished;
-        
+        Parent           &_parent;
+        global_data_t    &_global;
+        std::thread      _grow_thread;
+        std::unique_ptr<std::atomic_size_t> _finished;
+
         local_data_t(Parent &parent)
-            : parent(parent),
-              global(parent.global_worker),
-              finished(new std::atomic_size_t(0))
+            : _parent(parent),
+              _global(parent._global_worker),
+              _finished(new std::atomic_size_t(0))
         { }
         local_data_t(const local_data_t& source) = delete;
         local_data_t& operator=(const local_data_t& source) = delete;
         local_data_t(local_data_t&& rhs)
-            : parent(rhs.parent), global(rhs.global),
-              grow_thread(std::move(rhs.grow_thread)),
-              finished(std::move(finished))
+            : _parent(rhs._parent), _global(rhs._global),
+              _grow_thread(std::move(rhs._grow_thread)),
+              _finished(std::move(_finished))
         { }
 
         local_data_t& operator=(local_data_t&& rhs)
         {
-            parent = rhs.parent;
-            global = rhs.global;
+            _parent = rhs._parent;
+            _global = rhs._global;
             deinit();
-            grow_thread = std::move(rhs.grow_thread);
-            finished    = std::move(rhs.finished);
+            _grow_thread = std::move(rhs._grow_thread);
+            _finished    = std::move(rhs._finished);
         }
-        
+
         ~local_data_t() { }
 
         // creates and pins the thread
@@ -131,10 +131,10 @@ public:
             cpu_set_t cpuset;
             pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
-            grow_thread = std::thread(grow_thread_func<EStrat>, std::ref(estrat),
-                                                                std::ref(global),
-                                                                std::ref(*finished),
-                                                                &cpuset);
+            _grow_thread = std::thread(grow_thread_func<EStrat>, std::ref(estrat),
+                                                                 std::ref(_global),
+                                                                 std::ref(*_finished),
+                                                                 &cpuset);
         }
 
         // sets a local destroy flag, and wakes up all growing threads
@@ -142,12 +142,14 @@ public:
         // new table, no migration will be executed by the growing threads.
         inline void deinit()
         {
-            if (grow_thread.joinable())
+            if (_grow_thread.joinable())
             {
-                finished->store(1, std::memory_order_release);
-                while (finished->load(std::memory_order_acquire) < 2)
-                    global.grow_wait.wake();
-                grow_thread.join();
+                _finished->store(1, std::memory_order_release);
+
+                while (_finished->load(std::memory_order_acquire) < 2)
+                    _global._grow_wait.wake();
+
+                _grow_thread.join();
             }
         }
 
@@ -156,10 +158,10 @@ public:
         {
             // lets instead tell somebody else and ...
             // wait lazily until somebody did this zzzzZZZzz
-            if (global.grow_wait.inc_if(epoch))
-                global.grow_wait.wake();
+            if (_global._grow_wait.inc_if(epoch))
+                _global._grow_wait.wake();
 
-            global.user_wait.wait_if(epoch);
+            _global._user_wait.wait_if(epoch);
         }
     };
 

@@ -16,6 +16,7 @@
 #include <atomic>
 #include <stdexcept>
 #include <iostream>
+#include <limits>
 
 /*******************************************************************************
  *
@@ -54,6 +55,8 @@ template <class Parent>
 class EStratSync
 {
 public:
+    static constexpr size_t max_sim_threads = 256;
+
     using BaseTable_t   = typename Parent::BaseTable_t;
     using WorkerStratL  = typename Parent::WorkerStrat_t::local_data_t;
     using HashPtr       = std::atomic<BaseTable_t*>;
@@ -68,22 +71,21 @@ public:
     class global_data_t
     {
     public:
-        #define max_sim_threads 256
 
-        global_data_t(size_t size_) : currently_growing(0), handle_id(0)
+        global_data_t(size_t size_) : _currently_growing(0), _handle_id(0)
         {
             auto temp = new BaseTable_t(size_);
-            g_table_r.store( temp, std::memory_order_relaxed );
-            g_table_w.store( temp, std::memory_order_relaxed );
+            _g_table_r.store( temp, std::memory_order_relaxed );
+            _g_table_w.store( temp, std::memory_order_relaxed );
             //for (size_t i = 0; i<max_sim_threads; ++i)
-            //    handle_flags[i]();
+            //    _handle_flags[i]();
         }
         global_data_t(const global_data_t& source) = delete;
         global_data_t& operator=(const global_data_t& source) = delete;
         ~global_data_t()
         {
-            // g_table_r == g_table_w since unused
-            delete g_table_w.load();
+            // _g_table_r == _g_table_w since unused
+            delete _g_table_w.load();
         }
     private:
         friend local_data_t;
@@ -101,23 +103,23 @@ public:
 
 
         // align to cache line
-        std::atomic_size_t currently_growing;
-        std::atomic_size_t handle_id;
-        HashPtr g_table_r;
-        HashPtr g_table_w;
-        alignas(128) HandleFlags handle_flags[max_sim_threads];
+        std::atomic_size_t _currently_growing;
+        std::atomic_size_t _handle_id;
+        HashPtr            _g_table_r;
+        HashPtr            _g_table_w;
+        alignas(128) HandleFlags _handle_flags[max_sim_threads];
 
         size_t registerHandle()
         {
             for (size_t i = 0; i < max_sim_threads; ++i)
             {
-                if (! handle_flags[i].in_use.load())
+                if (! _handle_flags[i].in_use.load())
                 {
                     size_t  temp = 0;
-                    if (handle_flags[i].in_use.compare_exchange_weak(temp, 1))
+                    if (_handle_flags[i].in_use.compare_exchange_weak(temp, 1))
                     {
-                        while ( (temp = handle_id.load()) <= i)
-                        { handle_id.compare_exchange_weak(temp, i+1); }
+                        while ( (temp = _handle_id.load()) <= i)
+                        { _handle_id.compare_exchange_weak(temp, i+1); }
                         return i;
                     }
                     else --i;
@@ -137,22 +139,22 @@ public:
     public:
 
         local_data_t(Parent& parent, WorkerStratL &wstrat)
-            : parent(parent), global(parent.global_exclusion), worker_strat(wstrat),
-              id(global.registerHandle()), epoch(0),
-              flags(global.handle_flags[id])
-              //own_flag(global.writing[id<<4]), mig_flag(global.writing[(id<<4)+1])
+            : _parent(parent), _global(parent._global_exclusion), _worker_strat(wstrat),
+              _id(_global.registerHandle()), _epoch(0),
+              _flags(_global._handle_flags[_id])
+              //own_flag(_global.writing[_id<<4]), mig_flag(_global.writing[(_id<<4)+1])
         { }
         local_data_t(const local_data_t& source) = delete;
         local_data_t& operator=(const local_data_t& source) = delete;
 
         local_data_t(local_data_t&& source)
-            : parent(source.parent), global(source.global),
-              worker_strat(source.worker_strat), id(source.id), epoch(source.epoch),
-              flags(source.flags)
+            : _parent(source._parent), _global(source._global),
+              _worker_strat(source._worker_strat), _id(source._id), _epoch(source._epoch),
+              _flags(source._flags)
         {
-            source.id = std::numeric_limits<size_t>::max();
-            if ( flags.table_op.load()  ||
-                 flags.migrating.load()  ) std::cout << "wtf" << std::endl;
+            source._id = std::numeric_limits<size_t>::max();
+            if ( _flags.table_op.load()  ||
+                 _flags.migrating.load()  ) std::cout << "wtf" << std::endl;
         }
         //=default;
 
@@ -168,25 +170,25 @@ public:
 
         ~local_data_t()
         {
-            if (id == std::numeric_limits<size_t>::max()) return;
+            if (_id == std::numeric_limits<size_t>::max()) return;
 
-            flags.table_op.store(0);
-            flags.migrating.store(0);
-            flags.in_use.store(0);
+            _flags.table_op.store(0);
+            _flags.migrating.store(0);
+            _flags.in_use.store(0);
         }
 
         inline void init() { }
         inline void deinit() { }
 
     private:
-        Parent& parent;
-        global_data_t& global;
-        WorkerStratL&  worker_strat;
+        Parent&        _parent;
+        global_data_t& _global;
+        WorkerStratL&  _worker_strat;
 
-        size_t           id;
-        size_t           epoch;
+        size_t         _id;
+        size_t         _epoch;
 
-        typename global_data_t::HandleFlags& flags;
+        typename global_data_t::HandleFlags& _flags;
         //std::atomic_size_t& own_flag;
         //std::atomic_size_t& mig_flag;
 
@@ -194,22 +196,22 @@ public:
         inline HashPtrRef getTable()
         {
             //own_flag = 1;
-            flags.table_op.store(1, std::memory_order_release);
+            _flags.table_op.store(1, std::memory_order_release);
 
-            if (global.currently_growing.load(std::memory_order_acquire))
+            if (_global._currently_growing.load(std::memory_order_acquire))
             {
                 rlsTable();
                 helpGrow();
                 return getTable();
             }
-            auto temp = global.g_table_r.load(std::memory_order_acquire);
-            epoch = temp->_version;
+            auto temp = _global._g_table_r.load(std::memory_order_acquire);
+            _epoch = temp->_version;
             return temp;
         }
 
         inline void rlsTable()
         {
-            flags.table_op.store(0, std::memory_order_release);
+            _flags.table_op.store(0, std::memory_order_release);
         }
 
         void grow()
@@ -221,16 +223,16 @@ public:
             // STAGE 1 GENERATE TABLE AND SWAP IT SIZE_TO NEXT
             if (! changeStage<false>(stage, 1u)) { helpGrow(); return; }
 
-            auto t_cur   = global.g_table_r.load(std::memory_order_acquire);
+            auto t_cur   = _global._g_table_r.load(std::memory_order_acquire);
             auto t_next  = new BaseTable_t(//t_cur->size << 1, t_cur->_version+1);
                         BaseTable_t::resize(t_cur->_capacity,
-                            parent.elements.load(std::memory_order_acquire),
-                            parent.dummies.load(std::memory_order_acquire)),
+                            _parent._elements.load(std::memory_order_acquire),
+                            _parent._dummies.load(std::memory_order_acquire)),
                         t_cur->_version+1);
 
             waitForTableOp();
 
-            if (! global.g_table_w.compare_exchange_strong(t_cur,
+            if (! _global._g_table_w.compare_exchange_strong(t_cur,
                                                            t_next,
                                                            std::memory_order_release))
             {
@@ -238,27 +240,27 @@ public:
                 std::logic_error("Next_table already replaced (at beginning of grow)!");
                 return;
             }
-            //parent.elements.store(0, std::memory_order_release);
-            //parent.dummies.store(0, std::memory_order_release);
+            //_parent._elements.store(0, std::memory_order_release);
+            //_parent._dummies.store(0, std::memory_order_release);
 
             // STAGE 2 ALL THREADS CAN ENTER THE MIGRATION
             if (! changeStage(stage, 2u)) return;
 
-            worker_strat.execute_migration(*this, epoch);//, t_cur, t_next);
+            _worker_strat.execute_migration(*this, _epoch);//, t_cur, t_next);
 
             //STAGE 3 WAIT FOR ALL THREADS, THEN CHANGE CURRENT TABLE
             if (! changeStage(stage, 3u)) return;
 
             waitForMigration();
 
-            //parent.elements.store(parent.grow_count.load(std::memory_order_acquire),
+            //_parent._elements.store(_parent.grow_count.load(std::memory_order_acquire),
             //                      std::memory_order_release);
-            auto rem_dummies = parent.dummies.load();
-            parent.elements.fetch_sub(rem_dummies);
-            parent.dummies.fetch_sub(rem_dummies);
-            //parent.grow_count.store(0, std::memory_order_release);
+            auto rem_dummies = _parent._dummies.load();
+            _parent._elements.fetch_sub(rem_dummies);
+            _parent._dummies.fetch_sub(rem_dummies);
+            //_parent.grow_count.store(0, std::memory_order_release);
 
-            if (! global.g_table_r.compare_exchange_strong(t_cur,
+            if (! _global._g_table_r.compare_exchange_strong(t_cur,
                                                            t_next,
                                                            std::memory_order_release))
             {
@@ -275,37 +277,37 @@ public:
 
         inline void helpGrow()
         {
-            worker_strat.execute_migration(*this, epoch);
+            _worker_strat.execute_migration(*this, _epoch);
 
                 //wait till growmaster replaced the current table
-            while (global.currently_growing.load(std::memory_order_acquire)) { }
+            while (_global._currently_growing.load(std::memory_order_acquire)) { }
         }
 
 
         inline size_t migrate()
         {
             // enter_migration();
-            while (global.currently_growing.load(std::memory_order_acquire) == 1);
-            flags.migrating.store(2, std::memory_order_release);
+            while (_global._currently_growing.load(std::memory_order_acquire) == 1);
+            _flags.migrating.store(2, std::memory_order_release);
 
             // getCurr()
-            auto curr = global.g_table_r.load(std::memory_order_acquire);
+            auto curr = _global._g_table_r.load(std::memory_order_acquire);
             // getNext()
-            auto next = global.g_table_w.load(std::memory_order_acquire);
+            auto next = _global._g_table_w.load(std::memory_order_acquire);
 
             if (curr->_version >= next->_version)
             {
                 // leave_migration();
-                flags.migrating.store(0, std::memory_order_release);
+                _flags.migrating.store(0, std::memory_order_release);
 
                 return next->_version;
             }
-            //parent.grow_count.fetch_add(
+            //_parent.grow_count.fetch_add(
                 blockwise_migrate(curr, next);//);//,
             //std::memory_order_release);
 
             // leave_migration();
-            flags.migrating.store(0, std::memory_order_release);
+            _flags.migrating.store(0, std::memory_order_release);
 
             return next->_version;
         }
@@ -314,7 +316,7 @@ public:
         template<bool ErrorMsg = true>
         inline bool changeStage(size_t& stage, size_t next)
         {
-            auto result = global.currently_growing
+            auto result = _global._currently_growing
                     .compare_exchange_strong(stage, next,
                                              std::memory_order_acq_rel);
             if (result)
@@ -330,20 +332,20 @@ public:
 
         inline void waitForTableOp()
         {
-            auto end = global.handle_id.load(std::memory_order_acquire);
+            auto end = _global._handle_id.load(std::memory_order_acquire);
             for (size_t i = 0; i < end; ++i)
             {
-                while (global.handle_flags[i]
-                             .table_op.load(std::memory_order_acquire));
+                while (_global._handle_flags[i]
+                              .table_op.load(std::memory_order_acquire));
             }
         }
 
         inline void waitForMigration()
         {
-            auto end = global.handle_id.load(std::memory_order_acquire);
+            auto end = _global._handle_id.load(std::memory_order_acquire);
             for (size_t i = 0; i < end; ++i)
             {
-                while (global.handle_flags[i].migrating.load(std::memory_order_acquire));
+                while (_global._handle_flags[i].migrating.load(std::memory_order_acquire));
             }
         }
 

@@ -102,9 +102,9 @@ private:
         if (ht->_version == _version) return false;
 
         _version = ht->_version;
-        auto it = ht->find(_mref.copy.first);
-        _mref.copy = it.copy;
-        _mref.ptr  = it.ptr;
+        auto it = ht->find(_mref._copy.first);
+        _mref._copy = it._copy;
+        _mref._ptr  = it._ptr;
         return true;
     }
 
@@ -132,7 +132,7 @@ public:
 
     ReferenceGrowT(RefBase_t ref, size_t ver, Table_t& table)
         : second(ref.second, ver, table),
-          first(second._mref.copy.first) { }
+          first(second._mref._copy.first) { }
 
 
     // Functions necessary for concurrency *************************************
@@ -158,9 +158,9 @@ private:
     //     if (ht->_version == _version) return false;
 
     //     _version = ht->_version;
-    //     auto it = ht->find(ref.copy.first);
-    //     ref.copy = it.copy;
-    //     ref.ptr  = it.ptr;
+    //     auto it = ht->find(ref._copy.first);
+    //     ref._copy = it._copy;
+    //     ref._ptr  = it._ptr;
     //     return true;
     // }
 
@@ -249,7 +249,7 @@ public:
     }
 
     inline reference operator* () const { return reference(*_it, _version, _tab); }
-    // pointer   operator->() const { return  ptr; }
+    // pointer   operator->() const { return  _ptr; }
 
     inline bool operator==(const IteratorGrowT& rhs) const { return _it == rhs._it; }
     inline bool operator!=(const IteratorGrowT& rhs) const { return _it != rhs._it; }
@@ -278,7 +278,7 @@ private:
         if (ht->_version == _version) return false;
 
         _version = ht->_version;
-        _it      = static_cast<BTable_t&>(*ht).find(_it.copy.first);
+        _it      = static_cast<BTable_t&>(*ht).find(_it._copy.first);
         return true;
     }
 };

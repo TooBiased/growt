@@ -51,31 +51,31 @@ public:
     using value_type   = typename
         std::conditional<is_const, const value_nc, value_nc>::type;
 
-    MappedRefBase(value_type _copy, pointer_intern ptr)
-        : copy(_copy), ptr(ptr) { }
+    MappedRefBase(value_type copy, pointer_intern ptr)
+        : _copy(copy), _ptr(ptr) { }
 
-    inline void refresh() { copy = *ptr; }
+    inline void refresh() { _copy = *_ptr; }
 
     template<bool is_const2 = is_const>
     inline typename std::enable_if<!is_const2>::type operator=(const mapped_type& value)
-    { ptr->setData(value); }
+    { _ptr->setData(value); }
     template<class F>
     inline void update   (const mapped_type& value, F f)
-    { ptr->update(copy.first, value, f); }
+    { _ptr->update(_copy.first, value, f); }
     inline bool compare_exchange(mapped_type& exp, const mapped_type& val)
     {
-        auto temp = value_intern(copy.first, exp);
-        if (ptr->CAS(temp, value_intern(copy.first, val)))
-        { copy.second = val; return true; }
+        auto temp = value_intern(_copy.first, exp);
+        if (_ptr->CAS(temp, value_intern(_copy.first, val)))
+        { _copy.second = val; return true; }
         else
-        { copy.second = temp.second; exp = temp.second; return false; }
+        { _copy.second = temp.second; exp = temp.second; return false; }
     }
 
-    inline operator mapped_type()  const { return copy.second; }
+    inline operator mapped_type()  const { return _copy.second; }
 
 private:
-    pair_type      copy;
-    pointer_intern ptr;
+    pair_type      _copy;
+    pointer_intern _ptr;
 };
 
 
@@ -104,8 +104,8 @@ public:
     using value_type   = typename
         std::conditional<is_const, const value_nc, value_nc>::type;
 
-    ReferenceBase(value_type _copy, pointer_intern ptr)
-        : second(_copy, ptr), first(second.copy.first) { }
+    ReferenceBase(value_type copy, pointer_intern ptr)
+        : second(copy, ptr), first(second._copy.first) { }
 
     inline void refresh() { second.refresh(); }
 
@@ -118,9 +118,9 @@ public:
     }
 
     inline operator pair_type()  const
-    { return second.copy; }
+    { return second._copy; }
     inline operator value_type() const
-    { return reinterpret_cast<value_type>(second.copy); }
+    { return reinterpret_cast<value_type>(second._copy); }
 
     mapped_ref      second;
     const key_type& first;
@@ -160,45 +160,45 @@ public:
 
     // Constructors ************************************************************
     IteratorBase(const pair_type& copy, value_intern* ptr, value_intern* eptr)
-        : copy(copy), ptr(ptr), eptr(eptr) { }
+        : _copy(copy), _ptr(ptr), _eptr(eptr) { }
 
     IteratorBase(const IteratorBase& rhs)
-        : copy(rhs.copy), ptr(rhs.ptr), eptr(rhs.eptr) { }
+        : _copy(rhs._copy), _ptr(rhs._ptr), _eptr(rhs._eptr) { }
     IteratorBase& operator=(const IteratorBase& r)
-    { copy = r.copy; ptr = r.ptr; eptr = r.eptr; return *this; }
+    { _copy = r._copy; _ptr = r._ptr; _eptr = r._eptr; return *this; }
 
     ~IteratorBase() = default;
 
     // Basic Iterator Functionality ********************************************
     inline IteratorBase& operator++()
     {
-        ++ptr;
-        while ( ptr < eptr && (ptr->isEmpty() || ptr->isDeleted())) { ++ptr; }
-        copy.first  = ptr->getKey();
-        copy.second = ptr->getData();
-        if (ptr == eptr)
+        ++_ptr;
+        while ( _ptr < _eptr && (_ptr->isEmpty() || _ptr->isDeleted())) { ++_ptr; }
+        _copy.first  = _ptr->getKey();
+        _copy.second = _ptr->getData();
+        if (_ptr == _eptr)
         {
-            ptr  = nullptr;
-            copy = std::make_pair(key_type(), mapped_type());
+            _ptr  = nullptr;
+            _copy = std::make_pair(key_type(), mapped_type());
         }
         return *this;
     }
 
-    inline reference operator* () const { return reference(copy, ptr); }
-    // pointer   operator->() const { return  ptr; }
+    inline reference operator* () const { return reference(_copy, _ptr); }
+    // pointer   operator->() const { return  _ptr; }
 
-    inline bool operator==(const IteratorBase& rhs) const { return ptr == rhs.ptr; }
-    inline bool operator!=(const IteratorBase& rhs) const { return ptr != rhs.ptr; }
+    inline bool operator==(const IteratorBase& rhs) const { return _ptr == rhs._ptr; }
+    inline bool operator!=(const IteratorBase& rhs) const { return _ptr != rhs._ptr; }
 
     // Functions necessary for concurrency *************************************
-    inline void refresh () { copy = *ptr; }
+    inline void refresh () { _copy = *_ptr; }
 
     inline bool erase()
     {
-        auto temp   = value_intern(reinterpret_cast<value_type>(copy));
+        auto temp   = value_intern(reinterpret_cast<value_type>(_copy));
         while (!temp.isDeleted)
         {
-            if (ptr->atomicDelete(temp))
+            if (_ptr->atomicDelete(temp))
             { this->operator++(); return true; }
         }
         this->operator++();
@@ -206,9 +206,9 @@ public:
     }
 
 private:
-    pair_type      copy;
-    pointer_intern ptr;
-    pointer_intern eptr;
+    pair_type      _copy;
+    pointer_intern _ptr;
+    pointer_intern _eptr;
 };
 
 

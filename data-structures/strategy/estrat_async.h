@@ -17,6 +17,8 @@
 #include <mutex>
 #include <memory>
 
+#include "data-structures/markableelement.h"
+
 /*******************************************************************************
  *
  * This is a exclusion strategy for our growtable.
@@ -70,9 +72,9 @@ public:
     class global_data_t
     {
     public:
-        global_data_t(size_t size_) : g_epoch_r(0), g_epoch_w(0), n_helper(0)
+        global_data_t(size_t size_) : _g_epoch_r(0), _g_epoch_w(0), _n_helper(0)
         {
-            g_table_r = g_table_w = std::make_shared<BaseTable_t>(size_);
+            _g_table_r = _g_table_w = std::make_shared<BaseTable_t>(size_);
         }
         global_data_t(const global_data_t& source) = delete;
         global_data_t& operator=(const global_data_t& source) = delete;
@@ -81,14 +83,14 @@ public:
     private:
         friend local_data_t;
 
-        std::atomic_size_t g_epoch_r;
-        std::atomic_size_t g_epoch_w;
-        HashPtr g_table_r;
-        HashPtr g_table_w;
+        std::atomic_size_t _g_epoch_r;
+        std::atomic_size_t _g_epoch_w;
+        HashPtr _g_table_r;
+        HashPtr _g_table_w;
 
-        std::mutex grow_mutex;
-        std::atomic_size_t n_helper;
-        // return g_epoch_r.load(std::memory_order_acquire); }
+        std::mutex _grow_mutex;
+        std::atomic_size_t _n_helper;
+        // return _g_epoch_r.load(std::memory_order_acquire); }
     };
 
     // STORED AT EACH HANDLE
@@ -100,9 +102,9 @@ public:
         using WorkerStratL  = typename Parent::WorkerStrat_t::local_data_t;
     public:
         local_data_t(Parent& parent, WorkerStratL& wstrat)
-            : parent(parent), global(parent.global_exclusion),
-              worker_strat(wstrat),
-              epoch(0), table(nullptr)
+            : _parent(parent), _global(parent._global_exclusion),
+              _worker_strat(wstrat),
+              _epoch(0), _table(nullptr)
         { }
 
         local_data_t(const local_data_t& source) = delete;
@@ -116,23 +118,23 @@ public:
         inline void deinit() { }
 
     private:
-        Parent& parent;
-        global_data_t& global;
-        WorkerStratL&  worker_strat;
+        Parent&        _parent;
+        global_data_t& _global;
+        WorkerStratL&  _worker_strat;
 
-        size_t epoch;
-        std::shared_ptr<BaseTable_t> table;
+        size_t _epoch;
+        std::shared_ptr<BaseTable_t> _table;
 
 
     public:
         inline HashPtrRef getTable()
         {
-            size_t t_epoch = global.g_epoch_r.load(std::memory_order_acquire);
-            if (t_epoch > epoch)
+            size_t t_epoch = _global._g_epoch_r.load(std::memory_order_acquire);
+            if (t_epoch > _epoch)
             {
                 load();
             }
-            return table;
+            return _table;
         }
 
         inline void rlsTable() {   }
@@ -141,30 +143,30 @@ public:
         {
             //std::shared_ptr<BaseTable_t> w_table;
             { // should be atomic (therefore locked)
-                std::lock_guard<std::mutex> lock(global.grow_mutex);
-                if (global.g_table_w->_version == table->_version)
+                std::lock_guard<std::mutex> lock(_global._grow_mutex);
+                if (_global._g_table_w->_version == _table->_version)
                 {
                     // first one to get here allocates new table
                     auto w_table = std::make_shared<BaseTable_t>(
-                       BaseTable_t::resize(table->_capacity,
-                           parent.elements.load(std::memory_order_acquire),
-                           parent.dummies.load(std::memory_order_acquire)),
-                       table->_version+1);
+                       BaseTable_t::resize(_table->_capacity,
+                           _parent._elements.load(std::memory_order_acquire),
+                           _parent._dummies.load(std::memory_order_acquire)),
+                       _table->_version+1);
 
-                    global.g_table_w = w_table;
-                    global.g_epoch_w.store(w_table->_version,
+                    _global._g_table_w = w_table;
+                    _global._g_epoch_w.store(w_table->_version,
                                            std::memory_order_release);
                 }
             }
 
-            worker_strat.execute_migration(*this, epoch);
+            _worker_strat.execute_migration(*this, _epoch);
 
             /*/ TEST STUFF =====================================================
             static std::atomic_size_t already{0};
             auto temp = already.fetch_add(1);
             if (temp == 0)
             {
-                while (global.n_helper.load(std::memory_order_acquire) > 1) ;
+                while (global._n_helper.load(std::memory_order_acquire) > 1) ;
                 bool all_fine = true;
                 auto& target = *w_table;
                 for (size_t i = 0; i < target.size; ++i)
@@ -194,28 +196,28 @@ public:
 
         void helpGrow()
         {
-            worker_strat.execute_migration(*this, epoch);
+            _worker_strat.execute_migration(*this, _epoch);
             endGrow();
         }
 
         inline size_t migrate()
         {
             // enter_migration(): nhelper ++
-            global.n_helper.fetch_add(1, std::memory_order_acq_rel);
+            _global._n_helper.fetch_add(1, std::memory_order_acq_rel);
 
             // getCurr() and getNext()
             HashPtr curr, next;
             {
-                std::lock_guard<std::mutex> lock(global.grow_mutex);
-                curr = global.g_table_r;
-                next = global.g_table_w;
+                std::lock_guard<std::mutex> lock(_global._grow_mutex);
+                curr = _global._g_table_r;
+                next = _global._g_table_w;
             }
 
             if (curr->_version >= next->_version)
             {
                 // late to the party
                 // leave_migration(): nhelper --
-                global.n_helper.fetch_sub(1, std::memory_order_release);
+                _global._n_helper.fetch_sub(1, std::memory_order_release);
 
                 return next->_version;
             }
@@ -226,7 +228,7 @@ public:
 
 
             // leave_migration(): nhelper --
-            global.n_helper.fetch_sub(1, std::memory_order_release);
+            _global._n_helper.fetch_sub(1, std::memory_order_release);
 
             return next->_version;
         }
@@ -235,24 +237,24 @@ public:
         inline void load()
         {
             {
-                std::lock_guard<std::mutex> lock(global.grow_mutex);
-                epoch = global.g_epoch_r.load(std::memory_order_acquire);
-                table = global.g_table_r;
+                std::lock_guard<std::mutex> lock(_global._grow_mutex);
+                _epoch = _global._g_epoch_r.load(std::memory_order_acquire);
+                _table = _global._g_table_r;
             }
         }
 
         inline void endGrow()
         {
             //wait for other helpers
-            while (global.n_helper.load(std::memory_order_acquire)) { }
+            while (_global._n_helper.load(std::memory_order_acquire)) { }
 
             //CAS table into R-Position
             {
-                std::lock_guard<std::mutex> lock(global.grow_mutex);
-                if (global.g_table_r->_version == epoch)
+                std::lock_guard<std::mutex> lock(_global._grow_mutex);
+                if (_global._g_table_r->_version == _epoch)
                 {
-                    global.g_table_r = global.g_table_w;
-                    global.g_epoch_r.store(global.g_epoch_w.load(std::memory_order_acquire),
+                    _global._g_table_r = _global._g_table_w;
+                    _global._g_epoch_r.store(_global._g_epoch_w.load(std::memory_order_acquire),
                                            std::memory_order_release);
 
                     //auto temp = global.g_count.load(std::memory_order_acquire);
@@ -261,8 +263,8 @@ public:
                     //global.g_count .store(   0, std::memory_order_release);
 
 
-                    auto temp = parent.dummies.exchange(0, std::memory_order_acq_rel);
-                    parent.elements.fetch_sub(temp, std::memory_order_release);
+                    auto temp = _parent._dummies.exchange(0, std::memory_order_acq_rel);
+                    _parent._elements.fetch_sub(temp, std::memory_order_release);
                 }
             }
 

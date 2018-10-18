@@ -54,7 +54,7 @@ public:
     // Constructors ************************************************************
 
     SeqIterator(cval_intern* p, const key_type& k, size_t v, cTable_t& t)
-        : ptr(p), key(k), ver(v), tab(t) { }
+        : _ptr(p), _key(k), _ver(v), _tab(t) { }
 
     SeqIterator(const SeqIterator& r) = default;
     //     : ptr(r.ptr), key(r.key), ver(r.ver), tab(r.tab) { }
@@ -68,33 +68,33 @@ public:
 
     inline SeqIterator& operator++(int = 0)
     {
-        if (tab._version != ver) refresh();
-        while ( ptr < tab.t + tab._capacity && ptr->isEmpty()) ptr++;
-        if (ptr == tab.t+ tab._capacity) { ptr = nullptr; key = key_type(); }
-        else { key = ptr->getKey(); }
+        if (_tab._version != _ver) refresh();
+        while ( _ptr < _tab._t + _tab._capacity && _ptr->isEmpty()) _ptr++;
+        if (_ptr == _tab._t+ _tab._capacity) { _ptr = nullptr; _key = key_type(); }
+        else { _key = _ptr->getKey(); }
         return *this;
     }
 
     inline reference operator* ()
-    { if (tab._version != ver) refresh(); return *reinterpret_cast<value_type*>(ptr); }
+    { if (_tab._version != _ver) refresh(); return *reinterpret_cast<value_type*>(_ptr); }
 
     inline pointer   operator->()
-    { if (tab._version != ver) refresh(); return  reinterpret_cast<value_type*>(ptr); }
+    { if (_tab._version != _ver) refresh(); return  reinterpret_cast<value_type*>(_ptr); }
 
-    inline bool operator==(const SeqIterator& r) const { return ptr == r.ptr; }
-    inline bool operator!=(const SeqIterator& r) const { return ptr != r.ptr; }
+    inline bool operator==(const SeqIterator& r) const { return _ptr == r._ptr; }
+    inline bool operator!=(const SeqIterator& r) const { return _ptr != r._ptr; }
 
 private:
-    pointer_intern ptr;
-    key_type       key;
-    size_t         ver;
-    cTable_t&      tab;
+    pointer_intern _ptr;
+    key_type       _key;
+    size_t         _ver;
+    cTable_t&      _tab;
 
     inline void refresh()
     {
-        SeqIterator it = tab.find(key);
-        ptr = it.ptr;
-        ver = it.ver;
+        SeqIterator it = _tab.find(_key);
+        _ptr = it.ptr;
+        _ver = it.ver;
     }
 
 };
@@ -131,26 +131,27 @@ public:
     using node_type            = void;
 
 private:
-    using BaseCircular<E,HashFct,A,MaDis,MiSt>::t;
+    using BaseCircular<E,HashFct,A,MaDis,MiSt>::_t;
     using BaseCircular<E,HashFct,A,MaDis,MiSt>::_bitmask;
     using BaseCircular<E,HashFct,A,MaDis,MiSt>::h;
     using BaseCircular<E,HashFct,A,MaDis,MiSt>::_capacity;
-    using BaseCircular<E,HashFct,A,MaDis,MiSt>::hash;
+    using BaseCircular<E,HashFct,A,MaDis,MiSt>::_hash;
     using BaseCircular<E,HashFct,A,MaDis,MiSt>::_version;
     using BaseCircular<E,HashFct,A,MaDis,MiSt>::_right_shift;
+    static constexpr double _max_fill_factor = 0.666;
 
     template<class, bool>
     friend class SeqIterator;
 
 public:
 
-    SeqCircular(size_t size_ )
-        : BaseCircular<E,HashFct,A,MaDis,MiSt>::BaseCircular(size_),
-          n_elem(0), thresh(_capacity*max_fill_factor) {}
+    SeqCircular(size_t size )
+        : BaseCircular<E,HashFct,A,MaDis,MiSt>::BaseCircular(size),
+          _n_elem(0), _thresh(_capacity*_max_fill_factor) {}
 
-    SeqCircular(size_t size_, size_t _version )
-        : BaseCircular<E,HashFct,A,MaDis,MiSt>::BaseCircular(size_, _version),
-          n_elem(0), thresh(_capacity*max_fill_factor) {}
+    SeqCircular(size_t size, size_t version)
+        : BaseCircular<E,HashFct,A,MaDis,MiSt>::BaseCircular(size, version),
+          _n_elem(0), _thresh(_capacity*_max_fill_factor) {}
 
     // These are used for our tests, such that SeqCircular behaves like GrowTable
     using Handle = SeqCircular<E,HashFct,A,MaDis,MiSt>&;
@@ -185,14 +186,13 @@ private:
     iterator make_cit(const value_intern* p, const key_type& k) const
     { return const_iterator(p,k,_version,*this); }
 
-    double max_fill_factor = 0.6;
-    size_t n_elem;
-    size_t thresh;
+    size_t _n_elem;
+    size_t _thresh;
 
     inline bool inc_n()
     {
-        n_elem += 1;
-        if (n_elem > thresh)
+        _n_elem += 1;
+        if (_n_elem > _thresh)
         {
             grow();
             return true;
@@ -210,24 +210,24 @@ private:
 
     void swap(SeqCircular & o)
     {
-        std::swap(_capacity, o._capacity);
-        std::swap(_version, o._version);
-        std::swap(_bitmask, o._bitmask);
-        std::swap(thresh, o.thresh);
-        std::swap(t, o.t);
-        std::swap(hash, o.hash);
+        std::swap(_capacity   , o._capacity);
+        std::swap(_version    , o._version);
+        std::swap(_bitmask    , o._bitmask);
+        std::swap(_thresh     , o._thresh);
+        std::swap(_t          , o._t);
+        std::swap(_hash       , o._hash);
         std::swap(_right_shift, o._right_shift);
     }
 
     inline size_t migrate( SeqCircular& target )
     {
-        std::fill( target.t ,target.t + target._capacity , E::getEmpty() );
+        std::fill( target._t ,target._t + target._capacity , E::getEmpty() );
 
         auto count = 0u;
 
         for (size_t i = 0; i < _capacity; ++i)
         {
-            auto curr = t[i];
+            auto curr = _t[i];
             if ( ! curr.isEmpty() )
             {
                 count++;
@@ -249,8 +249,8 @@ SeqCircular<E,HF,A,MD,MS>::begin()
 {
     for (size_t i = 0; i < _capacity; ++i)
     {
-        auto curr = t[i];
-        if (! curr.isEmpty()) return make_it(&t[i], curr.getKey());
+        auto curr = _t[i];
+        if (! curr.isEmpty()) return make_it(&_t[i], curr.getKey());
     }
     return end();
 }
@@ -268,8 +268,8 @@ SeqCircular<E,HF,A,MD,MS>::cbegin() const
 {
     for (size_t i = 0; i < _capacity; ++i)
     {
-        auto curr = t[i];
-        if (! curr.isEmpty()) return make_cit(&t[i], curr.getKey());
+        auto curr = _t[i];
+        if (! curr.isEmpty()) return make_cit(&_t[i], curr.getKey());
     }
     return cend();
 }
@@ -288,8 +288,8 @@ SeqCircular<E,HF,A,MD,MS>::find(const key_type & k)
     size_t htemp = h(k);
     for (size_t i = htemp;;++i)  // i < htemp+MaDis
     {
-        E curr(t[i & _bitmask]);
-        if (curr.compareKey(k)) return make_it(&t[i&_bitmask], k);
+        E curr(_t[i & _bitmask]);
+        if (curr.compareKey(k)) return make_it(&_t[i&_bitmask], k);
         else if (curr.isEmpty()) return end();
     }
 }
@@ -301,8 +301,8 @@ SeqCircular<E,HF,A,MD,MS>::find(const key_type & k) const
     size_t htemp = h(k);
     for (size_t i = htemp;;++i)
     {
-        E curr(t[i & _bitmask]);
-        if (curr.compareKey(k)) return make_cit(&t[i&_bitmask], k);
+        E curr(_t[i & _bitmask]);
+        if (curr.compareKey(k)) return make_cit(&_t[i&_bitmask], k);
         else if (curr.isEmpty()) return cend();
     }
 }
@@ -315,13 +315,13 @@ SeqCircular<E,HF,A,MD,MS>::insert(const key_type& k, const mapped_type& d)
     for (size_t i = htemp;;++i)
     {
         const size_t temp = i & _bitmask;
-        E curr(t[temp]);
-        if (curr.compareKey(k)) return insert_return_type(make_it(&t[temp], k), false); // already hashed
+        E curr(_t[temp]);
+        if (curr.compareKey(k)) return insert_return_type(make_it(&_t[temp], k), false); // already hashed
         else if (curr.isEmpty())
         {
-            if (inc_n()) { n_elem--; return insert(k,d); }
-            t[temp] = E(k,d);
-            return insert_return_type(make_it(&t[temp], k), true);
+            if (inc_n()) { _n_elem--; return insert(k,d); }
+            _t[temp] = E(k,d);
+            return insert_return_type(make_it(&_t[temp], k), true);
         }
         else if (curr.isDeleted())
         {
@@ -341,12 +341,12 @@ SeqCircular<E,HF,A,MD,MS>::update(const key_type& k, F f, Types&& ... args)
     for (size_t i = htemp;;++i)
     {
         const size_t temp = i & _bitmask;
-        E curr(t[temp]);
+        E curr(_t[temp]);
         if (curr.compareKey(k))
         {
-            t[temp].nonAtomicUpdate(f, std::forward<Types>(args)...);
+            _t[temp].nonAtomicUpdate(f, std::forward<Types>(args)...);
             // return ReturnCode::SUCCESS_UP;
-            return insert_return_type(make_it(&t[temp], k), true);
+            return insert_return_type(make_it(&_t[temp], k), true);
         }
         else if (curr.isEmpty())
         {
@@ -368,17 +368,17 @@ SeqCircular<E,HF,A,MD,MS>::insertOrUpdate(const key_type& k, const mapped_type& 
     for (size_t i = htemp;;++i)
     {
         const size_t temp = i & _bitmask;
-        E curr(t[temp]);
+        E curr(_t[temp]);
         if (curr.compareKey(k))
         {
-            t[temp].nonAtomicUpdate(f, std::forward<Types>(args) ...);
-            return insert_return_type(make_it(&t[temp], k), false);
+            _t[temp].nonAtomicUpdate(f, std::forward<Types>(args) ...);
+            return insert_return_type(make_it(&_t[temp], k), false);
         }
         else if (curr.isEmpty())
         {
-            if (inc_n()) { n_elem--; return insert(k,d); }
-            t[temp] = E(k,d);
-            return insert_return_type(make_it(&t[temp], k), true);
+            if (inc_n()) { _n_elem--; return insert(k,d); }
+            _t[temp] = E(k,d);
+            return insert_return_type(make_it(&_t[temp], k), true);
         }
         else if (curr.isDeleted())
         {
@@ -395,21 +395,21 @@ SeqCircular<E,HF,A,MD,MS>::erase(const key_type & k)
     size_type i = h(k);
     for (;;++i)
     {
-        E curr(t[i & _bitmask]);
+        E curr(_t[i & _bitmask]);
         if (curr.compareKey(k)) break;
         else if (curr.isEmpty()) return 0;
     }
     i &= _bitmask;
-    t[i] = value_intern::getEmpty();
+    _t[i] = value_intern::getEmpty();
     for (size_type j = i+1;; ++j)
     {
-        E curr(t[j & _bitmask]);
+        E curr(_t[j & _bitmask]);
         if (curr.isEmpty())
             return 1;
         else if (h(curr.getKey()) <= i)
         {
-            t[i] = curr;
-            t[j&_bitmask] = value_intern::getEmpty();
+            _t[i] = curr;
+            _t[j&_bitmask] = value_intern::getEmpty();
             i = j & _bitmask;
             if (j > _bitmask) j &= _bitmask;
         }

@@ -1,6 +1,6 @@
 /*******************************************************************************
  * data-structures/strategy/wstrat_user.h
- * 
+ *
  * see below
  *
  * Part of Project growt - https://github.com/TooBiased/growt.git
@@ -13,6 +13,7 @@
 #ifndef WSTRAT_USER_H
 #define WSTRAT_USER_H
 
+#include <cstddef>
 #include <atomic>
 
 /*******************************************************************************
@@ -55,21 +56,21 @@ public:
     class local_data_t
     {
     public:
-        local_data_t(Parent &parent) : parent(parent) { }
+        local_data_t(Parent &parent) : _parent(parent) { }
         local_data_t(const local_data_t& source) = delete;
         local_data_t& operator=(const local_data_t& source) = delete;
         local_data_t(local_data_t&& source) = default;
         local_data_t& operator=(local_data_t&& source) = default;
         ~local_data_t() = default;
 
-        Parent &parent;
+        Parent &_parent;
 
         template<class EStrat>
         inline void init(EStrat&) { }
         inline void deinit() {}
 
         template<class ESLocal>
-        inline void execute_migration(ESLocal &estrat, uint)
+        inline void execute_migration(ESLocal &estrat, size_t)
         {
             estrat.migrate();
         }
