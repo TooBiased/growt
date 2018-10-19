@@ -93,8 +93,8 @@ private:
     inline void refresh()
     {
         SeqIterator it = _tab.find(_key);
-        _ptr = it.ptr;
-        _ver = it.ver;
+        _ptr = it._ptr;
+        _ver = it._ver;
     }
 
 };
@@ -155,7 +155,7 @@ public:
 
     // These are used for our tests, such that SeqCircular behaves like GrowTable
     using Handle = SeqCircular<E,HashFct,A,MaDis,MiSt>&;
-    Handle getHandle() { return *this; }
+    Handle get_handle() { return *this; }
 
     iterator       begin();
     iterator       end();
@@ -170,7 +170,7 @@ public:
     const_iterator     find  (const key_type& k) const;
 
     insert_return_type insert_or_assign(const key_type& k, const mapped_type& d)
-    { return insertOrUpdate(k, d, example::Overwrite(), d); }
+    { return insert_or_update(k, d, example::Overwrite(), d); }
 
     mapped_reference operator[](const key_type& k)
     { return (*insert(k, mapped_type())).second; }
@@ -178,7 +178,7 @@ public:
     template<class F, class ... Types>
     insert_return_type update(const key_type& k, F f, Types&& ... args);
     template<class F, class ... Types>
-    insert_return_type insertOrUpdate(const key_type& k, const mapped_type& d, F f, Types&& ... args);
+    insert_return_type insert_or_update(const key_type& k, const mapped_type& d, F f, Types&& ... args);
 
 private:
     iterator make_it(value_intern* p, const key_type& k)
@@ -344,7 +344,7 @@ SeqCircular<E,HF,A,MD,MS>::update(const key_type& k, F f, Types&& ... args)
         E curr(_t[temp]);
         if (curr.compare_key(k))
         {
-            _t[temp].nonAtomicUpdate(f, std::forward<Types>(args)...);
+            _t[temp].non_atomic_update(f, std::forward<Types>(args)...);
             // return ReturnCode::SUCCESS_UP;
             return insert_return_type(make_it(&_t[temp], k), true);
         }
@@ -362,7 +362,7 @@ SeqCircular<E,HF,A,MD,MS>::update(const key_type& k, F f, Types&& ... args)
 template<class E, class HF, class A, size_t MD, size_t MS>
 template<class F, class ...Types>
 inline typename SeqCircular<E,HF,A,MD,MS>::insert_return_type
-SeqCircular<E,HF,A,MD,MS>::insertOrUpdate(const key_type& k, const mapped_type& d, F f, Types&& ... args)
+SeqCircular<E,HF,A,MD,MS>::insert_or_update(const key_type& k, const mapped_type& d, F f, Types&& ... args)
 {
     size_t htemp = h(k);
     for (size_t i = htemp;;++i)
@@ -371,7 +371,7 @@ SeqCircular<E,HF,A,MD,MS>::insertOrUpdate(const key_type& k, const mapped_type& 
         E curr(_t[temp]);
         if (curr.compare_key(k))
         {
-            _t[temp].nonAtomicUpdate(f, std::forward<Types>(args) ...);
+            _t[temp].non_atomic_update(f, std::forward<Types>(args) ...);
             return insert_return_type(make_it(&_t[temp], k), false);
         }
         else if (curr.is_empty())

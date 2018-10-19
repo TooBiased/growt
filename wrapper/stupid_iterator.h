@@ -13,7 +13,7 @@
 
 #pragma once
 
-using namespace growt;
+#include <tuple>
 
 template <class K, class D>
 class StupidIterator

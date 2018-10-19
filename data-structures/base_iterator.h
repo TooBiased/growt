@@ -173,9 +173,9 @@ public:
     inline IteratorBase& operator++()
     {
         ++_ptr;
-        while ( _ptr < _eptr && (_ptr->isEmpty() || _ptr->isDeleted())) { ++_ptr; }
-        _copy.first  = _ptr->getKey();
-        _copy.second = _ptr->getData();
+        while ( _ptr < _eptr && (_ptr->is_empty() || _ptr->is_deleted())) { ++_ptr; }
+        _copy.first  = _ptr->get_key();
+        _copy.second = _ptr->get_data();
         if (_ptr == _eptr)
         {
             _ptr  = nullptr;
@@ -196,9 +196,9 @@ public:
     inline bool erase()
     {
         auto temp   = value_intern(reinterpret_cast<value_type>(_copy));
-        while (!temp.isDeleted)
+        while (!temp.is_deleted)
         {
-            if (_ptr->atomicDelete(temp))
+            if (_ptr->atomic_delete(temp))
             { this->operator++(); return true; }
         }
         this->operator++();

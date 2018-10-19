@@ -74,7 +74,7 @@ public:
 
     ~BaseCircular();
 
-    Handle getHandle() { return *this; }
+    Handle get_handle() { return *this; }
 
     iterator       begin();
     iterator       end();

@@ -67,7 +67,7 @@ public:
     TBBHMWrapper& operator=(TBBHMWrapper&& rhs) = default;
 
     using Handle = TBBHMWrapper&;
-    Handle getHandle() { return *this; }
+    Handle get_handle() { return *this; }
 
 
     inline iterator find(const key_type& k)
@@ -110,7 +110,7 @@ public:
     }
 
     template<class F, class ... Types>
-    inline insert_return_type insertOrUpdate(const key_type& k, const mapped_type& d, F f, Types&& ... args)
+    inline insert_return_type insert_or_update(const key_type& k, const mapped_type& d, F f, Types&& ... args)
     {
         Accessor a;
         if (hash.insert(a,k))
@@ -132,9 +132,9 @@ public:
     }
 
     template<class F, class ... Types>
-    inline insert_return_type insertOrUpdate_unsafe(const key_type& k, const mapped_type& d, F f, Types&& ... args)
+    inline insert_return_type insert_or_update_unsafe(const key_type& k, const mapped_type& d, F f, Types&& ... args)
     {
-        return insertOrUpdate(k,d,f, std::forward<Types>(args)...);
+        return insert_or_update(k,d,f, std::forward<Types>(args)...);
     }
 
     inline size_t erase(const key_type& k)

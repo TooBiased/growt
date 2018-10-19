@@ -65,7 +65,7 @@ public:
     bool cas(SimpleElement & expected,
        const SimpleElement & desired);
 
-    bool atomicDelete(const SimpleElement & expected);
+    bool atomic_delete(const SimpleElement & expected);
 
     template<class F>
     bool atomic_update(SimpleElement & expected,
@@ -144,7 +144,7 @@ inline bool SimpleElement::cas(SimpleElement & expected,
                                            desired.as128i());
 }
 
-inline bool SimpleElement::atomicDelete(const SimpleElement & expected)
+inline bool SimpleElement::atomic_delete(const SimpleElement & expected)
 {
     auto temp = expected;
     temp.key = BITMASK;

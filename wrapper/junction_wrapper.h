@@ -157,7 +157,7 @@ public:
     }
 
     template<class F, class ... Types>
-    inline insert_return_type insertOrUpdate(const key_type& k, const mapped_type& d, F f, Types&& ... args)
+    inline insert_return_type insert_or_update(const key_type& k, const mapped_type& d, F f, Types&& ... args)
     {
         //static_assert(F::junction_compatible::value, //TJuncComp<F>::value,
         //              "Used update function is not Junction compatible!");
@@ -196,9 +196,9 @@ public:
     }
 
     template<class F, class ... Types>
-    inline insert_return_type insertOrUpdate_unsafe(const key_type& k, const mapped_type& d, F f, Types&& ... args)
+    inline insert_return_type insert_or_update_unsafe(const key_type& k, const mapped_type& d, F f, Types&& ... args)
     {
-        return insertOrUpdate(k,d,f,std::forward<Types>(args)...);
+        return insert_or_update(k,d,f,std::forward<Types>(args)...);
     }
 
     inline size_t erase(const key_type& k)
@@ -241,7 +241,8 @@ public:
     JunctionWrapper& operator=(const JunctionWrapper&) = delete;
     JunctionWrapper(JunctionWrapper&& rhs) = default;
     JunctionWrapper& operator=(JunctionWrapper&& rhs) = default;
-    Handle getHandle() {   return Handle(*hash);   }
+
+    Handle get_handle() {   return Handle(*hash);   }
 
 private:
     std::unique_ptr<HashType> hash;
