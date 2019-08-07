@@ -101,13 +101,12 @@ private:
 
 
 template<class E, class HashFct = std::hash<typename E::key_type>,
-         class A = std::allocator<E>,
-         size_t MaDis = 128, size_t MiSt = 200>
-class SeqCircular : public BaseCircular<E, HashFct, A, MaDis,MiSt>
+         class A = std::allocator<E>>
+class SeqCircular : public BaseCircular<E, HashFct>
 {
 private:
-    using This_t             = SeqCircular<E,HashFct,A,MaDis,MiSt>;
-    using Base_t             = BaseCircular   <E,HashFct,A,MaDis,MiSt>;
+    using This_t             = SeqCircular<E,HashFct,A>;
+    using Base_t             = BaseCircular   <E,HashFct,A>;
 
 public:
     using value_intern       = E;
@@ -131,13 +130,13 @@ public:
     using node_type            = void;
 
 private:
-    using BaseCircular<E,HashFct,A,MaDis,MiSt>::_t;
-    using BaseCircular<E,HashFct,A,MaDis,MiSt>::_bitmask;
-    using BaseCircular<E,HashFct,A,MaDis,MiSt>::h;
-    using BaseCircular<E,HashFct,A,MaDis,MiSt>::_capacity;
-    using BaseCircular<E,HashFct,A,MaDis,MiSt>::_hash;
-    using BaseCircular<E,HashFct,A,MaDis,MiSt>::_version;
-    using BaseCircular<E,HashFct,A,MaDis,MiSt>::_right_shift;
+    using BaseCircular<E,HashFct,A>::_t;
+    using BaseCircular<E,HashFct,A>::_bitmask;
+    using BaseCircular<E,HashFct,A>::h;
+    using BaseCircular<E,HashFct,A>::_capacity;
+    using BaseCircular<E,HashFct,A>::_hash;
+    using BaseCircular<E,HashFct,A>::_version;
+    using BaseCircular<E,HashFct,A>::_right_shift;
     static constexpr double _max_fill_factor = 0.666;
 
     template<class, bool>
@@ -146,15 +145,15 @@ private:
 public:
 
     SeqCircular(size_t size )
-        : BaseCircular<E,HashFct,A,MaDis,MiSt>::BaseCircular(size),
+        : BaseCircular<E,HashFct,A>::BaseCircular(size),
           _n_elem(0), _thresh(_capacity*_max_fill_factor) {}
 
     SeqCircular(size_t size, size_t version)
-        : BaseCircular<E,HashFct,A,MaDis,MiSt>::BaseCircular(size, version),
+        : BaseCircular<E,HashFct,A>::BaseCircular(size, version),
           _n_elem(0), _thresh(_capacity*_max_fill_factor) {}
 
     // These are used for our tests, such that SeqCircular behaves like GrowTable
-    using Handle = SeqCircular<E,HashFct,A,MaDis,MiSt>&;
+    using Handle = SeqCircular<E,HashFct,A>&;
     Handle get_handle() { return *this; }
 
     iterator       begin();
@@ -243,9 +242,9 @@ private:
     }
 };
 
-template<class E, class HF, class A, size_t MD, size_t MS>
-inline typename SeqCircular<E,HF,A,MD,MS>::iterator
-SeqCircular<E,HF,A,MD,MS>::begin()
+template<class E, class HF, class A>
+inline typename SeqCircular<E,HF,A>::iterator
+SeqCircular<E,HF,A>::begin()
 {
     for (size_t i = 0; i < _capacity; ++i)
     {
@@ -255,16 +254,16 @@ SeqCircular<E,HF,A,MD,MS>::begin()
     return end();
 }
 
-template<class E, class HF, class A, size_t MD, size_t MS>
-inline typename SeqCircular<E,HF,A,MD,MS>::iterator
-SeqCircular<E,HF,A,MD,MS>::end()
+template<class E, class HF, class A>
+inline typename SeqCircular<E,HF,A>::iterator
+SeqCircular<E,HF,A>::end()
 {
     return make_it(nullptr, key_type());
 }
 
-template<class E, class HF, class A, size_t MD, size_t MS>
-inline typename SeqCircular<E,HF,A,MD,MS>::const_iterator
-SeqCircular<E,HF,A,MD,MS>::cbegin() const
+template<class E, class HF, class A>
+inline typename SeqCircular<E,HF,A>::const_iterator
+SeqCircular<E,HF,A>::cbegin() const
 {
     for (size_t i = 0; i < _capacity; ++i)
     {
@@ -274,16 +273,16 @@ SeqCircular<E,HF,A,MD,MS>::cbegin() const
     return cend();
 }
 
-template<class E, class HF, class A, size_t MD, size_t MS>
-inline typename SeqCircular<E,HF,A,MD,MS>::const_iterator
-SeqCircular<E,HF,A,MD,MS>::cend() const
+template<class E, class HF, class A>
+inline typename SeqCircular<E,HF,A>::const_iterator
+SeqCircular<E,HF,A>::cend() const
 {
     return make_cit(nullptr, key_type());
 }
 
-template<class E, class HF, class A, size_t MD, size_t MS>
-inline typename SeqCircular<E,HF,A,MD,MS>::iterator
-SeqCircular<E,HF,A,MD,MS>::find(const key_type & k)
+template<class E, class HF, class A>
+inline typename SeqCircular<E,HF,A>::iterator
+SeqCircular<E,HF,A>::find(const key_type & k)
 {
     size_t htemp = h(k);
     for (size_t i = htemp;;++i)  // i < htemp+MaDis
@@ -294,9 +293,9 @@ SeqCircular<E,HF,A,MD,MS>::find(const key_type & k)
     }
 }
 
-template<class E, class HF, class A, size_t MD, size_t MS>
-inline typename SeqCircular<E,HF,A,MD,MS>::const_iterator
-SeqCircular<E,HF,A,MD,MS>::find(const key_type & k) const
+template<class E, class HF, class A>
+inline typename SeqCircular<E,HF,A>::const_iterator
+SeqCircular<E,HF,A>::find(const key_type & k) const
 {
     size_t htemp = h(k);
     for (size_t i = htemp;;++i)
@@ -307,9 +306,9 @@ SeqCircular<E,HF,A,MD,MS>::find(const key_type & k) const
     }
 }
 
-template<class E, class HF, class A, size_t MD, size_t MS>
-inline typename SeqCircular<E,HF,A,MD,MS>::insert_return_type
-SeqCircular<E,HF,A,MD,MS>::insert(const key_type& k, const mapped_type& d)
+template<class E, class HF, class A>
+inline typename SeqCircular<E,HF,A>::insert_return_type
+SeqCircular<E,HF,A>::insert(const key_type& k, const mapped_type& d)
 {
     size_t htemp = h(k);
     for (size_t i = htemp;;++i)
@@ -332,10 +331,10 @@ SeqCircular<E,HF,A,MD,MS>::insert(const key_type& k, const mapped_type& d)
     // return insert(e);
 }
 
-template<class E, class HF, class A, size_t MD, size_t MS>
+template<class E, class HF, class A>
 template<class F, class ...Types>
-inline typename SeqCircular<E,HF,A,MD,MS>::insert_return_type
-SeqCircular<E,HF,A,MD,MS>::update(const key_type& k, F f, Types&& ... args)
+inline typename SeqCircular<E,HF,A>::insert_return_type
+SeqCircular<E,HF,A>::update(const key_type& k, F f, Types&& ... args)
 {
     size_t htemp = h(k);
     for (size_t i = htemp;;++i)
@@ -359,10 +358,10 @@ SeqCircular<E,HF,A,MD,MS>::update(const key_type& k, F f, Types&& ... args)
     }
 }
 
-template<class E, class HF, class A, size_t MD, size_t MS>
+template<class E, class HF, class A>
 template<class F, class ...Types>
-inline typename SeqCircular<E,HF,A,MD,MS>::insert_return_type
-SeqCircular<E,HF,A,MD,MS>::insert_or_update(const key_type& k, const mapped_type& d, F f, Types&& ... args)
+inline typename SeqCircular<E,HF,A>::insert_return_type
+SeqCircular<E,HF,A>::insert_or_update(const key_type& k, const mapped_type& d, F f, Types&& ... args)
 {
     size_t htemp = h(k);
     for (size_t i = htemp;;++i)
@@ -388,9 +387,9 @@ SeqCircular<E,HF,A,MD,MS>::insert_or_update(const key_type& k, const mapped_type
 }
 
 
-template<class E, class HF, class A, size_t MD, size_t MS>
-inline typename SeqCircular<E,HF,A,MD,MS>::size_type
-SeqCircular<E,HF,A,MD,MS>::erase(const key_type & k)
+template<class E, class HF, class A>
+inline typename SeqCircular<E,HF,A>::size_type
+SeqCircular<E,HF,A>::erase(const key_type & k)
 {
     size_type i = h(k);
     for (;;++i)

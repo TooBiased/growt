@@ -25,12 +25,11 @@
 namespace growt {
 
 template<class E, class HashFct = std::hash<typename E::key_type>,
-         class A = std::allocator<E>,
-         size_t MaDis = 128, size_t MiSt = 200>
+         class A = std::allocator<E>>
 class BaseCircular
 {
 private:
-    using This_t          = BaseCircular<E,HashFct,A,MaDis,MiSt>;
+    using This_t          = BaseCircular<E,HashFct,A>;
     using Allocator_t     = typename A::template rebind<E>::other;
 
     template <class> friend class GrowTableHandle;
@@ -192,18 +191,19 @@ private:
 
     void insert_unsafe(const value_intern& e);
 
+    // capacity is at least twice as large, as the inserted capacity
     static size_type compute_capacity(size_type desired_capacity)
     {
         auto temp = 16384u;
-        while (temp < desired_capacity*(MiSt/100.)) temp <<= 1;
-        return temp;
+        while (temp < desired_capacity) temp <<= 1;
+        return temp << 1;
     }
 
     static size_type compute_right_shift(size_type capacity)
     {
         size_type log_size = 0;
         while (capacity >>= 1) log_size++;
-        return HashFct::significant_digits - log_size;
+        return 64 - log_size;                    // HashFct::significant_digits
     }
 
 public:
@@ -229,8 +229,8 @@ public:
 
 // CONSTRUCTORS/ASSIGNMENTS ****************************************************
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
-BaseCircular<E,HashFct,A,MaDis,MiSt>::BaseCircular(size_type capacity_)
+template<class E, class HashFct, class A>
+BaseCircular<E,HashFct,A>::BaseCircular(size_type capacity_)
     : _capacity(compute_capacity(capacity_)),
       _version(0),
       _current_copy_block(0),
@@ -245,8 +245,8 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::BaseCircular(size_type capacity_)
 }
 
 /*should always be called with a capacity_=2^k  */
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
-BaseCircular<E,HashFct,A,MaDis,MiSt>::BaseCircular(size_type capacity_, size_type version_)
+template<class E, class HashFct, class A>
+BaseCircular<E,HashFct,A>::BaseCircular(size_type capacity_, size_type version_)
     : _capacity(capacity_),
       _version(version_),
       _current_copy_block(0),
@@ -257,31 +257,33 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::BaseCircular(size_type capacity_, size_typ
     if ( !_t ) std::bad_alloc();
 }
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
-BaseCircular<E,HashFct,A,MaDis,MiSt>::~BaseCircular()
+template<class E, class HashFct, class A>
+BaseCircular<E,HashFct,A>::~BaseCircular()
 {
     if (_t) _allocator.deallocate(_t, _capacity);
 }
 
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
-BaseCircular<E,HashFct,A,MaDis,MiSt>::BaseCircular(BaseCircular&& rhs)
+template<class E, class HashFct, class A>
+BaseCircular<E,HashFct,A>::BaseCircular(BaseCircular&& rhs)
     : _capacity(rhs._capacity), _version(rhs._version),
       _current_copy_block(rhs._current_copy_block.load()),
       _bitmask(rhs._bitmask), _right_shift(rhs._right_shift), _t(nullptr)
 {
-    if (_current_copy_block.load()) std::invalid_argument("Cannot move a growing table!");
+    if (_current_copy_block.load())
+        std::invalid_argument("Cannot move a growing table!");
     rhs._capacity = 0;
     rhs._bitmask = 0;
     rhs._right_shift = HashFct::significant_digits;
     std::swap(_t, rhs._t);
 }
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
-BaseCircular<E,HashFct,A,MaDis,MiSt>&
-BaseCircular<E,HashFct,A,MaDis,MiSt>::operator=(BaseCircular&& rhs)
+template<class E, class HashFct, class A>
+BaseCircular<E,HashFct,A>&
+BaseCircular<E,HashFct,A>::operator=(BaseCircular&& rhs)
 {
-    if (rhs._current_copy_block.load()) std::invalid_argument("Cannot move a growing table!");
+    if (rhs._current_copy_block.load())
+        std::invalid_argument("Cannot move a growing table!");
     _capacity   = rhs._capacity;
     _version    = rhs._version;
     _current_copy_block.store(0);;
@@ -304,9 +306,9 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::operator=(BaseCircular&& rhs)
 
 // ITERATOR FUNCTIONALITY ******************************************************
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::iterator
-BaseCircular<E,HashFct,A,MaDis,MiSt>::begin()
+template<class E, class HashFct, class A>
+inline typename BaseCircular<E,HashFct,A>::iterator
+BaseCircular<E,HashFct,A>::begin()
 {
     for (size_t i = 0; i<_capacity; ++i)
     {
@@ -317,15 +319,15 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::begin()
     return end();
 }
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::iterator
-BaseCircular<E,HashFct,A,MaDis,MiSt>::end()
+template<class E, class HashFct, class A>
+inline typename BaseCircular<E,HashFct,A>::iterator
+BaseCircular<E,HashFct,A>::end()
 { return iterator(std::make_pair(key_type(), mapped_type()),nullptr,nullptr); }
 
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::const_iterator
-BaseCircular<E,HashFct,A,MaDis,MiSt>::cbegin() const
+template<class E, class HashFct, class A>
+inline typename BaseCircular<E,HashFct,A>::const_iterator
+BaseCircular<E,HashFct,A>::cbegin() const
 {
     for (size_t i = 0; i<_capacity; ++i)
     {
@@ -336,9 +338,9 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::cbegin() const
     return end();
 }
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::const_iterator
-BaseCircular<E,HashFct,A,MaDis,MiSt>::cend() const
+template<class E, class HashFct, class A>
+inline typename BaseCircular<E,HashFct,A>::const_iterator
+BaseCircular<E,HashFct,A>::cend() const
 {
     return const_iterator(std::make_pair(key_type(),mapped_type()),
                           nullptr,nullptr);
@@ -347,31 +349,33 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::cend() const
 
 // RANGE ITERATOR FUNCTIONALITY ************************************************
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::range_iterator
-BaseCircular<E,HashFct,A,MaDis,MiSt>::range(size_t rstart, size_t rend)
+template<class E, class HashFct, class A>
+inline typename BaseCircular<E,HashFct,A>::range_iterator
+BaseCircular<E,HashFct,A>::range(size_t rstart, size_t rend)
 {
     auto temp_rend = std::min(rend, _capacity);
     for (size_t i = rstart; i < temp_rend; ++i)
     {
         auto temp = _t[i];
         if (!temp.is_empty() && !temp.is_deleted())
-            return range_iterator(std::make_pair(temp.get_key(), temp.get_data()),
+            return range_iterator(std::make_pair(temp.get_key(),
+                                                 temp.get_data()),
                                   &_t[i], &_t[temp_rend]);
     }
     return range_end();
 }
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::const_range_iterator
-BaseCircular<E,HashFct,A,MaDis,MiSt>::crange(size_t rstart, size_t rend)
+template<class E, class HashFct, class A>
+inline typename BaseCircular<E,HashFct,A>::const_range_iterator
+BaseCircular<E,HashFct,A>::crange(size_t rstart, size_t rend)
 {
     auto temp_rend = std::min(rend, _capacity);
     for (size_t i = rstart; i < temp_rend; ++i)
     {
         auto temp = _t[i];
         if (!temp.is_empty() && !temp.is_deleted())
-            return const_range_iterator(std::make_pair(temp.get_key(), temp.get_data()),
+            return const_range_iterator(std::make_pair(temp.get_key(),
+                                                       temp.get_data()),
                                   &_t[i], &_t[temp_rend]);
     }
     return range_cend();
@@ -381,9 +385,9 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::crange(size_t rstart, size_t rend)
 
 // MAIN HASH TABLE FUNCTIONALITY (INTERN) **************************************
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_return_intern
-BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_intern(const key_type& k,
+template<class E, class HashFct, class A>
+inline typename BaseCircular<E,HashFct,A>::insert_return_intern
+BaseCircular<E,HashFct,A>::insert_intern(const key_type& k,
                                                     const mapped_type& d)
 {
     size_type htemp = h(k);
@@ -392,11 +396,20 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_intern(const key_type& k,
     {
         size_type temp = i & _bitmask;
         value_intern curr(_t[temp]);
-        if (curr.is_marked()   ) return make_insert_ret(end() , ReturnCode::UNSUCCESS_INVALID);
-        else if (curr.compare_key(k)) return make_insert_ret(k, curr.get_data(), &_t[temp],ReturnCode::UNSUCCESS_ALREADY_USED);
+
+        if (curr.is_marked())
+            return make_insert_ret(end(),
+                                   ReturnCode::UNSUCCESS_INVALID);
+
+        else if (curr.compare_key(k))
+            return make_insert_ret(k, curr.get_data(), &_t[temp],
+                                   ReturnCode::UNSUCCESS_ALREADY_USED);
         else if (curr.is_empty())
         {
-            if ( _t[temp].cas(curr, value_intern(k,d)) ) return make_insert_ret(k,d, &_t[temp], ReturnCode::SUCCESS_IN);
+            if ( _t[temp].cas(curr, value_intern(k,d)) )
+                return make_insert_ret(k,d, &_t[temp],
+                                       ReturnCode::SUCCESS_IN);
+
             //somebody changed the current element! recheck it
             --i;
         }
@@ -409,9 +422,9 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_intern(const key_type& k,
 }
 
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt> template<class F, class ... Types>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_return_intern
-BaseCircular<E,HashFct,A,MaDis,MiSt>::update_intern(const key_type& k, F f, Types&& ... args)
+template<class E, class HashFct, class A> template<class F, class ... Types>
+inline typename BaseCircular<E,HashFct,A>::insert_return_intern
+BaseCircular<E,HashFct,A>::update_intern(const key_type& k, F f, Types&& ... args)
 {
     size_type htemp = h(k);
 
@@ -421,20 +434,64 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::update_intern(const key_type& k, F f, Type
         value_intern curr(_t[temp]);
         if (curr.is_marked())
         {
-            return make_insert_ret(end(), ReturnCode::UNSUCCESS_INVALID);
+            return make_insert_ret(end(),
+                                   ReturnCode::UNSUCCESS_INVALID);
         }
         else if (curr.compare_key(k))
         {
             mapped_type data;
             bool        succ;
-            std::tie(data, succ) = _t[temp].atomic_update(curr,f, std::forward<Types>(args)...);
+            std::tie(data, succ) = _t[temp].atomic_update(curr,f,
+                                                          std::forward<Types>(args)...);
             if (succ)
-                return make_insert_ret(k,data, &_t[temp], ReturnCode::SUCCESS_UP);
+                return make_insert_ret(k,data, &_t[temp],
+                                       ReturnCode::SUCCESS_UP);
             i--;
         }
         else if (curr.is_empty())
         {
-            return make_insert_ret(end(), ReturnCode::UNSUCCESS_NOT_FOUND);
+            return make_insert_ret(end(),
+                                   ReturnCode::UNSUCCESS_NOT_FOUND);
+        }
+        else if (curr.is_deleted())
+        {
+            //do something appropriate
+        }
+    }
+    return make_insert_ret(end(),
+                           ReturnCode::UNSUCCESS_NOT_FOUND);
+}
+
+template<class E, class HashFct, class A> template<class F, class ... Types>
+inline typename BaseCircular<E,HashFct,A>::insert_return_intern
+BaseCircular<E,HashFct,A>::update_unsafe_intern(const key_type& k, F f, Types&& ... args)
+{
+    size_type htemp = h(k);
+
+    for (size_type i = htemp; ; ++i) //i < htemp+MaDis
+    {
+        size_type temp = i & _bitmask;
+        value_intern curr(_t[temp]);
+        if (curr.is_marked())
+        {
+            return make_insert_ret(end(),
+                                   ReturnCode::UNSUCCESS_INVALID);
+        }
+        else if (curr.compare_key(k))
+        {
+            mapped_type data;
+            bool        succ;
+            std::tie(data, succ) = _t[temp].nonAtomicUpdate(f,
+                                                            std::forward<Types>(args)...);
+            if (succ)
+                return make_insert_ret(k,data, &_t[temp],
+                                       ReturnCode::SUCCESS_UP);
+            i--;
+        }
+        else if (curr.is_empty())
+        {
+            return make_insert_ret(end(),
+                                   ReturnCode::UNSUCCESS_NOT_FOUND);
         }
         else if (curr.is_deleted())
         {
@@ -444,9 +501,12 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::update_intern(const key_type& k, F f, Type
     return make_insert_ret(end(), ReturnCode::UNSUCCESS_NOT_FOUND);
 }
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt> template<class F, class ... Types>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_return_intern
-BaseCircular<E,HashFct,A,MaDis,MiSt>::update_unsafe_intern(const key_type& k, F f, Types&& ... args)
+
+template<class E, class HashFct, class A> template<class F, class ... Types>
+inline typename BaseCircular<E,HashFct,A>::insert_return_intern
+BaseCircular<E,HashFct,A>::insert_or_update_intern(const key_type& k,
+                                                   const mapped_type& d,
+                                                   F f, Types&& ... args)
 {
     size_type htemp = h(k);
 
@@ -462,50 +522,19 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::update_unsafe_intern(const key_type& k, F 
         {
             mapped_type data;
             bool        succ;
-            std::tie(data, succ) = _t[temp].nonAtomicUpdate(f, std::forward<Types>(args)...);
+            std::tie(data, succ) = _t[temp].atomic_update(curr, f,
+                                                          std::forward<Types>(args)...);
             if (succ)
-                return make_insert_ret(k,data, &_t[temp], ReturnCode::SUCCESS_UP);
+                return make_insert_ret(k,data, &_t[temp],
+                                       ReturnCode::SUCCESS_UP);
             i--;
         }
         else if (curr.is_empty())
         {
-            return make_insert_ret(end(), ReturnCode::UNSUCCESS_NOT_FOUND);
-        }
-        else if (curr.is_deleted())
-        {
-            //do something appropriate
-        }
-    }
-    return make_insert_ret(end(), ReturnCode::UNSUCCESS_NOT_FOUND);
-}
+            if ( _t[temp].cas(curr, value_intern(k,d)) )
+                return make_insert_ret(k,d, &_t[temp],
+                                       ReturnCode::SUCCESS_IN);
 
-
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt> template<class F, class ... Types>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_return_intern
-BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_or_update_intern(const key_type& k, const mapped_type& d, F f, Types&& ... args)
-{
-    size_type htemp = h(k);
-
-    for (size_type i = htemp; ; ++i) //i < htemp+MaDis
-    {
-        size_type temp = i & _bitmask;
-        value_intern curr(_t[temp]);
-        if (curr.is_marked())
-        {
-            return make_insert_ret(end(), ReturnCode::UNSUCCESS_INVALID);
-        }
-        else if (curr.compare_key(k))
-        {
-            mapped_type data;
-            bool        succ;
-            std::tie(data, succ) = _t[temp].atomic_update(curr, f, std::forward<Types>(args)...);
-            if (succ)
-                return make_insert_ret(k,data, &_t[temp], ReturnCode::SUCCESS_UP);
-            i--;
-        }
-        else if (curr.is_empty())
-        {
-            if ( _t[temp].cas(curr, value_intern(k,d)) ) return make_insert_ret(k,d, &_t[temp], ReturnCode::SUCCESS_IN);
             //somebody changed the current element! recheck it
             --i;
         }
@@ -517,9 +546,11 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_or_update_intern(const key_type& k,
     return make_insert_ret(end(), ReturnCode::UNSUCCESS_FULL);
 }
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt> template<class F, class ... Types>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_return_intern
-BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_or_update_unsafe_intern(const key_type& k, const mapped_type& d, F f, Types&& ... args)
+template<class E, class HashFct, class A> template<class F, class ... Types>
+inline typename BaseCircular<E,HashFct,A>::insert_return_intern
+BaseCircular<E,HashFct,A>::insert_or_update_unsafe_intern(const key_type& k,
+                                                          const mapped_type& d,
+                                                          F f, Types&& ... args)
 {
     size_type htemp = h(k);
 
@@ -529,20 +560,25 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_or_update_unsafe_intern(const key_t
         value_intern curr(_t[temp]);
         if (curr.is_marked())
         {
-            return make_insert_ret(end(), ReturnCode::UNSUCCESS_INVALID);
+            return make_insert_ret(end(),
+                                   ReturnCode::UNSUCCESS_INVALID);
         }
         else if (curr.compare_key(k))
         {
             mapped_type data;
             bool        succ;
-            std::tie(data, succ) = _t[temp].nonAtomicUpdate(f, std::forward<Types>(args)...);
+            std::tie(data, succ) = _t[temp].nonAtomicUpdate(f,
+                                                            std::forward<Types>(args)...);
             if (succ)
-                return make_insert_ret(k,data, &_t[temp], ReturnCode::SUCCESS_UP);
+                return make_insert_ret(k,data, &_t[temp],
+                                       ReturnCode::SUCCESS_UP);
             i--;
         }
         else if (curr.is_empty())
         {
-            if ( _t[temp].cas(curr, value_intern(k,d)) ) return make_insert_ret(k,d, &_t[temp], ReturnCode::SUCCESS_IN);
+            if ( _t[temp].cas(curr, value_intern(k,d)) )
+                return make_insert_ret(k,d, &_t[temp],
+                                       ReturnCode::SUCCESS_IN);
             //somebody changed the current element! recheck it
             --i;
         }
@@ -551,11 +587,12 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_or_update_unsafe_intern(const key_t
             //do something appropriate
         }
     }
-    return make_insert_ret(end(), ReturnCode::UNSUCCESS_FULL);
+    return make_insert_ret(end(),
+                           ReturnCode::UNSUCCESS_FULL);
 }
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
-inline ReturnCode BaseCircular<E,HashFct,A,MaDis,MiSt>::erase_intern(const key_type& k)
+template<class E, class HashFct, class A>
+inline ReturnCode BaseCircular<E,HashFct,A>::erase_intern(const key_type& k)
 {
     size_type htemp = h(k);
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
@@ -593,37 +630,41 @@ inline ReturnCode BaseCircular<E,HashFct,A,MaDis,MiSt>::erase_intern(const key_t
 
 // MAIN HASH TABLE FUNCTIONALITY (EXTERN) **************************************
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::iterator
-BaseCircular<E,HashFct,A,MaDis,MiSt>::find(const key_type& k)
+template<class E, class HashFct, class A>
+inline typename BaseCircular<E,HashFct,A>::iterator
+BaseCircular<E,HashFct,A>::find(const key_type& k)
 {
     size_type htemp = h(k);
     for (size_type i = htemp; ; ++i)
     {
         value_intern curr(_t[i & _bitmask]);
-        if (curr.compare_key(k)) return make_iterator(k, curr.get_data(), &_t[i & _bitmask]); // curr;
-        if (curr.is_empty()) return end(); // ReturnElement::get_empty();
+        if (curr.compare_key(k))
+            return make_iterator(k, curr.get_data(), &_t[i & _bitmask]);
+        if (curr.is_empty())
+            return end();
     }
-    return end(); // ReturnElement::get_empty();
+    return end();
 }
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::const_iterator
-BaseCircular<E,HashFct,A,MaDis,MiSt>::find(const key_type& k) const
+template<class E, class HashFct, class A>
+inline typename BaseCircular<E,HashFct,A>::const_iterator
+BaseCircular<E,HashFct,A>::find(const key_type& k) const
 {
     size_type htemp = h(k);
     for (size_type i = htemp; ; ++i)
     {
         value_intern curr(_t[i & _bitmask]);
-        if (curr.compare_key(k)) return make_citerator(k, curr.get_data(), &_t[i & _bitmask]); // curr;
-        if (curr.is_empty()) return cend(); // ReturnElement::get_empty();
+        if (curr.compare_key(k))
+            return make_citerator(k, curr.get_data(), &_t[i & _bitmask]);
+        if (curr.is_empty())
+            return cend();
     }
-    return cend(); // ReturnElement::get_empty();
+    return cend();
 }
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_return_type
-BaseCircular<E,HashFct,A,MaDis,MiSt>::insert(const key_type& k, const mapped_type& d)
+template<class E, class HashFct, class A>
+inline typename BaseCircular<E,HashFct,A>::insert_return_type
+BaseCircular<E,HashFct,A>::insert(const key_type& k, const mapped_type& d)
 {
     iterator   it = end();
     ReturnCode c  = ReturnCode::ERROR;
@@ -631,17 +672,17 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::insert(const key_type& k, const mapped_typ
     return std::make_pair(it, successful(c));
 }
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::size_type
-BaseCircular<E,HashFct,A,MaDis,MiSt>::erase(const key_type& k)
+template<class E, class HashFct, class A>
+inline typename BaseCircular<E,HashFct,A>::size_type
+BaseCircular<E,HashFct,A>::erase(const key_type& k)
 {
     ReturnCode c = erase_intern(k);
     return (successful(c)) ? 1 : 0;
 }
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt> template <class F, class ... Types>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_return_type
-BaseCircular<E,HashFct,A,MaDis,MiSt>::update(const key_type& k, F f, Types&& ... args)
+template<class E, class HashFct, class A> template <class F, class ... Types>
+inline typename BaseCircular<E,HashFct,A>::insert_return_type
+BaseCircular<E,HashFct,A>::update(const key_type& k, F f, Types&& ... args)
 {
     iterator   it = end();
     ReturnCode c  = ReturnCode::ERROR;
@@ -649,9 +690,9 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::update(const key_type& k, F f, Types&& ...
     return std::make_pair(it, successful(c));
 }
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt> template <class F, class ... Types>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_return_type
-BaseCircular<E,HashFct,A,MaDis,MiSt>::update_unsafe(const key_type& k, F f, Types&& ... args)
+template<class E, class HashFct, class A> template <class F, class ... Types>
+inline typename BaseCircular<E,HashFct,A>::insert_return_type
+BaseCircular<E,HashFct,A>::update_unsafe(const key_type& k, F f, Types&& ... args)
 {
     iterator   it = end();
     ReturnCode c  = ReturnCode::ERROR;
@@ -659,23 +700,29 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::update_unsafe(const key_type& k, F f, Type
     return std::make_pair(it, successful(c));
 }
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt> template <class F, class ... Types>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_return_type
-BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_or_update(const key_type& k, const mapped_type& d, F f, Types&& ... args)
+template<class E, class HashFct, class A> template <class F, class ... Types>
+inline typename BaseCircular<E,HashFct,A>::insert_return_type
+BaseCircular<E,HashFct,A>::insert_or_update(const key_type& k,
+                                            const mapped_type& d,
+                                            F f, Types&& ... args)
 {
     iterator   it = end();
     ReturnCode c  = ReturnCode::ERROR;
-    std::tie(it,c) = insert_or_update_intern(k,d,f, std::forward<Types>(args)...);
+    std::tie(it,c) = insert_or_update_intern(k,d,f,
+                                             std::forward<Types>(args)...);
     return std::make_pair(it, (c == ReturnCode::SUCCESS_IN));
 }
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt> template <class F, class ... Types>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_return_type
-BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_or_update_unsafe(const key_type& k, const mapped_type& d, F f, Types&& ... args)
+template<class E, class HashFct, class A> template <class F, class ... Types>
+inline typename BaseCircular<E,HashFct,A>::insert_return_type
+BaseCircular<E,HashFct,A>::insert_or_update_unsafe(const key_type& k,
+                                                   const mapped_type& d,
+                                                   F f, Types&& ... args)
 {
     iterator   it = end();
     ReturnCode c  = ReturnCode::ERROR;
-    std::tie(it,c) = insert_or_update_unsafe_intern(k,d,f, std::forward<Types>(args)...);
+    std::tie(it,c) = insert_or_update_unsafe_intern(k,d,f,
+                                                    std::forward<Types>(args)...);
     return std::make_pair(it, (c == ReturnCode::SUCCESS_IN));
 }
 
@@ -695,9 +742,9 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_or_update_unsafe(const key_type& k,
 
 // MIGRATION/GROWING STUFF *****************************************************
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
-inline typename BaseCircular<E,HashFct,A,MaDis,MiSt>::size_type
-BaseCircular<E,HashFct,A,MaDis,MiSt>::migrate(This_t& target, size_type s, size_type e)
+template<class E, class HashFct, class A>
+inline typename BaseCircular<E,HashFct,A>::size_type
+BaseCircular<E,HashFct,A>::migrate(This_t& target, size_type s, size_type e)
 {
     size_type n = 0;
     auto i = s;
@@ -764,13 +811,13 @@ BaseCircular<E,HashFct,A,MaDis,MiSt>::migrate(This_t& target, size_type s, size_
     return n;
 }
 
-template<class E, class HashFct, class A, size_t MaDis, size_t MiSt>
-inline void BaseCircular<E,HashFct,A,MaDis,MiSt>::insert_unsafe(const value_intern& e)
+template<class E, class HashFct, class A>
+inline void BaseCircular<E,HashFct,A>::insert_unsafe(const value_intern& e)
 {
     const key_type k = e.get_key();
 
     size_type htemp = h(k);
-    for (size_type i = htemp; i < htemp+MaDis; ++i)
+    for (size_type i = htemp; ; ++i)  // i < htemp + MaDis
     {
         size_type temp = i & _bitmask;
         value_intern curr(_t[temp]);
