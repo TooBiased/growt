@@ -12,10 +12,11 @@
 
 #include "tests/selection.h"
 
-#include "utils/hashfct.h"
-#include "utils/test_coordination.h"
-#include "utils/thread_basics.h"
-#include "utils/commandline.h"
+#include "utils/default_hash.hpp"
+#include "utils/thread_coordination.hpp"
+#include "utils/pin_thread.hpp"
+#include "utils/command_line_parser.hpp"
+#include "utils/output.hpp"
 
 #include <random>
 #include <iostream>
@@ -34,45 +35,20 @@
  */
 
 const static uint64_t range = (1ull << 62) -1;
+namespace otm = utils_tm::out_tm;
+namespace ttm = utils_tm::thread_tm;
 
 alignas(64) static HASHTYPE hash_table = HASHTYPE(0);
 alignas(64) static uint64_t* keys;
 alignas(64) static std::atomic_size_t current_block;
 alignas(64) static std::atomic_size_t errors;
 
-template<typename T>
-inline void out(T t, size_t space)
-{
-    std::cout.width(space);
-    std::cout << t << " " << std::flush;
-}
-
-void print_parameter_list()
-{
-    out("#i"      , 3);
-    out("p"       , 3);
-    out("n"       , 9);
-    out("cap"     , 9);
-    out("t_ins"   ,10);
-    out("t_find_-",10);
-    out("t_find_+",10);
-    out("errors"  , 7);
-    std::cout << std::endl;
-}
-
-void print_parameters(size_t i, size_t p, size_t n, size_t cap)
-{
-    out (i  , 3);
-    out (p  , 3);
-    out (n  , 9);
-    out (cap, 9);
-}
 
 int generate_random(size_t n)
 {
     std::uniform_int_distribution<uint64_t> dis(2,range);
 
-    execute_blockwise_parallel(current_block, n,
+    ttm::execute_blockwise_parallel(current_block, n,
         [&dis](size_t s, size_t e)
         {
             std::mt19937_64 re(s*10293903128401092ull);
@@ -91,7 +67,7 @@ int fill(Hash& hash, size_t end)
 {
     auto err = 0u;
 
-    execute_parallel(current_block, end,
+    ttm::execute_parallel(current_block, end,
         [&hash, &err](size_t i)
         {
             auto key = keys[i];
@@ -113,7 +89,7 @@ int find_unsucc(Hash& hash, size_t begin, size_t end)
 {
     auto err = 0u;
 
-    execute_parallel(current_block, end,
+    ttm::execute_parallel(current_block, end,
         [&hash, &err, begin](size_t i)
         {
             auto key = keys[i];
@@ -136,7 +112,7 @@ int find_succ(Hash& hash, size_t end)
 {
     auto err = 0u;
 
-    execute_parallel(current_block, end,
+    ttm::execute_parallel(current_block, end,
         [&hash, &err, end](size_t i)
         {
             auto key = keys[i];
@@ -153,152 +129,114 @@ int find_succ(Hash& hash, size_t end)
     return 0;
 }
 
-template <class Hash>
-int bla(Hash& hash, size_t end)
-{
-    auto err = 0u;
-
-    execute_parallel(current_block, end,
-        [&hash, &err, end](size_t i)
-        {
-            auto key = keys[i];
-
-            auto data = hash.find(key);
-
-            if (std::pair<size_t,size_t>(*data).second != 666666666)
-            {
-                ++err;
-            }
-        });
-
-    errors.fetch_add(err, std::memory_order_relaxed);
-    return 0;
-}
-
 template <class ThreadType>
-int test_in_stages(size_t p, size_t id, size_t n, size_t cap, size_t it)
+struct test_in_stages
 {
-    using Handle = typename HASHTYPE::Handle;
-
-    pin_to_core(id);
-    size_t stage = 0;
-
-    if (ThreadType::is_main)
+    static int execute(ThreadType t, size_t n, size_t cap, size_t it)
     {
-        keys = new uint64_t[2*n];
-    }
+        using Handle = typename HASHTYPE::Handle;
 
-    // STAGE0 Create Random Keys
-    {
-        if (ThreadType::is_main) current_block.store (0);
-        ThreadType::synchronized(generate_random, ++stage, p-1, 2*n);
-    }
+        utils_tm::pin_to_core(t.id);
 
-    for (size_t i = 0; i < it; ++i)
-    {
-        // STAGE 0.1
-        ThreadType::synchronized(
-            [cap] (bool m) { if (m) hash_table = HASHTYPE(cap); return 0; },
-            ++stage, p-1, ThreadType::is_main);
-
-        if (ThreadType::is_main) print_parameters(i, p, n, cap);
-
-        ThreadType::synchronized([]{ return 0; }, ++stage, p-1);
-
-        Handle hash = hash_table.get_handle();
-
-
-        // STAGE2 n Insertions
+        if (ThreadType::is_main)
         {
-            if (ThreadType::is_main) current_block.store(0);
-
-            auto duration = ThreadType::synchronized(fill<Handle>,
-                                                     ++stage, p-1, hash, n);
-
-            ThreadType::out (duration.second/1000000., 10);
+            keys = new uint64_t[2*n];
         }
 
-        // STAGE3 n Finds Unsuccessful
+        // STAGE0 Create Random Keys
         {
-            if (ThreadType::is_main) current_block.store(n);
-
-            auto duration = ThreadType::synchronized(find_unsucc<Handle>,
-                                                     ++stage, p-1, hash, n, 2*n);
-
-            ThreadType::out (duration.second/1000000., 10);
+            if (ThreadType::is_main) current_block.store (0);
+            t.synchronized(generate_random, 2*n);
         }
 
-        // STAGE4 n Finds Successful
+        for (size_t i = 0; i < it; ++i)
         {
-            if (ThreadType::is_main) current_block.store(0);
+            // STAGE 0.1
+            t.synchronized(
+                [cap] (bool m) { if (m) hash_table = HASHTYPE(cap); return 0; },
+                ThreadType::is_main);
 
-            auto duration = ThreadType::synchronized(find_succ<Handle>,
-                                                     ++stage, p-1, hash, n);
+            t.out << otm::width(3) << i
+                  << otm::width(3) << t.p
+                  << otm::width(9) << n
+                  << otm::width(9) << cap;
 
-            ThreadType::out (duration.second/1000000., 10);
-            ThreadType::out (errors.load(), 7);
+            t.synchronize();
+
+            Handle hash = hash_table.get_handle();
+
+
+            // STAGE2 n Insertions
+            {
+                if (ThreadType::is_main) current_block.store(0);
+
+                auto duration = t.synchronized(fill<Handle>,hash, n);
+
+                t.out << otm::width(10) << duration.second/1000000.;
+            }
+
+            // STAGE3 n Finds Unsuccessful
+            {
+                if (ThreadType::is_main) current_block.store(n);
+
+                auto duration = t.synchronized(find_unsucc<Handle>,
+                                               hash, n, 2*n);
+
+                t.out << otm::width(10) << duration.second/1000000.;
+            }
+
+            // STAGE4 n Finds Successful
+            {
+                if (ThreadType::is_main) current_block.store(0);
+
+                auto duration = t.synchronized(find_succ<Handle>,
+                                               hash, n);
+
+                t.out << otm::width(10) << duration.second/1000000.;
+                t.out << otm::width(10) << errors.load();
+            }
+
+#ifdef MALLOC_COUNT
+            t.out << otm::width(14) << malloc_count_current();
+#endif
+
+            t.out << std::endl;
+            if (ThreadType::is_main) errors.store(0);
+
+            // Some Synchronization
+            t.synchronize();
         }
 
-        // if (ThreadType::is_main)
-        // {
-        //     //const
-        //         Handle& chash = hash;
-        //     size_t count = 0;
-        //     for (auto it = chash.begin(); it != hash.end(); it++)
-        //     {
-        //         (*it) = 666666666;
-        //         count += std::pair<size_t, size_t>(*it).second;
-        //     }
-        //     ThreadType::out (count                      , 10);
-        //     ThreadType::out (hash.element_count_unsafe(), 10);
-        //     ThreadType::out (hash.element_count_approx(), 10);
-        // }
+        if (ThreadType::is_main)
+        {
+            delete[] keys;
+        }
 
-        // // STAGE4 n Finds Successful
-        // {
-        //     if (ThreadType::is_main) current_block.store(0);
-
-        //     ThreadType::synchronized(bla<Handle>,
-        //                              ++stage, p-1, hash, n);
-
-        //     ThreadType::out (errors.load(), 6);
-        // }
-
-        #ifdef MALLOC_COUNT
-        ThreadType::out (malloc_count_current(), 14);
-        #endif
-
-        ThreadType() << std::endl;
-        if (ThreadType::is_main) errors.store(0);
-
-        // Some Synchronization
-        ThreadType::synchronized([]{ return 0; }, ++stage, p-1);
+        return 0;
     }
-
-    if (ThreadType::is_main)
-    {
-        delete[] keys;
-        reset_stages();
-    }
-
-    return 0;
-}
+};
 
 
 
 int main(int argn, char** argc)
 {
-    CommandLine c{argn, argc};
-    size_t n   = c.intArg("-n" , 10000000);
-    size_t p   = c.intArg("-p" , 4);
-    size_t cap = c.intArg("-c" , n);
-    size_t it  = c.intArg("-it", 5);
+    utils_tm::command_line_parser c{argn, argc};
+    size_t n   = c.int_arg("-n" , 10000000);
+    size_t p   = c.int_arg("-p" , 4);
+    size_t cap = c.int_arg("-c" , n);
+    size_t it  = c.int_arg("-it", 5);
     if (! c.report()) return 1;
 
-    print_parameter_list();
+    otm::out() << otm::width(3)  << "#i"
+               << otm::width(3)  << "p"
+               << otm::width(9)  << "n"
+               << otm::width(9)  << "cap"
+               << otm::width(10) << "t_ins"
+               << otm::width(10) << "t_find_-"
+               << otm::width(10) << "t_find_+"
+               << otm::width(7)  << "errors"
+               << std::endl;
 
-    start_threads(test_in_stages<TimedMainThread>,
-                  test_in_stages<UnTimedSubThread>,
-                  p, n, cap, it);
+    ttm::start_threads<test_in_stages>(p, n, cap, it);
     return 0;
 }

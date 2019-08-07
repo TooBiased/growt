@@ -18,13 +18,14 @@
 #include <atomic>
 #include <stdexcept>
 
+#include "utils/default_hash.hpp"
 #include "data-structures/returnelement.h"
 #include "data-structures/base_iterator.h"
 #include "example/update_fcts.h"
 
 namespace growt {
 
-template<class E, class HashFct = std::hash<typename E::key_type>,
+template<class E, class HashFct = utils_tm::hash_tm::default_hash,
          class A = std::allocator<E>>
 class BaseCircular
 {

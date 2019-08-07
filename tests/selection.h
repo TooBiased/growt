@@ -21,22 +21,22 @@
 
 #ifdef ALIGNED
 #define ALLOCATOR growt::AlignedAllocator
-#include "utils/alignedallocator.h"
+#include "allocator/alignedallocator.h"
 #endif
 
 #ifdef POOL
 #define ALLOCATOR growt::PoolAllocator
-#include "utils/poolallocator.h"
+#include "allocator/poolallocator.h"
 #endif
 
 #ifdef NUMA_POOL
 #define ALLOCATOR growt::NUMAPoolAllocator
-#include "utils/numapoolallocator.h"
+#include "allocator/numapoolallocator.h"
 #endif
 
 #ifdef HTLB_POOL
 #define ALLOCATOR growt::HTLBPoolAllocator
-#include "utils/poolallocator.h"
+#include "allocator/poolallocator.h"
 #endif
 
 

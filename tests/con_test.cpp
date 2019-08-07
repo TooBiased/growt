@@ -1,5 +1,5 @@
 /*******************************************************************************
- * tests/co_test.cpp
+ * tests/con_test.cpp
  *
  * basic contention test for more information see below
  *
@@ -13,11 +13,12 @@
 #include "tests/selection.h"
 #include "data-structures/returnelement.h"
 
-#include "utils/hashfct.h"
-#include "utils/keygen.h"
-#include "utils/test_coordination.h"
-#include "utils/thread_basics.h"
-#include "utils/commandline.h"
+#include "utils/default_hash.hpp"
+#include "utils/zipf_keygen.hpp"
+#include "utils/thread_coordination.hpp"
+#include "utils/pin_thread.hpp"
+#include "utils/command_line_parser.hpp"
+#include "utils/output.hpp"
 
 #include "example/update_fcts.h"
 
@@ -33,56 +34,30 @@
  */
 
 const static uint64_t range = (1ull << 62) -1;
+namespace otm = utils_tm::out_tm;
+namespace ttm = utils_tm::thread_tm;
 
 alignas(64) static HASHTYPE hash_table = HASHTYPE(0);
 alignas(64) static uint64_t* keys;
 alignas(64) static std::atomic_size_t current_block;
 alignas(64) static std::atomic_size_t errors;
+alignas(64) static utils_tm::zipf_generator zipf_gen;
 
-template<typename T>
-inline void out(T t, size_t space)
-{
-    std::cout.width(space);
-    std::cout << t << " " << std::flush;
-}
-
-void print_parameter_list()
-{
-    out("#i"      , 3);
-    out("p"       , 3);
-    out("n"       , 9);
-    out("cap"     , 9);
-    out("con"     , 5);
-    out("t_ins_or", 10);
-    out("t_find_c", 10);
-    out("t_updt_c", 10);
-    out("t_val_up", 10);
-    out("errors"  , 9);
-    std::cout << std::endl;
-}
-
-void print_parameters(size_t i, size_t p, size_t n, size_t cap, double con)
-{
-    out (i  , 3);
-    out (p  , 3);
-    out (n  , 9);
-    out (cap, 9);
-    out (con, 5);
-}
 
 int generate_random(size_t n, double con)
 {
     std::uniform_real_distribution<double> prob(0.,1.);
 
-    execute_blockwise_parallel(current_block, n,
+    ttm::execute_blockwise_parallel(current_block, n,
         [n, con, &prob](size_t s, size_t e)
         {
             std::mt19937_64 re(s*10293903128401092ull);
 
-            for (size_t i = s; i < e; i++)
-            {
-                keys[i] = zipf(n, con, prob(re))+2;
-            }
+            // for (size_t i = s; i < e; i++)
+            // {
+            //     keys[i] = zipf(n, con, prob(re))+2;
+            // }
+            zipf_gen.generate(re, &keys[s], e-s);
         });
 
     return 0;
@@ -93,7 +68,7 @@ int fill(Hash& hash, size_t n)
 {
     auto err = 0u;
 
-    execute_parallel(current_block, n,
+    ttm::execute_parallel(current_block, n,
         [&hash, &err](size_t i)
         {
             if (! hash.insert(i+2, i+2).second) ++err;
@@ -109,7 +84,7 @@ int find_contended(Hash& hash, size_t n)
 {
     auto err = 0u;
 
-    execute_parallel(current_block, n,
+    ttm::execute_parallel(current_block, n,
         [&hash, &err](size_t i)
         {
             auto key = keys[i];
@@ -133,7 +108,7 @@ int update_contended(Hash& hash, size_t n)
 {
     auto err = 0u;
 
-    execute_parallel(current_block, n,
+    ttm::execute_parallel(current_block, n,
         [&hash, &err](size_t i)
         {
             auto key = keys[i];
@@ -152,7 +127,7 @@ int val_update(Hash& hash, size_t n)
 {
     auto err = 0u;
 
-    execute_parallel(current_block, n,
+    ttm::execute_parallel(current_block, n,
         [&hash, &err, n](size_t i)
         {
             auto data = hash.find(i+2);
@@ -175,116 +150,125 @@ int val_update(Hash& hash, size_t n)
     return 0;
 }
 
-
 template <class ThreadType>
-int test_in_stages(size_t p, size_t id, size_t n, size_t cap, size_t it, double con)
-{
+struct test_in_stages {
 
-    pin_to_core(id);
-
-    using Handle = typename HASHTYPE::Handle;
-
-    size_t stage = 0;
-
-    if (ThreadType::is_main)
+    static int execute(ThreadType t, size_t n, size_t cap, size_t it, double con)
     {
-        keys = new uint64_t[n];
-    }
 
-    // STAGE0 Create Random Keys
-    {
-        if (ThreadType::is_main) current_block.store (0);
-        ThreadType::synchronized(generate_random, ++stage, p-1, n, con);
-    }
+        utils_tm::pin_to_core(t.id);
 
-    for (size_t i = 0; i<it; ++i)
-    {
-        // STAGE 0.1
-        ThreadType::synchronized([cap](bool m)
-                                 { if (m) hash_table = HASHTYPE(cap); return 0; },
-                                 ++stage, p-1, ThreadType::is_main);
+        using Handle = typename HASHTYPE::Handle;
 
-        if (ThreadType::is_main) print_parameters(i, p, n, cap, con);
-
-        // Needed for synchronization (main thread has finished set_up_hash)
-        ThreadType::synchronized([]{ return 0; }, ++stage, p-1);
-
-        Handle hash = hash_table.get_handle();
-
-
-        // STAGE2 n Insertions [2 .. n+1]
+        if (ThreadType::is_main)
         {
-            if (ThreadType::is_main) current_block.store(0);
-
-            auto duration = ThreadType::synchronized(fill<Handle>,
-                                                     ++stage, p-1, hash, n);
-
-            ThreadType::out (duration.second/1000000., 10);
+            keys = new uint64_t[n];
         }
 
-        // STAGE3 n Cont Random Finds Successful
+        // STAGE0 Create Random Keys
         {
-            if (ThreadType::is_main) current_block.store(0);
-
-            auto duration = ThreadType::synchronized(find_contended<Handle>,
-                                                     ++stage, p-1, hash, n);
-
-            ThreadType::out (duration.second/1000000., 10);
+            if (ThreadType::is_main) current_block.store (0);
+            t.synchronized(generate_random, n, con);
         }
 
-        // STAGE4 n Cont Random Updates
+        for (size_t i = 0; i<it; ++i)
         {
-            if (ThreadType::is_main) current_block.store(0);
+            // STAGE 0.1
+            t.synchronized([cap](bool m)
+                           { if (m) hash_table = HASHTYPE(cap); return 0; },
+                           ThreadType::is_main);
 
-            auto duration = ThreadType::synchronized(update_contended<Handle>,
-                                                     ++stage, p-1, hash, n);
+            t.out << otm::width(3) << i
+                  << otm::width(3) << t.p
+                  << otm::width(9) << n
+                  << otm::width(9) << cap
+                  << otm::width(5) << con;
+
+            // Needed for synchronization (main thread has finished set_up_hash)
+            t.synchronize();
+
+            Handle hash = hash_table.get_handle();
 
 
-            ThreadType::out (duration.second/1000000., 10);
+            // STAGE2 n Insertions [2 .. n+1]
+            {
+                if (ThreadType::is_main) current_block.store(0);
+
+                auto duration = t.synchronized(fill<Handle>, hash, n);
+
+                t.out << otm::width(10) << duration.second/1000000.;
+            }
+
+            // STAGE3 n Cont Random Finds Successful
+            {
+                if (ThreadType::is_main) current_block.store(0);
+
+                auto duration = t.synchronized(find_contended<Handle>, hash, n);
+
+                t.out << otm::width(10) << duration.second/1000000.;
+            }
+
+            // STAGE4 n Cont Random Updates
+            {
+                if (ThreadType::is_main) current_block.store(0);
+
+                auto duration = t.synchronized(update_contended<Handle>,
+                                               hash, n);
+
+
+                t.out << otm::width(10) << duration.second/1000000.;
+            }
+
+            // STAGE5 Validation of Hash Table Contents
+            {
+                if (ThreadType::is_main) current_block.store(0);
+
+                auto duration = t.synchronized(val_update<Handle>, hash, n);
+
+
+                t.out << otm::width(10) << duration.second/1000000.
+                      << otm::width(9)  << errors.load();
+            }
+
+            t.out << std::endl;
+            if (ThreadType::is_main) errors.store(0);
         }
 
-        // STAGE5 Validation of Hash Table Contents
+        if (ThreadType::is_main)
         {
-            if (ThreadType::is_main) current_block.store(0);
-
-            auto duration = ThreadType::synchronized(val_update<Handle>,
-                                                     ++stage, p-1, hash, n);
-
-
-            ThreadType::out (duration.second/1000000., 10);
-            ThreadType::out (errors.load(), 9);
+            delete[] keys;
         }
 
-        ThreadType() << std::endl;
-        if (ThreadType::is_main) errors.store(0);
+
+        return 0;
     }
 
-    if (ThreadType::is_main)
-    {
-        delete[] keys;
-        reset_stages();
-    }
-
-
-    return 0;
-}
+};
 
 
 int main(int argn, char** argc)
 {
-    CommandLine c{argn, argc};
-    size_t n   = c.intArg("-n", 10000000);
-    size_t p   = c.intArg("-p", 4);
-    size_t cap = c.intArg("-c", n);
-    size_t it  = c.intArg("-it", 5);
-    double con = c.doubleArg("-con", 1.0);
+    utils_tm::command_line_parser c{argn, argc};
+    size_t n   = c.int_arg("-n", 10000000);
+    size_t p   = c.int_arg("-p", 4);
+    size_t cap = c.int_arg("-c", n);
+    size_t it  = c.int_arg("-it", 5);
+    double con = c.double_arg("-con", 1.0);
     if (! c.report()) return 1;
 
-    print_parameter_list();
+    otm::out() << otm::width(3)  << "#i"
+               << otm::width(3)  << "p"
+               << otm::width(9)  << "n"
+               << otm::width(9)  << "cap"
+               << otm::width(5)  << "con"
+               << otm::width(10) << "t_ins_or"
+               << otm::width(10) << "t_find_c"
+               << otm::width(10) << "t_updt_c"
+               << otm::width(10) << "t_val_up"
+               << otm::width(9)  << "errors"
+               << std::endl;
 
-    start_threads(test_in_stages<TimedMainThread>,
-                  test_in_stages<UnTimedSubThread>,
-                  p, n, cap, it, con);
+    ttm::start_threads<test_in_stages>(p, n, cap, it, con);
 
     return 0;
 }

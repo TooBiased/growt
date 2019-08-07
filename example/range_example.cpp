@@ -3,15 +3,14 @@
 #include <random>
 #include <cmath>
 
-#define MURMUR2
-#include "utils/hashfct.h"
-
-#include "utils/alignedallocator.h"
+#include "utils/hash/murmur2_hash.h"
+#include "allocator/alignedallocator.h"
+using murmur2_hash = utils_tm::hash_tm::murmur2_hash;
 
 //////////////////////////////////////////////////////////////
 // USING definitions.h (possibly slower compilation)
 #include "data-structures/definitions.h"
-using Table_t = growt::uaGrow<murmur2_hasher, growt::AlignedAllocator<> >;
+using Table_t = growt::uaGrow<murmur2_hash, growt::AlignedAllocator<> >;
 
 static std::atomic_size_t aggregator_static {0};
 static std::atomic_size_t aggregator_dynamic{0};

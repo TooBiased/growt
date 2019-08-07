@@ -1,4 +1,4 @@
-/*******************************************************************************
+q/*******************************************************************************
  * data-structures/definitions.h
  *
  * Convenience file that defines some often used hash table variants.

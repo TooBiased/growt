@@ -15,6 +15,7 @@
 #ifndef SEQCIRCULAR
 #define SEQCIRCULAR
 
+#include "utils/default_hash.hpp"
 #include "data-structures/base_circular.h"
 
 namespace growt {
@@ -100,9 +101,9 @@ private:
 };
 
 
-template<class E, class HashFct = std::hash<typename E::key_type>,
+template<class E, class HashFct = utils_tm::hash_tm::default_hash,
          class A = std::allocator<E>>
-class SeqCircular : public BaseCircular<E, HashFct>
+class SeqCircular : public BaseCircular<E, HashFct, A>
 {
 private:
     using This_t             = SeqCircular<E,HashFct,A>;

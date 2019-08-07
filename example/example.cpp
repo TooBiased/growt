@@ -2,15 +2,17 @@
 #include <thread>
 #include <random>
 
-#define MURMUR2
-#include "utils/hashfct.h"
+#include "utils/hash/murmur2_hash.h"
+#include "allocator/alignedallocator.h"
 
-#include "utils/alignedallocator.h"
+using murmur2_hash = utils_tm::hash_tm::murmur2_hash;
 
 //////////////////////////////////////////////////////////////
 // USING definitions.h (possibly slower compilation)
 #include "data-structures/definitions.h"
-using Table_t = growt::uaGrow<murmur2_hasher, growt::AlignedAllocator<> >;
+
+using Table_t = growt::uaGrow<murmur2_hash,
+                              growt::AlignedAllocator<> >;
 
 //////////////////////////////////////////////////////////////
 // EQUAL RESULT without definitions.h (possibly faster compilation)
@@ -21,7 +23,7 @@ using Table_t = growt::uaGrow<murmur2_hasher, growt::AlignedAllocator<> >;
 // #include "data-structures/strategy/estrat_async.h"
 // #include "data-structures/growtable.h"
 // using Table_t = growt::GrowTable<growt::Circular<growt::MarkableElement,
-//                                                  murmur2_hasher,
+//                                                  murmur2_hash,
 //                                                  growt::AlignedAllocator<> >,
 //                                  growt::WStratUser,
 //                                  growt::EStratAsync>
@@ -63,7 +65,7 @@ void search_n_and_mean(Table_t& table, size_t n)
 
     size_t count = 0;
     size_t sum   = 0;
-    murmur2_hasher randomizer{};
+    murmur2_hash randomizer{};
 
     for (size_t i = 0; i < n; ++i)
     {

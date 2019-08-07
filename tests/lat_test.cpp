@@ -13,10 +13,11 @@
 
 #include "tests/selection.h"
 
-#include "utils/hashfct.h"
-#include "utils/test_coordination.h"
-#include "utils/thread_basics.h"
-#include "utils/commandline.h"
+#include "utils/default_hash.hpp"
+#include "utils/thread_coordination.hpp"
+#include "utils/pin_thread.hpp"
+#include "utils/command_line_parser.hpp"
+#include "utils/output.hpp"
 
 #include <random>
 
@@ -30,45 +31,19 @@
  */
 
 const static uint64_t range = (1ull << 62) -1;
+namespace otm = utils_tm::out_tm;
+namespace ttm = utils_tm::thread_tm;
 
 alignas(64) static HASHTYPE hash_table = HASHTYPE(0);
 alignas(64) static std::atomic_size_t current_block;
 alignas(64) static std::atomic_size_t errors;
-
-template<typename T>
-inline void out(T t, size_t space)
-{
-    std::cout.width(space);
-    std::cout << t << " " << std::flush;
-}
-
-void print_parameter_list()
-{
-    out("#i"      , 3);
-    out("p"       , 3);
-    out("n"       , 9);
-    out("cap"     , 9);
-    out("t_ins"   ,10);
-    out("t_find_-",10);
-    out("t_find_+",10);
-    out("errors"  , 7);
-    std::cout << std::endl;
-}
-
-void print_parameters(size_t i, size_t p, size_t n, size_t cap)
-{
-    out (i  , 3);
-    out (p  , 3);
-    out (n  , 9);
-    out (cap, 9);
-}
 
 template <class Hash>
 int fill(Hash& hash, size_t end)
 {
     auto err = 0u;
 
-    execute_parallel(current_block, end,
+    ttm::execute_parallel(current_block, end,
         [&hash, &err](size_t i)
         {
             if (! hash.insert(range & (i*9827345982374782ull),
@@ -85,7 +60,7 @@ int find_unsucc(Hash& hash, size_t end)
 {
     auto err = 0u;
 
-    execute_parallel(current_block, end,
+    ttm::execute_parallel(current_block, end,
         [&hash, &err](size_t i)
         {
             auto data = hash.find(range & (i*29124898243091298ull));
@@ -105,7 +80,7 @@ int find_succ(Hash& hash, size_t end)
 {
     auto err = 0u;
 
-    execute_parallel(current_block, end,
+    ttm::execute_parallel(current_block, end,
         [&hash, &err, end](size_t i)
         {
             auto data = hash.find(range & (i*9827345982374782ull));
@@ -117,85 +92,86 @@ int find_succ(Hash& hash, size_t end)
 }
 
 template <class ThreadType>
-int test_in_stages(size_t p, size_t id, size_t n, size_t cap, size_t it)
+struct test_in_stages
 {
-    using Handle = typename HASHTYPE::Handle;
-
-    pin_to_core(id);
-
-    size_t stage = 0;
-
-    for (size_t i = 0; i < it; ++i)
+    static int execute(ThreadType t, size_t n, size_t cap, size_t it)
     {
-        // STAGE 0.1
-        ThreadType::synchronized(
-            [cap] (bool m) { if (m) hash_table = HASHTYPE(cap); return 0; },
-            ++stage, p-1, ThreadType::is_main);
+        using Handle = typename HASHTYPE::Handle;
 
-        if (ThreadType::is_main) print_parameters(i, p, n, cap);
+        utils_tm::pin_to_core(t.id);
 
-        ThreadType::synchronized([]{ return 0; }, ++stage, p-1);
-
-        Handle hash = hash_table.get_handle();
-
-        // STAGE2 n Insertions
+        for (size_t i = 0; i < it; ++i)
         {
-            if (ThreadType::is_main) current_block.store(1);
+            // STAGE 0.1
+            t.synchronized(
+                [cap] (bool m) { if (m) hash_table = HASHTYPE(cap); return 0; },
+                ThreadType::is_main);
 
-            auto duration = ThreadType::synchronized(fill<Handle>,
-                                                     ++stage, p-1, hash, n+1);
+            t.out << otm::width(3) << i
+                  << otm::width(3) << t.p
+                  << otm::width(9) << n
+                  << otm::width(9) << cap;
 
-            ThreadType::out (duration.second/1000000., 10);
+            t.synchronize();
+
+            Handle hash = hash_table.get_handle();
+
+            // STAGE2 n Insertions
+            {
+                if (ThreadType::is_main) current_block.store(1);
+
+                auto duration = t.synchronized(fill<Handle>, hash, n+1);
+
+                t.out << otm::width(10) << duration.second/1000000.;
+            }
+
+            // STAGE3 n Finds Successful
+            {
+                if (ThreadType::is_main) current_block.store(1);
+
+                auto duration = t.synchronized(find_unsucc<Handle>, hash, n+1);
+
+                t.out << otm::width(10) << duration.second/1000000.;
+            }
+
+            // STAGE4 n Finds Successful
+            {
+                if (ThreadType::is_main) current_block.store(1);
+
+                auto duration = t.synchronized(find_succ<Handle>, hash, n+1);
+
+                t.out << otm::width(10) << duration.second/1000000.;
+                t.out << otm::width(7) << errors.load();
+            }
+
+            t.out << std::endl;
+            if (ThreadType::is_main) errors.store(0);
         }
-
-        // STAGE3 n Finds Successful
-        {
-            if (ThreadType::is_main) current_block.store(1);
-
-            auto duration = ThreadType::synchronized(find_unsucc<Handle>,
-                                                     ++stage, p-1, hash, n+1);
-
-            ThreadType::out (duration.second/1000000., 10);
-        }
-
-        // STAGE4 n Finds Successful
-        {
-            if (ThreadType::is_main) current_block.store(1);
-
-            auto duration = ThreadType::synchronized(find_succ<Handle>,
-                                                     ++stage, p-1, hash, n+1);
-
-            ThreadType::out (duration.second/1000000., 10);
-            ThreadType::out (errors.load(), 7);
-        }
-
-        ThreadType() << std::endl;
-        if (ThreadType::is_main) errors.store(0);
+        return 0;
     }
-
-    if (ThreadType::is_main)
-    {
-        reset_stages();
-    }
-
-    return 0;
-}
+};
 
 
 
 int main(int argn, char** argc)
 {
-    CommandLine c{argn, argc};
-    size_t n   = c.intArg("-n" , 10000000);
-    size_t p   = c.intArg("-p" , 4);
-    size_t cap = c.intArg("-c" , n);
-    size_t it  = c.intArg("-it", 5);
+    utils_tm::command_line_parser c{argn, argc};
+    size_t n   = c.int_arg("-n" , 10000000);
+    size_t p   = c.int_arg("-p" , 4);
+    size_t cap = c.int_arg("-c" , n);
+    size_t it  = c.int_arg("-it", 5);
     if (! c.report()) return 1;
 
-    print_parameter_list();
+    otm::out() << otm::width(3)  << "#i"
+               << otm::width(3)  << "p"
+               << otm::width(9)  << "n"
+               << otm::width(9)  << "cap"
+               << otm::width(10) << "t_ins"
+               << otm::width(10) << "t_find_-"
+               << otm::width(10) << "t_find_+"
+               << otm::width(7)  << "errors"
+               << std::endl;
 
-    start_threads(test_in_stages<TimedMainThread>,
-                  test_in_stages<UnTimedSubThread>,
-                  p, n, cap, it);
+    ttm::start_threads<test_in_stages>(p, n, cap, it);
     return 0;
 }

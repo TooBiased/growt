@@ -19,12 +19,10 @@
 
 #include <atomic>
 #include <memory>
-//#include <iostream>
 
 #include "data-structures/returnelement.h"
 #include "data-structures/grow_iterator.h"
 #include "example/update_fcts.h"
-#include "utils/concurrentptrarray.h"
 
 namespace growt {
 
@@ -148,8 +146,6 @@ private:
     // DATA+FUNCTIONS FOR MIGRATION STRATEGIES
     mutable typename ExclusionStrat_t::global_data_t _global_exclusion;
     mutable typename WorkerStrat_t   ::global_data_t _global_worker;
-
-    // mutable ConcurrentPtrArray<Handle> handle_ptr;
 
     // APPROXIMATE COUNTS
     alignas(64) std::atomic_int _elements;
