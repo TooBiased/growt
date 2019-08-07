@@ -173,7 +173,7 @@ public:
     { return insert_or_update(k, d, example::Overwrite(), d); }
 
     mapped_reference operator[](const key_type& k)
-    { return (*insert(k, mapped_type())).second; }
+    { return (*(insert(k, mapped_type()).first)).second; }
 
     template<class F, class ... Types>
     insert_return_type update(const key_type& k, F f, Types&& ... args);
