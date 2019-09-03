@@ -79,10 +79,7 @@ public:
     inline SeqIterator& operator++(int)
     {
         SeqIterator copy(*this);
-        if (_tab._version != _ver) refresh();
-        while ( _ptr < _tab._t + _tab._capacity && _ptr->is_empty()) _ptr++;
-        if (_ptr == _tab._t+ _tab._capacity) { _ptr = nullptr; _key = key_type(); }
-        else { _key = _ptr->getKey(); }
+        ++(*this);
         return copy;
     }
 

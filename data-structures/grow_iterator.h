@@ -251,13 +251,7 @@ public:
     inline IteratorGrowT& operator++(int)
     {
         IteratorGrowT copy(*this);
-        _tab.cexecute(
-            [](HashPtrRef_t t, IteratorGrowT& sit) -> int
-            {
-                sit.base_refresh_ptr(t);
-                ++sit._it;
-                return 0;
-            }, *this);
+        ++(*this);
         return copy;
     }
 
