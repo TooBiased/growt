@@ -248,6 +248,19 @@ public:
         return *this;
     }
 
+    inline IteratorGrowT& operator++(int)
+    {
+        IteratorGrowT copy(*this);
+        _tab.cexecute(
+            [](HashPtrRef_t t, IteratorGrowT& sit) -> int
+            {
+                sit.base_refresh_ptr(t);
+                ++sit._it;
+                return 0;
+            }, *this);
+        return copy;
+    }
+
     inline reference operator* () const { return reference(*_it, _version, _tab); }
     // pointer   operator->() const { return  _ptr; }
 

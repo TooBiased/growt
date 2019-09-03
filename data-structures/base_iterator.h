@@ -184,6 +184,21 @@ public:
         return *this;
     }
 
+    inline IteratorBase& operator++(int)
+    {
+        IteratorBase copy(*this);
+        ++_ptr;
+        while ( _ptr < _eptr && (_ptr->is_empty() || _ptr->is_deleted())) { ++_ptr; }
+        _copy.first  = _ptr->get_key();
+        _copy.second = _ptr->get_data();
+        if (_ptr == _eptr)
+        {
+            _ptr  = nullptr;
+            _copy = std::make_pair(key_type(), mapped_type());
+        }
+        return copy;
+    }
+
     inline reference operator* () const { return reference(_copy, _ptr); }
     // pointer   operator->() const { return  _ptr; }
 
