@@ -111,6 +111,7 @@ public:
     insert_return_type insert_or_update_unsafe
     (const key_type& k, const mapped_type& d, F f, Types&& ... args);
 
+    size_type          erase_if(const key_type& k, const mapped_type& d);
 
     size_type migrate(This_t& target, size_type s, size_type e);
 
@@ -143,6 +144,7 @@ protected:
 private:
     insert_return_intern insert_intern(const key_type& k, const mapped_type& d);
     ReturnCode           erase_intern (const key_type& k);
+    ReturnCode           erase_if_intern (const key_type& k, const mapped_type& d);
 
 
     template <class F, class ... Types>
@@ -623,7 +625,38 @@ inline ReturnCode BaseCircular<E,HashFct,A>::erase_intern(const key_type& k)
     return ReturnCode::UNSUCCESS_NOT_FOUND;
 }
 
+template<class E, class HashFct, class A>
+inline ReturnCode BaseCircular<E,HashFct,A>::erase_if_intern(const key_type& k, const mapped_type& d)
+{
+    size_type htemp = h(k);
+    for (size_type i = htemp; ; ++i) //i < htemp+MaDis
+    {
+        size_type temp = i & _bitmask;
+        value_intern curr(_t[temp]);
+        if (curr.is_marked())
+        {
+            return ReturnCode::UNSUCCESS_INVALID;
+        }
+        else if (curr.compare_key(k))
+        {
+            if (curr.get_data() != d) ReturnCode::UNSUCCESS_NOT_FOUND;
 
+            if (_t[temp].atomic_delete(curr))
+                return ReturnCode::SUCCESS_DEL;
+            i--;
+        }
+        else if (curr.is_empty())
+        {
+            return ReturnCode::UNSUCCESS_NOT_FOUND;
+        }
+        else if (curr.is_deleted())
+        {
+            //do something appropriate
+        }
+    }
+
+    return ReturnCode::UNSUCCESS_NOT_FOUND;
+}
 
 
 
@@ -678,6 +711,14 @@ inline typename BaseCircular<E,HashFct,A>::size_type
 BaseCircular<E,HashFct,A>::erase(const key_type& k)
 {
     ReturnCode c = erase_intern(k);
+    return (successful(c)) ? 1 : 0;
+}
+
+template<class E, class HashFct, class A>
+inline typename BaseCircular<E,HashFct,A>::size_type
+BaseCircular<E,HashFct,A>::erase_if(const key_type& k, const mapped_type& d)
+{
+    ReturnCode c = erase_if_intern(k,d);
     return (successful(c)) ? 1 : 0;
 }
 

@@ -249,6 +249,7 @@ public:
     insert_return_type insert_or_update_unsafe
     (const key_type& k, const mapped_type& d, F f, Types&& ... args);
 
+    size_type          erase_if (const key_type& k, const mapped_type& d);
 
     size_type element_count_approx() { return _gt_data.element_count_approx(); }
     //size_type element_count_unsafe();
@@ -695,6 +696,44 @@ GrowTableHandle<GrowTableData>::erase(const key_type& k)
                                        std::pair<int,ReturnCode> result =
                                            std::make_pair(t->_version,
                                                           t->erase_intern(k));
+                                       return result;
+                                   },
+                                   k);
+
+    switch(result)
+    {
+    case ReturnCode::SUCCESS_DEL:
+        inc_deleted(v);
+        return 1;
+    case ReturnCode::TSX_SUCCESS_DEL:
+        inc_deleted(v);  // TSX DELETION COULD BE USED TO AVOID DUMMIES => dec_inserted()
+        return 1;
+    case ReturnCode::UNSUCCESS_INVALID:
+    case ReturnCode::TSX_UNSUCCESS_INVALID:
+        help_grow();
+        return erase(k);
+    case ReturnCode::UNSUCCESS_NOT_FOUND:
+    case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
+        return 0;
+    default:
+        return 0;
+    }
+}
+
+template<class GrowTableData>
+inline typename GrowTableHandle<GrowTableData>::size_type
+GrowTableHandle<GrowTableData>::erase_if(const key_type& k, const mapped_type& d)
+{
+    int v = -1;
+    ReturnCode result = ReturnCode::ERROR;
+    std::tie (v, result) = execute([](HashPtrRef_t t,
+                                      const key_type& k,
+                                      const mapped_type& d)
+                                     ->std::pair<int,ReturnCode>
+                                   {
+                                       std::pair<int,ReturnCode> result =
+                                           std::make_pair(t->_version,
+                                                          t->erase_if_intern(k,d));
                                        return result;
                                    },
                                    k);
