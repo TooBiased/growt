@@ -639,7 +639,7 @@ inline ReturnCode BaseCircular<E,HashFct,A>::erase_if_intern(const key_type& k, 
         }
         else if (curr.compare_key(k))
         {
-            if (curr.get_data() != d) ReturnCode::UNSUCCESS_NOT_FOUND;
+            if (curr.get_data() != d) return ReturnCode::UNSUCCESS_NOT_FOUND;
 
             if (_t[temp].atomic_delete(curr))
                 return ReturnCode::SUCCESS_DEL;

@@ -735,8 +735,7 @@ GrowTableHandle<GrowTableData>::erase_if(const key_type& k, const mapped_type& d
                                            std::make_pair(t->_version,
                                                           t->erase_if_intern(k,d));
                                        return result;
-                                   },
-                                   k);
+                                   },k,d);
 
     switch(result)
     {
