@@ -748,7 +748,7 @@ GrowTableHandle<GrowTableData>::erase_if(const key_type& k, const mapped_type& d
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
         help_grow();
-        return erase(k);
+        return erase_if(k,d);
     case ReturnCode::UNSUCCESS_NOT_FOUND:
     case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
         return 0;
