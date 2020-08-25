@@ -187,11 +187,11 @@ struct test_in_stages
                            { if (m) hash_table = HASHTYPE(cap); return 0; },
                            ThreadType::is_main);
 
-            t.out << otm::width(3) << i
-                  << otm::width(3) << t.p
-                  << otm::width(9) << n
-                  << otm::width(9) << cap
-                  << otm::width(6) << wperc;
+            t.out << otm::width(5)  << i
+                  << otm::width(5)  << t.p
+                  << otm::width(11) << n
+                  << otm::width(11) << cap
+                  << otm::width(8)  << wperc;
 
             t.synchronize();
 
@@ -210,9 +210,9 @@ struct test_in_stages
 
                 auto duration = t.synchronized(mixed_test<Handle>, hash, pre+n);
 
-                t.out << otm::width(10) << duration.second/1000000.
-                      << otm::width(7) << unsucc_finds.load()
-                      << otm::width(7) << errors.load();
+                t.out << otm::width(12) << duration.second/1000000.
+                      << otm::width(9) << unsucc_finds.load()
+                      << otm::width(9) << errors.load();
             }
 
             if (ThreadType::is_main)
@@ -248,14 +248,14 @@ int main(int argn, char** argc)
     size_t cap   = c.int_arg("-c"  , pre+n*wperc);
     if (! c.report()) return 1;
 
-    otm::out() << otm::width(3)  << "#i"
-               << otm::width(3)  << "p"
-               << otm::width(9)  << "n"
-               << otm::width(9)  << "cap"
-               << otm::width(6)  << "w_per"
-               << otm::width(10) << "t_mix"
-               << otm::width(7)  << "unfound"
-               << otm::width(7)  << "errors"
+    otm::out() << otm::width(5)  << "#i"
+               << otm::width(5)  << "p"
+               << otm::width(11) << "n"
+               << otm::width(11) << "cap"
+               << otm::width(8)  << "w_per"
+               << otm::width(12) << "t_mix"
+               << otm::width(9)  << "unfound"
+               << otm::width(9)  << "errors"
                << std::endl;
 
 

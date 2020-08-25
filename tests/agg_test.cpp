@@ -129,11 +129,11 @@ struct test_in_stages
                            { if (m) hash_table = HASHTYPE(cap); return 0; },
                            ThreadType::is_main);
 
-            t.out << otm::width(3) << i
-                  << otm::width(3) << t.p
-                  << otm::width(9) << n
-                  << otm::width(9) << cap
-                  << otm::width(5) << con;
+            t.out << otm::width(5) << i
+                  << otm::width(5) << t.p
+                  << otm::width(11) << n
+                  << otm::width(11) << cap
+                  << otm::width(7) << con;
 
             t.synchronize();
 
@@ -146,7 +146,7 @@ struct test_in_stages
 
                 auto duration = t.synchronized(aggregate<Handle>, hash, n);
 
-                t.out << otm::width(10) << duration.second/1000000.;
+                t.out << otm::width(12) << duration.second/1000000.;
             }
 
             // STAGE3 n Cont Random Finds Successful
@@ -155,12 +155,12 @@ struct test_in_stages
 
                 auto duration = t.synchronized(validate_aggregate<Handle>, hash, n);
 
-                t.out << otm::width(10) << duration.second/1000000.
-                      << otm::width(7)  << errors.load();
+                t.out << otm::width(12) << duration.second/1000000.
+                      << otm::width(9)  << errors.load();
             }
 
 #ifdef MALLOC_COUNT
-            t.out << otm::width(14) << malloc_count_current();
+            t.out << otm::width(16) << malloc_count_current();
 #endif
 
             if (n - valsum.load())
@@ -197,14 +197,14 @@ int main(int argn, char** argc)
 
     zipf_gen.initialize(n,con);
 
-    otm::out() << otm::width(3) << "#i"
-               << otm::width(3) << "p"
-               << otm::width(9) << "n"
-               << otm::width(9)  << "cap"
-               << otm::width(5)  << "con"
-               << otm::width(10) << "t_aggreg"
-               << otm::width(10) << "t_val_ag"
-               << otm::width(7)  << "errors"
+    otm::out() << otm::width(5)  << "#i"
+               << otm::width(5)  << "p"
+               << otm::width(11) << "n"
+               << otm::width(11) << "cap"
+               << otm::width(7)  << "con"
+               << otm::width(12) << "t_aggreg"
+               << otm::width(12) << "t_val_ag"
+               << otm::width(9)  << "errors"
                << std::endl;
 
     ttm::start_threads<test_in_stages>(p, n, cap, it, con);

@@ -178,11 +178,11 @@ struct test_in_stages {
                            { if (m) hash_table = HASHTYPE(cap); return 0; },
                            ThreadType::is_main);
 
-            t.out << otm::width(3) << i
-                  << otm::width(3) << t.p
-                  << otm::width(9) << n
-                  << otm::width(9) << cap
-                  << otm::width(5) << con;
+            t.out << otm::width(5) << i
+                  << otm::width(5) << t.p
+                  << otm::width(11) << n
+                  << otm::width(11) << cap
+                  << otm::width(7) << con;
 
             // Needed for synchronization (main thread has finished set_up_hash)
             t.synchronize();
@@ -196,7 +196,7 @@ struct test_in_stages {
 
                 auto duration = t.synchronized(fill<Handle>, hash, n);
 
-                t.out << otm::width(10) << duration.second/1000000.;
+                t.out << otm::width(12) << duration.second/1000000.;
             }
 
             // STAGE3 n Cont Random Finds Successful
@@ -205,7 +205,7 @@ struct test_in_stages {
 
                 auto duration = t.synchronized(find_contended<Handle>, hash, n);
 
-                t.out << otm::width(10) << duration.second/1000000.;
+                t.out << otm::width(12) << duration.second/1000000.;
             }
 
             // STAGE4 n Cont Random Updates
@@ -216,7 +216,7 @@ struct test_in_stages {
                                                hash, n);
 
 
-                t.out << otm::width(10) << duration.second/1000000.;
+                t.out << otm::width(12) << duration.second/1000000.;
             }
 
             // STAGE5 Validation of Hash Table Contents
@@ -226,8 +226,8 @@ struct test_in_stages {
                 auto duration = t.synchronized(val_update<Handle>, hash, n);
 
 
-                t.out << otm::width(10) << duration.second/1000000.
-                      << otm::width(9)  << errors.load();
+                t.out << otm::width(12) << duration.second/1000000.
+                      << otm::width(11)  << errors.load();
             }
 
             t.out << std::endl;
@@ -256,16 +256,16 @@ int main(int argn, char** argc)
     double con = c.double_arg("-con", 1.0);
     if (! c.report()) return 1;
 
-    otm::out() << otm::width(3)  << "#i"
-               << otm::width(3)  << "p"
-               << otm::width(9)  << "n"
-               << otm::width(9)  << "cap"
-               << otm::width(5)  << "con"
-               << otm::width(10) << "t_ins_or"
-               << otm::width(10) << "t_find_c"
-               << otm::width(10) << "t_updt_c"
-               << otm::width(10) << "t_val_up"
-               << otm::width(9)  << "errors"
+    otm::out() << otm::width(5)  << "#i"
+               << otm::width(5)  << "p"
+               << otm::width(11  << "n"
+               << otm::width(11  << "cap"
+               << otm::width(7)  << "con"
+               << otm::width(12) << "t_ins_or"
+               << otm::width(12) << "t_find_c"
+               << otm::width(12) << "t_updt_c"
+               << otm::width(12) << "t_val_up"
+               << otm::width(11) << "errors"
                << std::endl;
 
     ttm::start_threads<test_in_stages>(p, n, cap, it, con);

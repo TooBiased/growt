@@ -220,7 +220,7 @@ int find(Hash& hash, size_t n, size_t val)
 
 void check_errors(size_t exp)
 {
-    otm::out() << otm::width(5) << (errors.load() == exp);
+    otm::out() << otm::width(7) << (errors.load() == exp);
     errors.store(0);
     return;
 }
@@ -333,7 +333,7 @@ struct test_in_stages
 
             // STAGE 4.1 validate
             {
-                if (ThreadType::is_main) t.out << otm::width(5)
+                if (ThreadType::is_main) t.out << otm::width(7)
                                                << val_inc(hash, n, p);
 
                 if (ThreadType::is_main) check_errors(0);

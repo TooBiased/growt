@@ -262,7 +262,7 @@ private:
     mutable typename ExclusionStrat_t::local_data_t _local_exclusion;
 
 
-    inline void         grow()     const { _local_exclusion.grow(); }
+    inline void         grow()      const { _local_exclusion.grow(); }
     inline void         help_grow() const { _local_exclusion.help_grow(); }
     inline void         rls_table() const { _local_exclusion.rls_table(); }
     inline HashPtrRef_t get_table() const { return _local_exclusion.get_table(); }

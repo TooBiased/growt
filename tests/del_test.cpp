@@ -159,11 +159,11 @@ struct test_in_stages
                            { if (m) hash_table = HASHTYPE(cap); return 0; },
                            ThreadType::is_main);
 
-            t.out << otm::width(3) << i
-                  << otm::width(3) << t.p
-                  << otm::width(9) << n
-                  << otm::width(9) << cap
-                  << otm::width(9) << ws;
+            t.out << otm::width(5) << i
+                  << otm::width(5) << t.p
+                  << otm::width(11) << n
+                  << otm::width(11) << cap
+                  << otm::width(11) << ws;
 
             t.synchronize();
 
@@ -184,7 +184,7 @@ struct test_in_stages
                 auto duration = t.synchronized(del_test<Handle>,
                                                hash, ws+n, ws);
 
-                t.out << otm::width(10) << duration.second/1000000.;
+                t.out << otm::width(12) << duration.second/1000000.;
             }
 
             // STAGE2 prefill table with pre elements
@@ -194,15 +194,15 @@ struct test_in_stages
                 auto duration = t.synchronized(validate<Handle>,
                                                hash, ws+n);
 
-                t.out << otm::width(10) << duration.second/1000000.
-                      << otm::width(7)  << unsucc_deletes.load()
-                      << otm::width(7)  << succ_found.load()
-                      << otm::width(7)  << errors.load();
+                t.out << otm::width(12) << duration.second/1000000.
+                      << otm::width(9)  << unsucc_deletes.load()
+                      << otm::width(9)  << succ_found.load()
+                      << otm::width(9)  << errors.load();
             }
 
 
 #ifdef MALLOC_COUNT
-            t.out << otm::width(14) << malloc_count_current();
+            t.out << otm::width(16) << malloc_count_current();
 #endif
 
             t.out << std::endl;
@@ -236,16 +236,16 @@ int main(int argn, char** argc)
     size_t it  = c.int_arg("-it", 5);
     if (! c.report()) return 1;
 
-    otm::out() << otm::width(3)  << "#i"
-               << otm::width(3)  << "p"
-               << otm::width(9)  << "n"
-               << otm::width(9)  << "cap"
-               << otm::width(9)  << "w_size"
-               << otm::width(10) << "t_del"
-               << otm::width(10) << "t_val"
-               << otm::width(7)  << "unsucc"
-               << otm::width(7) << "remain"
-               << otm::width(7)  << "errors"
+    otm::out() << otm::width(5)  << "#i"
+               << otm::width(5)  << "p"
+               << otm::width(11) << "n"
+               << otm::width(11) << "cap"
+               << otm::width(11) << "w_size"
+               << otm::width(12) << "t_del"
+               << otm::width(12) << "t_val"
+               << otm::width(9)  << "unsucc"
+               << otm::width(9 ) << "remain"
+               << otm::width(9)  << "errors"
                << std::endl;
 
     ttm::start_threads<test_in_stages>(p, n, cap, it, ws);

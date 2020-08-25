@@ -66,12 +66,12 @@ public:
     void deallocate(pointer p, size_type /* size_hint */ = 0) noexcept
     {   free(p);   }
 
-    //! Returns the address of x.
-    pointer address(reference x) const noexcept
+    //! Returns the adress of x.
+    pointer adress(reference x) const noexcept
     {   return std::addressof(x);   }
 
-    //! Returns the address of x.
-    const_pointer address(const_reference x) const noexcept
+    //! Returns the adress of x.
+    const_pointer adress(const_reference x) const noexcept
     {   return std::addressof(x);   }
 
     //! Maximum size possible to allocate
@@ -95,9 +95,8 @@ public:
 
     //! Destroys in-place the object pointed by p.
     template <typename SubType>
-    void destroy(SubType* p) const noexcept {
-        p->~SubType();
-    }
+    void destroy(SubType* p) const noexcept
+    {   p->~SubType();   }
 
 
     template<class Other, size_t OtherAlignment>

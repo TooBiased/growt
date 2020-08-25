@@ -38,8 +38,16 @@ public:
     using const_iterator     = typename HashType::const_iterator;
     using insert_return_type = std::pair<iterator, bool>;
 
+    static constexpr size_t next_cap(size_t i)
+    {
+	    size_t curr = 4096;
+	    while (curr<i) curr<<=1;
+	    return curr << 1;
+    }
+    
     FollyWrapper() = default;
-    FollyWrapper(size_t capacity_) : hash(capacity_), capacity(capacity_) {}
+    FollyWrapper(size_t capacity_) 
+	    : hash(next_cap(capacity_)), capacity(next_cap(capacity_)) {}
     FollyWrapper(const FollyWrapper&) = delete;
     FollyWrapper& operator=(const FollyWrapper&) = delete;
 

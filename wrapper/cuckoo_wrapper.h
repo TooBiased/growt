@@ -23,7 +23,7 @@ template<class Hasher>
 class CuckooWrapper
 {
 private:
-    using HashType = cuckoohash_map<size_t, size_t, Hasher>;
+    using HashType = libcuckoo::cuckoohash_map<size_t, size_t, Hasher>;
 
     HashType hash;
     size_t capacity;

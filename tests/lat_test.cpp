@@ -107,10 +107,10 @@ struct test_in_stages
                 [cap] (bool m) { if (m) hash_table = HASHTYPE(cap); return 0; },
                 ThreadType::is_main);
 
-            t.out << otm::width(3) << i
-                  << otm::width(3) << t.p
-                  << otm::width(9) << n
-                  << otm::width(9) << cap;
+            t.out << otm::width(5) << i
+                  << otm::width(5) << t.p
+                  << otm::width(11) << n
+                  << otm::width(11) << cap;
 
             t.synchronize();
 
@@ -122,7 +122,7 @@ struct test_in_stages
 
                 auto duration = t.synchronized(fill<Handle>, hash, n+1);
 
-                t.out << otm::width(10) << duration.second/1000000.;
+                t.out << otm::width(12) << duration.second/1000000.;
             }
 
             // STAGE3 n Finds Successful
@@ -131,7 +131,7 @@ struct test_in_stages
 
                 auto duration = t.synchronized(find_unsucc<Handle>, hash, n+1);
 
-                t.out << otm::width(10) << duration.second/1000000.;
+                t.out << otm::width(12) << duration.second/1000000.;
             }
 
             // STAGE4 n Finds Successful
@@ -140,8 +140,8 @@ struct test_in_stages
 
                 auto duration = t.synchronized(find_succ<Handle>, hash, n+1);
 
-                t.out << otm::width(10) << duration.second/1000000.;
-                t.out << otm::width(7) << errors.load();
+                t.out << otm::width(12) << duration.second/1000000.;
+                t.out << otm::width(9) << errors.load();
             }
 
             t.out << std::endl;
@@ -162,14 +162,14 @@ int main(int argn, char** argc)
     size_t it  = c.int_arg("-it", 5);
     if (! c.report()) return 1;
 
-    otm::out() << otm::width(3)  << "#i"
-               << otm::width(3)  << "p"
-               << otm::width(9)  << "n"
-               << otm::width(9)  << "cap"
-               << otm::width(10) << "t_ins"
-               << otm::width(10) << "t_find_-"
-               << otm::width(10) << "t_find_+"
-               << otm::width(7)  << "errors"
+    otm::out() << otm::width(5)  << "#i"
+               << otm::width(5)  << "p"
+               << otm::width(11) << "n"
+               << otm::width(11) << "cap"
+               << otm::width(12) << "t_ins"
+               << otm::width(12) << "t_find_-"
+               << otm::width(12) << "t_find_+"
+               << otm::width(9)  << "errors"
                << std::endl;
 
     ttm::start_threads<test_in_stages>(p, n, cap, it);
