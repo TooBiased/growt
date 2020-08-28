@@ -36,7 +36,6 @@
  * 2. Validating the end result looking for each key and accumulating the results
  */
 
-const static uint64_t range = (1ull << 62) -1;
 namespace otm = utils_tm::out_tm;
 namespace ttm = utils_tm::thread_tm;
 
@@ -50,17 +49,11 @@ alignas(64) static utils_tm::zipf_generator zipf_gen;
 
 int generate_random(size_t n)
 {
-    std::uniform_real_distribution<double> prob(0.,1.);
-
     ttm::execute_blockwise_parallel(current_block, n,
-        [n, &prob](size_t s, size_t e)
+        [](size_t s, size_t e)
         {
             std::mt19937_64 re(s*10293903128401092ull);
 
-            // for (size_t i = s; i < e; i++)
-            // {
-            //     keys[i] = zipf_gen(n, cont, prob(re))+2;
-            // }
             zipf_gen.generate(re, &keys[s], e-s);
         });
 

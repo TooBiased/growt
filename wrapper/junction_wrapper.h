@@ -71,7 +71,7 @@ public:
     using iterator           = StupidIterator<key_type, mapped_type>;
     using insert_return_type = std::pair<iterator, bool>;
 
-    JunctionHandle() = default;
+    JunctionHandle() = delete;
     JunctionHandle(HashType& hash_table) : hash(hash_table), count(0)
     {
         //std::lock_guard<std::mutex> lock(registration_mutex);
@@ -88,7 +88,13 @@ public:
     JunctionHandle& operator=(const JunctionHandle&) = delete;
 
     JunctionHandle(JunctionHandle&& rhs) = default;
-    JunctionHandle& operator=(JunctionHandle&& rhs) = default;
+    JunctionHandle& operator=(JunctionHandle&& rhs)
+    {
+        if (&rhs == this) return *this;
+        this->~JunctionHandle();
+        new (this) JunctionHandle(std::move(rhs));
+        return *this;
+    }
 
     inline iterator find              (const key_type& k)
     {

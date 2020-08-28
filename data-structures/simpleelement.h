@@ -16,6 +16,7 @@
 
 
 #include <stdlib.h>
+#include <cstdint>
 #include <functional>
 #include <limits>
 
@@ -33,8 +34,8 @@ namespace growt {
 class SimpleElement
 {
 public:
-    using key_type    = uint64_t;
-    using mapped_type = uint64_t;
+    using key_type    = std::uint64_t;
+    using mapped_type = std::uint64_t;
     using value_type  = std::pair<const key_type, mapped_type>;
 
     SimpleElement();
@@ -85,8 +86,8 @@ public:
     inline bool operator==(SimpleElement& other) { return (key == other.key); }
     inline bool operator!=(SimpleElement& other) { return (key != other.key); }
 
-    inline ReturnElement get_return() const { return ReturnElement (get_key(), get_data()); }
-    inline operator ReturnElement()         { return ReturnElement (get_key(), get_data()); }
+    // inline ReturnElement get_return() const { return ReturnElement (get_key(), get_data()); }
+    // inline operator ReturnElement()         { return ReturnElement (get_key(), get_data()); }
     inline operator value_type()      const { return std::make_pair(get_key(), get_data()); }
 
 private:

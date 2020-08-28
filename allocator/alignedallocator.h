@@ -46,9 +46,9 @@ public:
 
 
     GenericAlignedAllocator() = default;
-    GenericAlignedAllocator(const GenericAlignedAllocator&)           noexcept = default;
+    GenericAlignedAllocator(const GenericAlignedAllocator&)    noexcept = default;
     template<class U>
-    GenericAlignedAllocator(const GenericAlignedAllocator<U>& other)  noexcept {};
+    GenericAlignedAllocator(const GenericAlignedAllocator<U>&) noexcept {};
     GenericAlignedAllocator& operator=(const GenericAlignedAllocator&) noexcept = default;
 
 
@@ -100,11 +100,11 @@ public:
 
 
     template<class Other, size_t OtherAlignment>
-    bool operator==(const GenericAlignedAllocator<Other, OtherAlignment>& other)
+    bool operator==(const GenericAlignedAllocator<Other, OtherAlignment>& )
     {   return A==OtherAlignment;   }
 
     template<class Other, size_t OtherAlignment>
-    bool operator!=(const GenericAlignedAllocator<Other, OtherAlignment>& other)
+    bool operator!=(const GenericAlignedAllocator<Other, OtherAlignment>& )
     {   return A!=OtherAlignment;   }
 };
 

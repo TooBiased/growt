@@ -47,7 +47,7 @@ int generate_insertions(size_t pre, size_t n, double wperc)
     std::uniform_int_distribution<uint64_t> key_dis  (2,range);
 
     ttm::execute_blockwise_parallel(current_block, pre+n,
-        [pre, n, wperc, &write_dis, &key_dis](size_t s, size_t e)
+        [pre, wperc, &write_dis, &key_dis](size_t s, size_t e)
         {
             std::mt19937_64 re(s*10293903128401092ull);
 
@@ -70,7 +70,7 @@ int generate_insertions(size_t pre, size_t n, double wperc)
 int generate_reads(size_t pre, size_t n, size_t window)
 {
     ttm::execute_blockwise_parallel(current_block, pre+n,
-                               [pre, n, window](size_t s, size_t e)
+                               [pre, window](size_t s, size_t e)
         {
             std::mt19937_64 re(s*10293903128401092ull);
 
@@ -129,7 +129,7 @@ int mixed_test(Hash& hash, size_t end)
     auto not_found = 0u;
 
     ttm::execute_parallel(current_block, end,
-        [&hash, &err, &not_found, end](size_t i)
+        [&hash, &err, &not_found](size_t i)
         {
             auto key = keys[i];
             if (key & read_flag)

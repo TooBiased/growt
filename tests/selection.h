@@ -74,8 +74,8 @@
 #include "data-structures/base_circular.h"
 #include "data-structures/strategy/wstrat_user.h"
 #include "data-structures/strategy/estrat_async.h"
-//#include "data-structures/grow_table.h"
-#include "data-structures/ancient_grow.h"
+#include "data-structures/grow_table.h"
+//#include "data-structures/ancient_grow.h"
 #define HASHTYPE growt::GrowTable<growt::BaseCircular<growt::MarkableElement, \
                                                   HASHFCT, \
                                                   ALLOCATOR<> >, \
@@ -88,7 +88,8 @@
 #include "data-structures/base_circular.h"
 #include "data-structures/strategy/wstrat_pool.h"
 #include "data-structures/strategy/estrat_async.h"
-#include "data-structures/ancient_grow.h"
+#include "data-structures/grow_table.h"
+//#include "data-structures/ancient_grow.h"
 #define HASHTYPE growt::GrowTable<growt::BaseCircular<growt::MarkableElement, \
                                                   HASHFCT, \
                                                   ALLOCATOR<> >, \
@@ -100,7 +101,8 @@
 #include "data-structures/base_circular.h"
 #include "data-structures/strategy/wstrat_user.h"
 #include "data-structures/strategy/estrat_sync.h"
-#include "data-structures/ancient_grow.h"
+#include "data-structures/grow_table.h"
+//#include "data-structures/ancient_grow.h"
 #define HASHTYPE growt::GrowTable<growt::BaseCircular<growt::SimpleElement, \
                                                   HASHFCT, \
                                                   ALLOCATOR<> >, \
@@ -112,7 +114,8 @@
 #include "data-structures/base_circular.h"
 #include "data-structures/strategy/wstrat_pool.h"
 #include "data-structures/strategy/estrat_sync.h"
-#include "data-structures/ancient_grow.h"
+#include "data-structures/grow_table.h"
+//#include "data-structures/ancient_grow.h"
 #define HASHTYPE growt::GrowTable<growt::BaseCircular<growt::SimpleElement, \
                                                   HASHFCT, \
                                                   ALLOCATOR<> >, \
@@ -124,7 +127,8 @@
 #include "data-structures/base_circular.h"
 #include "data-structures/strategy/wstrat_user.h"
 #include "data-structures/strategy/estrat_sync_alt.h"
-#include "data-structures/ancient_grow.h"
+#include "data-structures/grow_table.h"
+//#include "data-structures/ancient_grow.h"
 #define HASHTYPE growt::GrowTable<growt::BaseCircular<growt::SimpleElement, \
                                                   HASHFCT, \
                                                   ALLOCATOR<> >, \
@@ -136,7 +140,8 @@
 #include "data-structures/base_circular.h"
 #include "data-structures/strategy/wstrat_pool.h"
 #include "data-structures/strategy/estrat_sync_alt.h"
-#include "data-structures/ancient_grow.h"
+#include "data-structures/grow_table.h"
+//#include "data-structures/ancient_grow.h"
 #define HASHTYPE growt::GrowTable<growt::BaseCircular<growt::SimpleElement, \
                                                   HASHFCT, \
                                                   ALLOCATOR<> >, \

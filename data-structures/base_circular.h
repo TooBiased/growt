@@ -36,27 +36,28 @@ private:
     template <class> friend class GrowTableHandle;
 
 public:
-    using value_intern       = E;
+    using value_intern           = E;
 
-    using key_type           = typename value_intern::key_type;
-    using mapped_type        = typename value_intern::mapped_type;
-    using value_type         = E;//typename std::pair<const key_type, mapped_type>;
-    using iterator           = IteratorBase<This_t, false>;//E*;
-    using const_iterator     = IteratorBase<This_t, true>;
-    using size_type          = size_t;
-    using difference_type    = std::ptrdiff_t;
-    using reference          = ReferenceBase<This_t, false>;
-    using const_reference    = ReferenceBase<This_t, true>;
+    using key_type               = typename value_intern::key_type;
+    using mapped_type            = typename value_intern::mapped_type;
+    using value_type             = E;//typename std::pair<const key_type, mapped_type>;
+    using iterator               = IteratorBase<This_t, false>;//E*;
+    using const_iterator         = IteratorBase<This_t, true>;
+    using size_type              = size_t;
+    using difference_type        = std::ptrdiff_t;
+    using reference              = ReferenceBase<This_t, false>;
+    using const_reference        = ReferenceBase<This_t, true>;
     using mapped_reference       = MappedRefBase<This_t, false>;
     using const_mapped_reference = MappedRefBase<This_t, true>;
-    using insert_return_type = std::pair<iterator, bool>;
+    using insert_return_type     = std::pair<iterator, bool>;
 
 
-    using local_iterator       = void;
-    using const_local_iterator = void;
-    using node_type            = void;
+    using local_iterator         = void;
+    using const_local_iterator   = void;
+    using node_type              = void;
 
-    using Handle             = This_t&;
+    using Handle                 = This_t&;
+
 private:
     using insert_return_intern = std::pair<iterator, ReturnCode>;
 
@@ -258,6 +259,9 @@ BaseCircular<E,HashFct,A>::BaseCircular(size_type capacity_, size_type version_)
 {
     _t = _allocator.allocate(_capacity);
     if ( !_t ) std::bad_alloc();
+
+    /* The table is initialized in parallel, during the migration */
+    // std::fill( _t ,_t + _capacity , value_intern::get_empty() );
 }
 
 template<class E, class HashFct, class A>
@@ -391,7 +395,7 @@ BaseCircular<E,HashFct,A>::crange(size_t rstart, size_t rend)
 template<class E, class HashFct, class A>
 inline typename BaseCircular<E,HashFct,A>::insert_return_intern
 BaseCircular<E,HashFct,A>::insert_intern(const key_type& k,
-                                                    const mapped_type& d)
+                                         const mapped_type& d)
 {
     size_type htemp = h(k);
 
@@ -779,10 +783,26 @@ BaseCircular<E,HashFct,A>::insert_or_update_unsafe(const key_type& k,
 
 
 
-
-
-
 // MIGRATION/GROWING STUFF *****************************************************
+
+// TRIVIAL MIGRATION (ASSUMES INITIALIZED TABLE)
+// template<class E, class HashFct, class A>
+// inline typename BaseCircular<E,HashFct,A>::size_type
+// BaseCircular<E,HashFct,A>::migrate(This_t& target, size_type s, size_type e)
+// {
+//     size_type count = 0;
+//     for (size_t i = s; i < e; ++i)
+//     {
+//         auto curr = _t[i];
+//         while (! _t[i].atomic_mark(curr))
+//         { /* retry until we successfully mark the element */ }
+
+//         target.insert(curr.get_key(), curr.get_data());
+//         ++count;
+//     }
+
+//     return count;
+// }
 
 template<class E, class HashFct, class A>
 inline typename BaseCircular<E,HashFct,A>::size_type

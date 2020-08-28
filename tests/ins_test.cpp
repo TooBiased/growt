@@ -89,12 +89,12 @@ int fill(Hash& hash, size_t end)
 
 
 template <class Hash>
-int find_unsucc(Hash& hash, size_t begin, size_t end)
+int find_unsucc(Hash& hash, size_t end)
 {
     auto err = 0u;
 
     ttm::execute_parallel(current_block, end,
-        [&hash, &err, begin](size_t i)
+        [&hash, &err](size_t i)
         {
             auto key = keys[i];
 
@@ -118,7 +118,7 @@ int find_succ(Hash& hash, size_t end)
     auto err = 0u;
 
     ttm::execute_parallel(current_block, end,
-        [&hash, &err, end](size_t i)
+        [&hash, &err](size_t i)
         {
             auto key = keys[i];
 
@@ -187,7 +187,7 @@ struct test_in_stages
                 if (ThreadType::is_main) current_block.store(n);
 
                 auto duration = t.synchronized(find_unsucc<Handle>,
-                                               hash, n, 2*n);
+                                               hash, 2*n);
 
                 t.out << otm::width(12) << duration.second/1000000.;
             }
@@ -207,8 +207,22 @@ struct test_in_stages
             t.out << otm::width(16) << malloc_count_current();
 #endif
 
+            if (ThreadType::is_main)
+            {
+                //errors.store(0);
+                if (errors.exchange(0))
+                {
+                    /* currently do nothing */
+                    // size_t counter = 0;
+                    // for (auto it = hash.begin(); it != hash.end(); ++it)
+                    // {
+                    //     counter++;
+                    // }
+                    // t.out << " found " << counter << " elements";
+                }
+            }
+
             t.out << std::endl;
-            if (ThreadType::is_main) errors.store(0);
 
             // Some Synchronization
             t.synchronize();

@@ -53,29 +53,29 @@ inline bool successful(ReturnCode ec)
 }
 
 
-class ReturnElement
-{
-public:
-    using Key  = uint64_t;
-    using Data = uint64_t;
+// class ReturnElement
+// {
+// public:
+//     using Key  = uint64_t;
+//     using Data = uint64_t;
 
-    ReturnElement() : first(0), second(0) { }
-    ReturnElement(Key k, Data d) : first(k), second(d) { }
+//     ReturnElement() : first(0), second(0) { }
+//     ReturnElement(Key k, Data d) : first(k), second(d) { }
 
-    static ReturnElement getEmpty() { return ReturnElement( 0, 0 ); }
+//     static ReturnElement getEmpty() { return ReturnElement( 0, 0 ); }
 
-    Key  first;
-    Data second;
+//     Key  first;
+//     Data second;
 
-    bool isValid()  const { return first != 0; }
+//     bool isValid()  const { return first != 0; }
 
-    operator bool() const
-    {   return first != 0;   }
-    operator std::tuple<Key&, Data&> ()
-    {   return std::tuple<Key&, Data&>{ first, second };   }
+//     operator bool() const
+//     {   return first != 0;   }
+//     operator std::tuple<Key&, Data&> ()
+//     {   return std::tuple<Key&, Data&>{ first, second };   }
 
-private:
-};
+// private:
+// };
 
 }
 

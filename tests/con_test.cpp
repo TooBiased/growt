@@ -33,7 +33,6 @@
  *    (correctness test using the index)
  */
 
-const static uint64_t range = (1ull << 62) -1;
 namespace otm = utils_tm::out_tm;
 namespace ttm = utils_tm::thread_tm;
 
@@ -44,19 +43,12 @@ alignas(64) static std::atomic_size_t errors;
 alignas(64) static utils_tm::zipf_generator zipf_gen;
 
 
-int generate_random(size_t n, double con)
+int generate_random(size_t n)
 {
-    std::uniform_real_distribution<double> prob(0.,1.);
-
     ttm::execute_blockwise_parallel(current_block, n,
-        [n, con, &prob](size_t s, size_t e)
+        [](size_t s, size_t e)
         {
             std::mt19937_64 re(s*10293903128401092ull);
-
-            // for (size_t i = s; i < e; i++)
-            // {
-            //     keys[i] = zipf(n, con, prob(re))+2;
-            // }
             zipf_gen.generate(re, &keys[s], e-s);
         });
 
@@ -168,7 +160,7 @@ struct test_in_stages {
         // STAGE0 Create Random Keys
         {
             if (ThreadType::is_main) current_block.store (0);
-            t.synchronized(generate_random, n, con);
+            t.synchronized(generate_random, n);
         }
 
         for (size_t i = 0; i<it; ++i)
@@ -256,10 +248,12 @@ int main(int argn, char** argc)
     double con = c.double_arg("-con", 1.0);
     if (! c.report()) return 1;
 
+    zipf_gen.initialize(n, con);
+
     otm::out() << otm::width(5)  << "#i"
                << otm::width(5)  << "p"
-               << otm::width(11  << "n"
-               << otm::width(11  << "cap"
+               << otm::width(11) << "n"
+               << otm::width(11) << "cap"
                << otm::width(7)  << "con"
                << otm::width(12) << "t_ins_or"
                << otm::width(12) << "t_find_c"

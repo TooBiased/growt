@@ -113,11 +113,10 @@ int del_test(Hash& hash, size_t end, size_t size)
 template <class Hash>
 int validate(Hash& hash, size_t end)
 {
-    auto err   = 0u;
     auto found = 0u;
 
     ttm::execute_parallel(current_block, end,
-        [&hash, &err, &found](size_t i)
+        [&hash, &found](size_t i)
         {
             auto key  = keys[i];
 
@@ -127,7 +126,6 @@ int validate(Hash& hash, size_t end)
             }
         });
 
-    errors.fetch_add(err      , std::memory_order_relaxed);
     succ_found.fetch_add(found, std::memory_order_relaxed);
     return 0;
 }

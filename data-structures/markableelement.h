@@ -16,6 +16,7 @@
 #define MARKABLEELEMENT_H
 
 #include <stdlib.h>
+#include <cstdint>
 #include <functional>
 #include <limits>
 
@@ -35,8 +36,8 @@ namespace growt {
 class MarkableElement
 {
 public:
-    using key_type    = uint64_t;
-    using mapped_type = uint64_t;
+    using key_type    = std::uint64_t;
+    using mapped_type = std::uint64_t;
     using value_type  = std::pair<const key_type, mapped_type>;
 
     MarkableElement();
@@ -85,11 +86,11 @@ public:
     inline bool operator==(MarkableElement& r) { return (key == r.key); }
     inline bool operator!=(MarkableElement& r) { return (key != r.key); }
 
-    inline ReturnElement get_return() const
-    {  return ReturnElement(get_key(), get_data());  }
+    // inline ReturnElement get_return() const
+    // {  return ReturnElement(get_key(), get_data());  }
 
-    inline operator ReturnElement()
-    {  return ReturnElement(get_key(), get_data());  }
+    // inline operator ReturnElement()
+    // {  return ReturnElement(get_key(), get_data());  }
 
     inline operator value_type() const
     {  return std::make_pair(get_key(), get_data()); }
