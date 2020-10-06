@@ -74,12 +74,25 @@ int fill(Hash& hash, size_t end)
         [&hash, &err](size_t i)
         {
             auto key = keys[i];
-            if (! hash.insert(key, i+2).second )
+            auto output = hash.insert(key, i+2).second;
+
+            if (! output )
             {
                 // Insertion failed? Possibly already inserted.
                 dtm::if_debug("Warning: failed insertion");
                 ++err;
 
+            }
+
+            // if (bla.first == hash.end())
+            // {
+            //     dtm::if_debug("Warning: this was never in");
+            // }
+
+            auto find = hash.find(key);
+            if (find == hash.end())
+            {
+                dtm::if_debug("Warning: Already deleted");
             }
         });
 
