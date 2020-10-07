@@ -22,7 +22,7 @@
 #include <random>
 #include <iostream>
 
-using Handle = typename HASHTYPE::Handle;
+using handle_type = typename HASHTYPE::handle_type;
 const static uint64_t range = (1ull << 63) - 1;
 namespace otm = utils_tm::out_tm;
 namespace ttm = utils_tm::thread_tm;
@@ -61,10 +61,10 @@ size_t many_moving_handles()
     std::mt19937_64 re(rand());
 
     size_t j = 0;
-    Handle h = hash_table.get_handle();
+    handle_type h = hash_table.get_handle();
     while (unfinished.load(std::memory_order_acquire))
     {
-        Handle g = hash_table.get_handle();
+        handle_type g = hash_table.get_handle();
         for (size_t i=0; i<32; ++i)
         {
             g.insert(dis(re), 5);
@@ -80,7 +80,7 @@ size_t calling_size_repeatedly()
     std::uniform_int_distribution<uint64_t> dis(2, range);
     std::mt19937_64 re(rand());
 
-    Handle h = hash_table.get_handle();
+    handle_type h = hash_table.get_handle();
     size_t j = 0;
     while (unfinished.load(std::memory_order_acquire))
     {
@@ -121,12 +121,12 @@ struct test
             );
         t.synchronize();
 
-        Handle hash = hash_table.get_handle();
+        handle_type hash = hash_table.get_handle();
 
 
         t.out << "begin prefill!" << std::endl;
 
-        t.synchronized(prefill<Handle>, hash, id, 5000000);
+        t.synchronized(prefill<handle_type>, hash, id, 5000000);
 
         t.out << "start main test!" << std::endl;
 

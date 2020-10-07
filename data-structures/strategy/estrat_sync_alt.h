@@ -49,7 +49,7 @@
 
 namespace growt {
 
-template<class Table_t> size_t blockwise_migrate(Table_t source, Table_t target);
+template<class table_type> size_t blockwise_migrate(table_type source, table_type target);
 
 template <class Parent>
 class EStratSyncNUMA
@@ -57,8 +57,8 @@ class EStratSyncNUMA
 public:
     static constexpr size_t max_sim_threads = 256;
 
-    using BaseTable_t   = typename Parent::BaseTable_t;
-    using HashPtrRef    = BaseTable_t*;
+    using base_table_type   = typename Parent::base_table_type;
+    using hash_ptr_reference    = base_table_type*;
 
     class local_data_t;
 
@@ -71,7 +71,7 @@ public:
 
         global_data_t(size_t size_) : _currently_growing(0), _handle_id(0)
         {
-            auto temp = new BaseTable_t(size_);
+            auto temp = new base_table_type(size_);
             _g_table_r.store( temp, std::memory_order_relaxed );
             _g_table_w.store( temp, std::memory_order_relaxed );
             for (size_t i = 0; i<max_sim_threads; ++i) _handle_flags[i].store(nullptr);
@@ -85,7 +85,7 @@ public:
         }
 
     private:
-        using HashPtr = std::atomic<BaseTable_t*>;
+        using hash_ptr = std::atomic<base_table_type*>;
         friend local_data_t;
 
         struct alignas(64) HandleFlags
@@ -97,13 +97,13 @@ public:
         };
 
 
-        alignas(64) HashPtr _g_table_r;
-        /*same*/    HashPtr _g_table_w;
+        alignas(64) hash_ptr _g_table_r;
+        /*same*/    hash_ptr _g_table_w;
         /*same*/    std::atomic_size_t _currently_growing;
         /*same*/    std::atomic_size_t _handle_id;
         alignas(64) std::atomic<HandleFlags*> _handle_flags[max_sim_threads];
 
-        size_t registerHandle(HandleFlags* flags)
+        size_t register_handle(HandleFlags* flags)
         {
             for (size_t i = 0; i < max_sim_threads; ++i)
             {
@@ -130,12 +130,12 @@ public:
     class local_data_t
     {
     private:
-        using WorkerStratL = typename Parent::WorkerStrat_t::local_data_t;
+        using WorkerStratL = typename Parent::worker_strat::local_data_t;
         using Flag_t       = typename global_data_t::HandleFlags;
     public:
         local_data_t(Parent& parent, WorkerStratL &wstrat)
             : _parent(parent), _global(parent._global_exclusion), _worker_strat(wstrat),
-              _id(_global.registerHandle(&(this->_flags))), _epoch(0)
+              _id(_global.register_handle(&(this->_flags))), _epoch(0)
         {   }
 
         local_data_t(const local_data_t& source) = delete;
@@ -207,7 +207,7 @@ public:
         Flag_t         _flags;
 
     public:
-        inline HashPtrRef get_table()
+        inline hash_ptr_reference get_table()
         {
             _flags.table_op.store(1);//, std::memory_order_release);
 
@@ -238,8 +238,8 @@ public:
             if (! change_stage<false>(stage, 1u)) { help_grow(); return; }
 
             auto t_cur   = _global._g_table_r.load();//std::memory_order_acquire);
-            auto t_next  = new BaseTable_t(//t_cur->size << 1, t_cur->_version+1);
-                        BaseTable_t::resize(t_cur->_capacity,
+            auto t_next  = new base_table_type(//t_cur->size << 1, t_cur->_version+1);
+                        base_table_type::resize(t_cur->_capacity,
                                            _parent._elements.load(),//std::memory_order_acquire),
                                            _parent._dummies.load()),//std::memory_order_acquire)),
                         t_cur->_version+1);

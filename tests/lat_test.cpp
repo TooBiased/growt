@@ -96,7 +96,7 @@ struct test_in_stages
 {
     static int execute(ThreadType t, size_t n, size_t cap, size_t it)
     {
-        using Handle = typename HASHTYPE::Handle;
+        using handle_type = typename HASHTYPE::handle_type;
 
         utils_tm::pin_to_core(t.id);
 
@@ -114,13 +114,13 @@ struct test_in_stages
 
             t.synchronize();
 
-            Handle hash = hash_table.get_handle();
+            handle_type hash = hash_table.get_handle();
 
             // STAGE2 n Insertions
             {
                 if (ThreadType::is_main) current_block.store(1);
 
-                auto duration = t.synchronized(fill<Handle>, hash, n+1);
+                auto duration = t.synchronized(fill<handle_type>, hash, n+1);
 
                 t.out << otm::width(12) << duration.second/1000000.;
             }
@@ -129,7 +129,7 @@ struct test_in_stages
             {
                 if (ThreadType::is_main) current_block.store(1);
 
-                auto duration = t.synchronized(find_unsucc<Handle>, hash, n+1);
+                auto duration = t.synchronized(find_unsucc<handle_type>, hash, n+1);
 
                 t.out << otm::width(12) << duration.second/1000000.;
             }
@@ -138,7 +138,7 @@ struct test_in_stages
             {
                 if (ThreadType::is_main) current_block.store(1);
 
-                auto duration = t.synchronized(find_succ<Handle>, hash, n+1);
+                auto duration = t.synchronized(find_succ<handle_type>, hash, n+1);
 
                 t.out << otm::width(12) << duration.second/1000000.;
                 t.out << otm::width(9) << errors.load();

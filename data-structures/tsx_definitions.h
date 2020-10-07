@@ -36,28 +36,28 @@ using NoGrow      = TSXCircular<E, HashFct, Allocator>;
 
 template<class HashFct    = std::hash<typename MarkableElement::Key>,
          class Allocator  = std::allocator<char> >
-using uaxGrow  = GrowTable<NoGrow<MarkableElement, HashFct, Allocator>, WStratUser, EStratAsync>;
+using uaxGrow  = grow_table<NoGrow<MarkableElement, HashFct, Allocator>, WStratUser, EStratAsync>;
 
 template<class HashFct    = std::hash<typename SimpleElement::Key>,
          class Allocator  = std::allocator<char> >
-using usxGrow  = GrowTable<NoGrow<MarkableElement, HashFct, Allocator>, WStratUser, EStratSync>;
+using usxGrow  = grow_table<NoGrow<MarkableElement, HashFct, Allocator>, WStratUser, EStratSync>;
 
 template<class HashFct    = std::hash<typename SimpleElement::Key>,
          class Allocator  = std::allocator<char> >
-using usnxGrow = GrowTable<NoGrow<MarkableElement, HashFct, Allocator>, WStratUser, EStratSyncNUMA>;
+using usnxGrow = grow_table<NoGrow<MarkableElement, HashFct, Allocator>, WStratUser, EStratSyncNUMA>;
 
 
 template<class HashFct    = std::hash<typename MarkableElement::Key>,
          class Allocator  = std::allocator<char> >
-using paxGrow  = GrowTable<NoGrow<MarkableElement, HashFct, Allocator>, WStratPool, EStratAsync>;
+using paxGrow  = grow_table<NoGrow<MarkableElement, HashFct, Allocator>, WStratPool, EStratAsync>;
 
 template<class HashFct    = std::hash<typename SimpleElement::Key>,
          class Allocator  = std::allocator<char> >
-using psxGrow  = GrowTable<NoGrow<MarkableElement, HashFct, Allocator>, WStratPool, EStratSync>;
+using psxGrow  = grow_table<NoGrow<MarkableElement, HashFct, Allocator>, WStratPool, EStratSync>;
 
 template<class HashFct   = std::hash<typename SimpleElement::Key>,
          class Allocator = std::allocator<char> >
-using psnxGrow = GrowTable<NoGrow<MarkableElement, HashFct, Allocator>, WStratPool, EStratSyncNUMA>;
+using psnxGrow = grow_table<NoGrow<MarkableElement, HashFct, Allocator>, WStratPool, EStratSyncNUMA>;
 
 }
 

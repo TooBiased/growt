@@ -2,10 +2,10 @@
  * data-structures/grow_table.h
  *
  * Defines the growtable architecture:
- *   GrowTable       - the global facade of our table
- *   GrowTableData   - the actual global object (immovable core)
- *   GrowTableHandle - local handles on the global object (thread specific)
- * The behavior of GrowTable can be specified using the Worker- and Exclusion-
+ *   grow_table       - the global facade of our table
+ *   grow_table_data   - the actual global object (immovable core)
+ *   grow_table_handle - local handles on the global object (thread specific)
+ * The behavior of grow_table can be specified using the Worker- and Exclusion-
  * strategies. They have significant influence esp. on how the table is grown.
  *
  * Part of Project growt - https://github.com/TooBiased/growt.git
@@ -28,8 +28,8 @@ namespace growt {
 
 static const size_t migration_block_size = 4096;
 
-template<class Table_t>
-size_t blockwise_migrate(Table_t source, Table_t target)
+template<class table_type>
+size_t blockwise_migrate(table_type source, table_type target)
 {
     size_t n = 0;
 
@@ -61,9 +61,9 @@ size_t resize(size_t curr_size, size_t n_in, size_t n_del)
 
 
 // FORWARD DECLARATION OF THE HANDLE CLASS
-template<class> class migration_tableHandle;
+template<class> class migration_table_handle;
 // AND THE STATIONARY DATA OBJECT (GLOBAL OBJECT ON HEAP)
-template<class> class migration_tableData;
+template<class> class migration_table_data;
 
 template<class                  HashTable,
          template <class> class WorkerStrat,
@@ -71,24 +71,23 @@ template<class                  HashTable,
 class migration_table
 {
 private:
-    using This_t           = migration_table<HashTable,
-                                       WorkerStrat,
-                                       ExclusionStrat>;
-    using GTD_t            = migration_tableData<This_t>;
-    using BaseTable_t      = HashTable;
-    using WorkerStrat_t    = WorkerStrat<GTD_t>;
-    using ExclusionStrat_t = ExclusionStrat<GTD_t>;
-    friend GTD_t;
+    using this_type                 = migration_table<HashTable,
+                                                      WorkerStrat,
+                                                      ExclusionStrat>;
+    using migration_table_data_type = migration_table_data<this_type>;
+    using base_table_type           = HashTable;
+    using worker_strat              = WorkerStrat<migration_table_data_type>;
+    using exclusion_strat           = ExclusionStrat<migration_table_data_type>;
+    friend migration_table_data_type;
 
-    //const double max_fill  = MaxFill/100.;
-
-    std::unique_ptr<GTD_t> _gt_data;
+    std::unique_ptr<migration_table_data_type> _mt_data;
 
 public:
-    using Handle           = migration_tableHandle<GTD_t>;
-    friend Handle;
+    using handle_type               = migration_table_handle<migration_table_data_type>;
+    friend handle_type;
 
-    migration_table (size_t size) : _gt_data(new GTD_t(size)) { }
+    migration_table (size_t size)
+        : _mt_data(new migration_table_data_type(size)) { }
 
     migration_table (const migration_table& source)            = delete;
     migration_table& operator= (const migration_table& source) = delete;
@@ -98,11 +97,7 @@ public:
 
     ~migration_table() = default;
 
-    Handle get_handle()
-    {
-        return Handle(*_gt_data);
-    }
-
+    handle_type get_handle() { return handle_type(*_mt_data); }
 };
 
 
@@ -115,18 +110,18 @@ class migration_table_data
 {
 private:
     // TYPEDEFS
-    using Parent_t         = Parent;
-    using BaseTable_t      = typename Parent::BaseTable_t;
-    using WorkerStrat_t    = typename Parent::WorkerStrat_t;
-    using ExclusionStrat_t = typename Parent::ExclusionStrat_t;
+    using parent_type     = Parent;
+    using base_table_type = typename Parent::base_table_type;
+    using worker_strat    = typename Parent::worker_strat;
+    using exclusion_strat = typename Parent::exclusion_strat;
 
-    friend WorkerStrat_t;
-    friend ExclusionStrat_t;
+    friend worker_strat;
+    friend exclusion_strat;
 
 public:
-    using size_type        = size_t;
-    using Handle           = typename Parent::Handle;
-    friend Handle;
+    using size_type       = size_t;
+    using handle_type     = typename Parent::handle_type;
+    friend handle_type;
 
 
     migration_table_data(size_type size_)
@@ -134,18 +129,18 @@ public:
           _elements(0), _dummies(0), _grow_count(0)
     { }
 
-    migration_table_data(const migration_table_data& source) = delete;
-    migration_table_data& operator=(const migration_table_data& source) = delete;
-    migration_table_data(migration_table_data&&) = delete;
-    migration_table_data& operator=(migration_table_data&&) = delete;
+    migration_table_data(const migration_table_data& source) =delete;
+    migration_table_data& operator=(const migration_table_data& source) =delete;
+    migration_table_data(migration_table_data&&) =delete;
+    migration_table_data& operator=(migration_table_data&&) =delete;
     ~migration_table_data() = default;
 
     size_type element_count_approx() { return _elements.load()-_dummies.load(); }
 
 private:
     // DATA+FUNCTIONS FOR MIGRATION STRATEGIES
-    mutable typename ExclusionStrat_t::global_data_t _global_exclusion;
-    mutable typename WorkerStrat_t   ::global_data_t _global_worker;
+    mutable typename exclusion_strat::global_data_type _global_exclusion;
+    mutable typename worker_strat::global_data_type    _global_worker;
 
     // APPROXIMATE COUNTS
     alignas(64) std::atomic_int _elements;
@@ -161,28 +156,28 @@ template<class migration_table_data>
 class migration_table_handle
 {
 private:
-    using This_t             = migration_table_handle<migration_table_data>;
-    using Parent_t           = typename migration_table_data::Parent_t;
-    using BaseTable_t        = typename migration_table_data::BaseTable_t;
-    using WorkerStrat_t      = typename migration_table_data::WorkerStrat_t;
-    using ExclusionStrat_t   = typename migration_table_data::ExclusionStrat_t;
+    using this_type          = migration_table_handle<migration_table_data>;
+    using parent_type        = typename migration_table_data::parent_type;
+    using base_table_type    = typename migration_table_data::base_table_type;
+    using worker_strat       = typename migration_table_data::worker_strat;
+    using exclusion_strat    = typename migration_table_data::exclusion_strat;
     friend migration_table_data;
 
 public:
-    using HashPtrRef_t       = typename ExclusionStrat_t::HashPtrRef;
-    using value_intern       = typename BaseTable_t::value_intern;
+    using hash_ptr_reference       = typename exclusion_strat::hash_ptr_reference;
+    using value_intern       = typename base_table_type::value_intern;
 
-    using key_type           = typename BaseTable_t::key_type;
-    using mapped_type        = typename BaseTable_t::mapped_type;
+    using key_type           = typename base_table_type::key_type;
+    using mapped_type        = typename base_table_type::mapped_type;
     using value_type         = typename std::pair<const key_type, mapped_type>;
-    using iterator           = IteratorGrowT<This_t, false>;//value_intern*;
-    using const_iterator     = IteratorGrowT<This_t, true>;//IteratorGrowT<This_t, true>;
+    using iterator           = growt_iterator<this_type, false>;//value_intern*;
+    using const_iterator     = growt_iterator<this_type, true>;//growt_iterator<this_type, true>;
     using size_type          = size_t;
     using difference_type    = std::ptrdiff_t;
-    using reference          = ReferenceGrowT<This_t, false>;
-    using const_reference    = ReferenceGrowT<This_t, true>;
-    using mapped_reference       = MappedRefGrowT<This_t, false>;
-    using const_mapped_reference = MappedRefGrowT<This_t, true>;
+    using reference          = growt_reference<this_type, false>;
+    using const_reference    = growt_reference<this_type, true>;
+    using mapped_reference   = growt_mapped_reference<this_type, false>;
+    using const_mapped_reference = growt_mapped_reference<this_type, true>;
     using insert_return_type = std::pair<iterator, bool>;
 
     using local_iterator       = void;
@@ -190,9 +185,9 @@ public:
     using node_type            = void;
 
 private:
-    using basetable_iterator = typename BaseTable_t::iterator;
-    using basetable_insert_return_type = typename BaseTable_t::insert_return_intern;
-    using basetable_citerator = typename BaseTable_t::const_iterator;
+    using base_table_iterator   = typename base_table_type::iterator;
+    using base_table_insert_return_type = typename base_table_type::insert_return_intern;
+    using base_table_citerator  = typename base_table_type::const_iterator;
 
     friend iterator;
     friend reference;
@@ -204,13 +199,13 @@ private:
 public:
     migration_table_handle() = delete;
     migration_table_handle(migration_table_data &data);
-    migration_table_handle(Parent_t      &parent);
+    migration_table_handle(parent_type      &parent);
 
     migration_table_handle(const migration_table_handle& source) = delete;
     migration_table_handle& operator=(const migration_table_handle& source) = delete;
 
-    migration_table_handle(migration_table_handle&& source);
-    migration_table_handle& operator=(migration_table_handle&& source);
+    migration_table_handle(migration_table_handle&& source) noexcept;
+    migration_table_handle& operator=(migration_table_handle&& source) noexcept;
 
     ~migration_table_handle();
 
@@ -251,27 +246,25 @@ public:
 
     size_type          erase_if (const key_type& k, const mapped_type& d);
 
-    size_type element_count_approx() { return _gt_data.element_count_approx(); }
-    //size_type element_count_unsafe();
-
+    size_type element_count_approx() { return _mt_data.element_count_approx(); }
 private:
     // DATA+FUNCTIONS FOR MIGRATION STRATEGIES
-    migration_table_data& _gt_data;
-    size_type      _handle_id;
-    mutable typename WorkerStrat_t   ::local_data_t _local_worker;
-    mutable typename ExclusionStrat_t::local_data_t _local_exclusion;
+    migration_table_data& _mt_data;
+    size_type             _handle_id;
+    mutable typename worker_strat::local_data_type    _local_worker;
+    mutable typename exclusion_strat::local_data_type _local_exclusion;
 
 
     inline void         grow()      const { _local_exclusion.grow(); }
     inline void         help_grow() const { _local_exclusion.help_grow(); }
     inline void         rls_table() const { _local_exclusion.rls_table(); }
-    inline HashPtrRef_t get_table() const { return _local_exclusion.get_table(); }
+    inline hash_ptr_reference get_table() const { return _local_exclusion.get_table(); }
 
     template<typename Functor, typename ... Types>
-    inline typename std::result_of<Functor(HashPtrRef_t, Types&& ...)>::type
+    inline typename std::result_of<Functor(hash_ptr_reference, Types&& ...)>::type
     execute (Functor f, Types&& ... param)
     {
-        HashPtrRef_t temp = _local_exclusion.get_table();
+        hash_ptr_reference temp = _local_exclusion.get_table();
         auto result = std::forward<Functor>(f)
                           (temp, std::forward<Types>(param)...);
         rls_table();
@@ -279,28 +272,28 @@ private:
     }
 
     template<typename Functor, typename ... Types>
-    inline typename std::result_of<Functor(HashPtrRef_t, Types&& ...)>::type
+    inline typename std::result_of<Functor(hash_ptr_reference, Types&& ...)>::type
     cexecute (Functor f, Types&& ... param) const
     {
-        HashPtrRef_t temp = _local_exclusion.get_table();
+        hash_ptr_reference temp = _local_exclusion.get_table();
         auto result = std::forward<Functor>(f)
                           (temp, std::forward<Types>(param)...);
         rls_table();
         return result;
     }
 
-    inline iterator make_iterator(const basetable_iterator& bit, size_t version)
+    inline iterator make_iterator(const base_table_iterator& bit, size_t version)
     { return iterator(bit, version, *this); }
-    inline iterator make_citerator(const basetable_citerator& bcit, size_t version)
+    inline iterator make_citerator(const base_table_citerator& bcit, size_t version)
     { return const_iterator(bcit, version, *this); }
 
-    inline insert_return_type make_insert_ret(const basetable_iterator& bit,
+    inline insert_return_type make_insert_ret(const base_table_iterator& bit,
                                             size_t version, bool inserted)
     { return std::make_pair(iterator(bit, version, *this), inserted); }
-    inline basetable_iterator bend()
-    { return basetable_iterator (std::make_pair(key_type(), mapped_type()), nullptr, nullptr);}
-    inline basetable_iterator bcend()
-    { return basetable_citerator(std::make_pair(key_type(), mapped_type()), nullptr, nullptr);}
+    inline base_table_iterator bend()
+    { return base_table_iterator (std::make_pair(key_type(), mapped_type()), nullptr, nullptr);}
+    inline base_table_iterator bcend()
+    { return base_table_citerator(std::make_pair(key_type(), mapped_type()), nullptr, nullptr);}
 
     static constexpr double _max_fill_factor = 0.666;
 
@@ -313,24 +306,24 @@ private:
     void inc_inserted(int v);
     void inc_deleted(int v);
 
-    class alignas(64) LocalCount
+    class alignas(64) local_count
     {
     public:
         int  _version;
         int  _updates;
         int  _inserted;
         int  _deleted;
-        LocalCount() : _version(-1), _updates(0), _inserted(0), _deleted(0)
+        local_count() : _version(-1), _updates(0), _inserted(0), _deleted(0)
         {  }
 
-        LocalCount(LocalCount&& rhs)
+        local_count(local_count&& rhs)
             : _version(rhs._version), _updates(rhs._updates),
               _inserted(rhs._inserted), _deleted(rhs._deleted)
         {
             rhs._version = 0;
         }
 
-        LocalCount& operator=(LocalCount&& rhs)
+        local_count& operator=(local_count&& rhs)
         {
             _version   = rhs._version;
             rhs._version  = 0;
@@ -348,25 +341,25 @@ private:
             _version  = ver;
         }
 
-        LocalCount(const LocalCount&) = delete;
-        LocalCount& operator=(const LocalCount&) = delete;
+        local_count(const local_count&) = delete;
+        local_count& operator=(const local_count&) = delete;
     };
-    LocalCount _counts;
+    local_count _counts;
 
 public:
-    using range_iterator       = typename BaseTable_t::range_iterator;
-    using const_range_iterator = typename BaseTable_t::const_range_iterator;
+    using range_iterator       = typename base_table_type::range_iterator;
+    using const_range_iterator = typename base_table_type::const_range_iterator;
 
     /* size has to divide capacity */
     range_iterator       range (size_t rstart, size_t rend)
     {
-        range_iterator result = execute([rstart, rend](HashPtrRef_t tab)
+        range_iterator result = execute([rstart, rend](hash_ptr_reference tab)
                                         { return tab->range(rstart,rend); });
         return result;
     }
     const_range_iterator crange(size_t rstart, size_t rend)
     {
-        const_range_iterator result = cexecute([rstart, rend](HashPtrRef_t tab)
+        const_range_iterator result = cexecute([rstart, rend](hash_ptr_reference tab)
                                         { return tab->crange(rstart,rend); });
         return result;
     }
@@ -374,7 +367,7 @@ public:
     const_range_iterator range_cend() const { return bcend(); }
     size_t               capacity()   const
     {
-        size_t cap = cexecute([](HashPtrRef_t tab) { return tab->_capacity; });
+        size_t cap = cexecute([](hash_ptr_reference tab) { return tab->_capacity; });
         return cap;
     }
 
@@ -390,10 +383,10 @@ public:
 
 template<class migration_table_data>
 migration_table_handle<migration_table_data>::migration_table_handle(migration_table_data &data)
-    : _gt_data(data), _local_worker(data), _local_exclusion(data, _local_worker),
+    : _mt_data(data), _local_worker(data), _local_exclusion(data, _local_worker),
       _counts()
 {
-    //handle_id = _gt_data.handle_ptr.push_back(this);
+    //handle_id = _mt_data.handle_ptr.push_back(this);
 
     //INITIALIZE STRATEGY DEPENDENT DATA MEMBERS
     _local_exclusion.init();
@@ -401,12 +394,12 @@ migration_table_handle<migration_table_data>::migration_table_handle(migration_t
 }
 
 template<class migration_table_data>
-migration_table_handle<migration_table_data>::migration_table_handle(Parent_t      &parent)
-    : _gt_data(*(parent._gt_data)), _local_worker(*(parent._gt_data)),
-      _local_exclusion(*(parent._gt_data), _local_worker),
+migration_table_handle<migration_table_data>::migration_table_handle(parent_type      &parent)
+    : _mt_data(*(parent._mt_data)), _local_worker(*(parent._mt_data)),
+      _local_exclusion(*(parent._mt_data), _local_worker),
       _counts()
 {
-    //handle_id = _gt_data.handle_ptr.push_back(this);
+    //handle_id = _mt_data.handle_ptr.push_back(this);
 
     //INITIALIZE STRATEGY DEPENDENT DATA MEMBERS
     _local_exclusion.init();
@@ -416,20 +409,20 @@ migration_table_handle<migration_table_data>::migration_table_handle(Parent_t   
 
 
 template<class migration_table_data>
-migration_table_handle<migration_table_data>::migration_table_handle(migration_table_handle&& source)
-    : _gt_data(source._gt_data), _handle_id(source._handle_id),
+migration_table_handle<migration_table_data>::migration_table_handle(migration_table_handle&& source) noexcept
+    : _mt_data(source._mt_data), _handle_id(source._handle_id),
       _local_worker(std::move(source._local_worker)),
       _local_exclusion(std::move(source._local_exclusion)),
       _counts(std::move(source._counts))
 {
-    source._counts = LocalCount();
-    //_gt_data.handle_ptr.update(_handle_id, this);
+    source._counts = local_count();
+    //_mt_data.handle_ptr.update(_handle_id, this);
     //source._handle_id = std::numeric_limits<size_t>::max();
 }
 
 template<class migration_table_data>
 migration_table_handle<migration_table_data>&
-migration_table_handle<migration_table_data>::operator=(migration_table_handle&& source)
+migration_table_handle<migration_table_data>::operator=(migration_table_handle&& source) noexcept
 {
     if (this == &source) return *this;
 
@@ -446,7 +439,7 @@ migration_table_handle<migration_table_data>::~migration_table_handle()
 
     // if (_handle_id < std::numeric_limits<size_t>::max())
     // {
-    //     _gt_data.handle_ptr.remove(_handle_id);
+    //     _mt_data.handle_ptr.remove(_handle_id);
     // }
     if (_counts._version >= 0)
     {
@@ -472,11 +465,11 @@ inline typename migration_table_handle<migration_table_data>::insert_return_type
 migration_table_handle<migration_table_data>::insert(const key_type& k, const mapped_type& d)
 {
     int v = -1;
-    basetable_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
-    std::tie (v, result) = execute([](HashPtrRef_t t, const key_type& k, const mapped_type& d)
-                                     ->std::pair<int,basetable_insert_return_type>
+    base_table_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
+    std::tie (v, result) = execute([](hash_ptr_reference t, const key_type& k, const mapped_type& d)
+                                     ->std::pair<int,base_table_insert_return_type>
                                    {
-                                       std::pair<int,basetable_insert_return_type> result =
+                                       std::pair<int,base_table_insert_return_type> result =
                                            std::make_pair(t->_version,
                                                           t->insert_intern(k,d));
                                        return result;
@@ -509,13 +502,13 @@ inline typename migration_table_handle<migration_table_data>::insert_return_type
 migration_table_handle<migration_table_data>::update(const key_type& k, F f, Types&& ... args)
 {
     int v = -1;
-    basetable_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
+    base_table_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
 
     std::tie (v, result) = execute(
-        [](HashPtrRef_t t, const key_type& k, F f, Types&& ... args)
-        ->std::pair<int,basetable_insert_return_type>
+        [](hash_ptr_reference t, const key_type& k, F f, Types&& ... args)
+        ->std::pair<int,base_table_insert_return_type>
         {
-            std::pair<int,basetable_insert_return_type> result =
+            std::pair<int,base_table_insert_return_type> result =
                 std::make_pair(t->_version,
                                t->update_intern(k,f,std::forward<Types>(args)...));
             return result;
@@ -548,13 +541,13 @@ inline typename migration_table_handle<migration_table_data>::insert_return_type
 migration_table_handle<migration_table_data>::update_unsafe(const key_type& k, F f, Types&& ... args)
 {
     int v = -1;
-    basetable_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
+    base_table_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
 
     std::tie (v, result) = execute(
-        [](HashPtrRef_t t, const key_type& k, F f, Types&& ... args)
-        ->std::pair<int,basetable_insert_return_type>
+        [](hash_ptr_reference t, const key_type& k, F f, Types&& ... args)
+        ->std::pair<int,base_table_insert_return_type>
         {
-            std::pair<int,basetable_insert_return_type> result =
+            std::pair<int,base_table_insert_return_type> result =
                 std::make_pair(t->_version,
                                t->update_unsafe_intern(k,f,std::forward<Types>(args)...));
             return result;
@@ -587,13 +580,13 @@ inline typename migration_table_handle<migration_table_data>::insert_return_type
 migration_table_handle<migration_table_data>::insert_or_update(const key_type& k, const mapped_type& d, F f, Types&& ... args)
 {
     int v = -1;
-    basetable_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
+    base_table_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
 
     std::tie (v, result) = execute(
-        [](HashPtrRef_t t, const key_type& k, const mapped_type& d, F f, Types&& ... args)
-        ->std::pair<int,basetable_insert_return_type>
+        [](hash_ptr_reference t, const key_type& k, const mapped_type& d, F f, Types&& ... args)
+        ->std::pair<int,base_table_insert_return_type>
         {
-            std::pair<int,basetable_insert_return_type> result =
+            std::pair<int,base_table_insert_return_type> result =
                 std::make_pair(t->_version,
                                t->insert_or_update_intern(k,d,f,std::forward<Types>(args)...));
             return result;
@@ -626,13 +619,13 @@ inline typename migration_table_handle<migration_table_data>::insert_return_type
 migration_table_handle<migration_table_data>::insert_or_update_unsafe(const key_type& k, const mapped_type& d, F f, Types&& ... args)
 {
     int v = -1;
-    basetable_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
+    base_table_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
 
     std::tie (v, result) = execute(
-        [](HashPtrRef_t t, const key_type& k, const mapped_type& d, F f, Types&& ... args)
-        ->std::pair<int,basetable_insert_return_type>
+        [](hash_ptr_reference t, const key_type& k, const mapped_type& d, F f, Types&& ... args)
+        ->std::pair<int,base_table_insert_return_type>
         {
-            std::pair<int,basetable_insert_return_type> result =
+            std::pair<int,base_table_insert_return_type> result =
                 std::make_pair(t->_version,
                                t->insert_or_update_unsafe_intern(k,d,f,std::forward<Types>(args)...));
             return result;
@@ -665,9 +658,9 @@ inline typename migration_table_handle<migration_table_data>::iterator
 migration_table_handle<migration_table_data>::find(const key_type& k)
 {
     int v = -1;
-    basetable_iterator bit = bend();
-    std::tie (v, bit) = execute([](HashPtrRef_t t, const key_type & k) -> std::pair<int, basetable_iterator>
-                                { return std::make_pair<int, basetable_iterator>(t->_version, t->find(k)); },
+    base_table_iterator bit = bend();
+    std::tie (v, bit) = execute([](hash_ptr_reference t, const key_type & k) -> std::pair<int, base_table_iterator>
+                                { return std::make_pair<int, base_table_iterator>(t->_version, t->find(k)); },
                      k);
     return make_iterator(bit, v);
 }
@@ -677,9 +670,9 @@ inline typename migration_table_handle<migration_table_data>::const_iterator
 migration_table_handle<migration_table_data>::find(const key_type& k) const
 {
     int v = -1;
-    basetable_citerator bit = bcend();
-    std::tie (v, bit) = cexecute([](HashPtrRef_t t, const key_type & k) -> std::pair<int, basetable_citerator>
-                                { return std::make_pair<int, basetable_iterator>(t->_version, t->find(k)); },
+    base_table_citerator bit = bcend();
+    std::tie (v, bit) = cexecute([](hash_ptr_reference t, const key_type & k) -> std::pair<int, base_table_citerator>
+                                { return std::make_pair<int, base_table_iterator>(t->_version, t->find(k)); },
                      k);
     return make_citerator(bit, v);
 }
@@ -690,7 +683,7 @@ migration_table_handle<migration_table_data>::erase(const key_type& k)
 {
     int v = -1;
     ReturnCode result = ReturnCode::ERROR;
-    std::tie (v, result) = execute([](HashPtrRef_t t, const key_type& k)
+    std::tie (v, result) = execute([](hash_ptr_reference t, const key_type& k)
                                      ->std::pair<int,ReturnCode>
                                    {
                                        std::pair<int,ReturnCode> result =
@@ -726,7 +719,7 @@ migration_table_handle<migration_table_data>::erase_if(const key_type& k, const 
 {
     int v = -1;
     ReturnCode result = ReturnCode::ERROR;
-    std::tie (v, result) = execute([](HashPtrRef_t t,
+    std::tie (v, result) = execute([](hash_ptr_reference t,
                                       const key_type& k,
                                       const mapped_type& d)
                                      ->std::pair<int,ReturnCode>
@@ -768,7 +761,7 @@ template<class migration_table_data>
 inline typename migration_table_handle<migration_table_data>::iterator
 migration_table_handle<migration_table_data>::begin()
 {
-    return execute([](HashPtrRef_t t, migration_table_handle& gt)
+    return execute([](hash_ptr_reference t, migration_table_handle& gt)
                    -> iterator
                    {
                        return iterator(t->begin(), t->_version, gt);
@@ -778,7 +771,7 @@ template<class migration_table_data>
 inline typename migration_table_handle<migration_table_data>::iterator
 migration_table_handle<migration_table_data>::end()
 {
-    return iterator(basetable_iterator(std::pair<key_type, mapped_type>(key_type(), mapped_type()),
+    return iterator(base_table_iterator(std::pair<key_type, mapped_type>(key_type(), mapped_type()),
                                        nullptr,nullptr),
                     0, *this);
 }
@@ -788,7 +781,7 @@ inline typename migration_table_handle<migration_table_data>::const_iterator
 migration_table_handle<migration_table_data>::cbegin() const
 {
     // return begin();
-    return cexecute([](HashPtrRef_t t, const migration_table_handle& gt)
+    return cexecute([](hash_ptr_reference t, const migration_table_handle& gt)
                     -> const_iterator
                     {
                       return const_iterator(t->cbegin(), t->_version, gt);
@@ -799,7 +792,7 @@ inline typename migration_table_handle<migration_table_data>::const_iterator
 migration_table_handle<migration_table_data>::cend()  const
 {
     // return end();
-    return const_iterator(basetable_citerator(std::pair<key_type, mapped_type>(key_type(), mapped_type()),
+    return const_iterator(base_table_citerator(std::pair<key_type, mapped_type>(key_type(), mapped_type()),
                                        nullptr,nullptr), 0, *this);
 }
 
@@ -822,9 +815,9 @@ inline void migration_table_handle<migration_table_data>::update_numbers()
         return;
     }
 
-    _gt_data._dummies.fetch_add(_counts._deleted,std::memory_order_relaxed);
+    _mt_data._dummies.fetch_add(_counts._deleted,std::memory_order_relaxed);
 
-    auto temp       = _gt_data._elements.fetch_add(_counts._inserted, std::memory_order_relaxed);
+    auto temp       = _mt_data._elements.fetch_add(_counts._inserted, std::memory_order_relaxed);
     temp           += _counts._inserted;
 
     if (temp  > table->_capacity * _max_fill_factor)
@@ -878,9 +871,9 @@ inline void migration_table_handle<migration_table_data>::inc_deleted(int v)
 //     int v = get_table()->_version;
 //     rls_table();
 
-//     int temp = _gt_data._elements.load();
-//     temp    -= _gt_data._dummies.load();
-//     temp    += _gt_data.handle_ptr.forall([v](This_t* h, int res)
+//     int temp = _mt_data._elements.load();
+//     temp    -= _mt_data._dummies.load();
+//     temp    += _mt_data.handle_ptr.forall([v](this_type* h, int res)
 //                                         {
 //                                             if (h->_counts._version != v)
 //                                             {

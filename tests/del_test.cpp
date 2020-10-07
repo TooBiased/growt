@@ -137,7 +137,7 @@ struct test_in_stages
     {
         utils_tm::pin_to_core(t.id);
 
-        using Handle = typename HASHTYPE::Handle;
+        using handle_type = typename HASHTYPE::handle_type;
 
         if (ThreadType::is_main)
         {
@@ -165,21 +165,21 @@ struct test_in_stages
 
             t.synchronize();
 
-            Handle hash = hash_table.get_handle();
+            handle_type hash = hash_table.get_handle();
 
 
             // STAGE0.1 prefill table with pre elements
             {
                 if (ThreadType::is_main) current_block.store(0);
 
-                t.synchronized(prefill<Handle>, hash, ws);
+                t.synchronized(prefill<handle_type>, hash, ws);
             }
 
             // STAGE1 n Mixed Operations
             {
                 if (ThreadType::is_main) current_block.store(ws);
 
-                auto duration = t.synchronized(del_test<Handle>,
+                auto duration = t.synchronized(del_test<handle_type>,
                                                hash, ws+n, ws);
 
                 t.out << otm::width(12) << duration.second/1000000.;
@@ -189,7 +189,7 @@ struct test_in_stages
             {
                 if (ThreadType::is_main) current_block.store(0);
 
-                auto duration = t.synchronized(validate<Handle>,
+                auto duration = t.synchronized(validate<handle_type>,
                                                hash, ws+n);
 
                 t.out << otm::width(12) << duration.second/1000000.

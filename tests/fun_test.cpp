@@ -233,7 +233,7 @@ struct test_in_stages
 
         utils_tm::pin_to_core(id);
 
-        using Handle = HASHTYPE::Handle;
+        using handle_type = HASHTYPE::handle_type;
 
         if (ThreadType::is_main)
         {
@@ -255,15 +255,15 @@ struct test_in_stages
             // Needed for synchronization (main thread has finished set_up_hash)
             t.synchronize();
 
-            Handle hash = hash_table.get_handle();
-            //Handle hash(hash_table); //= Handle(*ht);//ht->getHandle(glob_registration);
+            handle_type hash = hash_table.get_handle();
+            //handle_type hash(hash_table); //= handle_type(*ht);//ht->gethandle_type(glob_registration);
 
             // STAGE 0.1 still empty
             {
                 if (ThreadType::is_main) current_block.store(0);
                 if (ThreadType::is_main) errors.store (0);
 
-                t.synchronized(find<Handle>, hash, n, 0);
+                t.synchronized(find<handle_type>, hash, n, 0);
 
                 if (ThreadType::is_main) check_errors(0);
             }
@@ -273,13 +273,13 @@ struct test_in_stages
                 if (ThreadType::is_main) current_block.store(0);
                 if (ThreadType::is_main) errors.store (0);
 
-                t.synchronized(insert<Handle>, hash, n, 3);
+                t.synchronized(insert<handle_type>, hash, n, 3);
             }
 
             {
                 if (ThreadType::is_main) current_block.store(0);
 
-                t.synchronized(find<Handle>, hash, n, 3);
+                t.synchronized(find<handle_type>, hash, n, 3);
 
                 if (ThreadType::is_main) check_errors(0);
             }
@@ -289,7 +289,7 @@ struct test_in_stages
                 if (ThreadType::is_main) current_block.store(0);
                 if (ThreadType::is_main) errors.store (0);
 
-                t.synchronized(insert<Handle>, hash, n, 4);
+                t.synchronized(insert<handle_type>, hash, n, 4);
 
                 if (ThreadType::is_main && errors.load() == n) errors.store(0);
             }
@@ -298,7 +298,7 @@ struct test_in_stages
             {
                 if (ThreadType::is_main) current_block.store(0);
 
-                t.synchronized(find<Handle>,
+                t.synchronized(find<handle_type>,
                                          hash, n, 3);
 
                 if (ThreadType::is_main) check_errors(0);
@@ -309,7 +309,7 @@ struct test_in_stages
                 if (ThreadType::is_main) current_block.store(0);
                 if (ThreadType::is_main) errors.store (0);
 
-                t.synchronized(update<Handle>, hash, n, 5);
+                t.synchronized(update<handle_type>, hash, n, 5);
 
                 if (ThreadType::is_main) check_errors(0);
             }
@@ -318,7 +318,7 @@ struct test_in_stages
             {
                 if (ThreadType::is_main) current_block.store(0);
 
-                t.synchronized(find<Handle>, hash, n, 5);
+                t.synchronized(find<handle_type>, hash, n, 5);
 
                 if (ThreadType::is_main) check_errors(0);
             }
@@ -328,7 +328,7 @@ struct test_in_stages
                 if (ThreadType::is_main) current_block.store(0);
                 if (ThreadType::is_main) errors.store (0);
 
-                t.synchronized(insert_or_increment<Handle>, hash, n, p);
+                t.synchronized(insert_or_increment<handle_type>, hash, n, p);
             }
 
             // STAGE 4.1 validate
@@ -344,7 +344,7 @@ struct test_in_stages
                 //ThreadType::out (5, 3);
                 if (ThreadType::is_main) current_block.store(0);
 
-                t.synchronized(remove<Handle>, hash, n);
+                t.synchronized(remove<handle_type>, hash, n);
             }
 
             // STAGE 5.1 validate remove
@@ -352,7 +352,7 @@ struct test_in_stages
                 //ThreadType::out (5.1, 3);
                 if (ThreadType::is_main) current_block.store(0);
 
-                t.synchronized(val_rem<Handle>, hash, n);
+                t.synchronized(val_rem<handle_type>, hash, n);
 
                 if (ThreadType::is_main) check_errors(0);
             }

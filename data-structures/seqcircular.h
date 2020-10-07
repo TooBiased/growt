@@ -12,8 +12,7 @@
  * All rights reserved. Published under the BSD-2 license in the LICENSE file.
  ******************************************************************************/
 
-#ifndef SEQCIRCULAR
-#define SEQCIRCULAR
+#pragma once
 
 #include "utils/default_hash.hpp"
 #include "data-structures/base_circular.h"
@@ -21,18 +20,18 @@
 namespace growt {
 
 template<class Table, bool is_const = false>
-class SeqIterator
+class seq_iterator
 {
-    using Table_t         = Table;
-    using cTable_t        = typename std::conditional<is_const, const Table_t, Table_t>::type;
+    using table_type         = Table;
+    using const_table_type        = typename std::conditional<is_const, const table_type, table_type>::type;
 
-    using key_type        = typename Table_t::key_type;
-    using mapped_type     = typename Table_t::mapped_type;
-    using value_intern    = typename Table_t::value_intern;
+    using key_type        = typename table_type::key_type;
+    using mapped_type     = typename table_type::mapped_type;
+    using value_intern    = typename table_type::value_intern;
     using value_table     = std::pair<const key_type, mapped_type>;
     using cval_intern     = typename std::conditional
                            <is_const, const value_intern , value_intern >::type;
-    using pointer_intern  = typename Table_t::value_intern*;
+    using pointer_intern  = typename table_type::value_intern*;
 
 public:
     using difference_type = std::ptrdiff_t;
@@ -45,29 +44,29 @@ public:
     using iterator_category = std::forward_iterator_tag;
 
     template<class T, bool b>
-    friend void swap(SeqIterator<T,b>&, SeqIterator<T,b>&);
+    friend void swap(seq_iterator<T,b>&, seq_iterator<T,b>&);
     template<class T, bool b>
-    friend bool operator==(const SeqIterator<T,b>&, const SeqIterator<T,b>&);
+    friend bool operator==(const seq_iterator<T,b>&, const seq_iterator<T,b>&);
     template<class T, bool b>
-    friend bool operator!=(const SeqIterator<T,b>&, const SeqIterator<T,b>&);
+    friend bool operator!=(const seq_iterator<T,b>&, const seq_iterator<T,b>&);
 
 
     // Constructors ************************************************************
 
-    SeqIterator(cval_intern* p, const key_type& k, size_t v, cTable_t& t)
+    seq_iterator(cval_intern* p, const key_type& k, size_t v, const_table_type& t)
         : _ptr(p), _key(k), _ver(v), _tab(t) { }
 
-    SeqIterator(const SeqIterator& r) = default;
+    seq_iterator(const seq_iterator& r) = default;
     //     : ptr(r.ptr), key(r.key), ver(r.ver), tab(r.tab) { }
-    SeqIterator& operator=(const SeqIterator& r) = default;
+    seq_iterator& operator=(const seq_iterator& r) = default;
     // { ptr = r.ptr; key = r.key; ver = r.ver; tab = r.tab; return *this; }
 
-    ~SeqIterator() = default;
+    ~seq_iterator() = default;
 
 
     // Basic Iterator Functionality
 
-    inline SeqIterator& operator++()
+    inline seq_iterator& operator++()
     {
         if (_tab._version != _ver) refresh();
         while ( _ptr < _tab._t + _tab._capacity && _ptr->is_empty()) _ptr++;
@@ -76,9 +75,9 @@ public:
         return *this;
     }
 
-    inline SeqIterator& operator++(int)
+    inline seq_iterator& operator++(int)
     {
-        SeqIterator copy(*this);
+        seq_iterator copy(*this);
         ++(*this);
         return copy;
     }
@@ -89,18 +88,18 @@ public:
     inline pointer   operator->()
     { if (_tab._version != _ver) refresh(); return  reinterpret_cast<value_type*>(_ptr); }
 
-    inline bool operator==(const SeqIterator& r) const { return _ptr == r._ptr; }
-    inline bool operator!=(const SeqIterator& r) const { return _ptr != r._ptr; }
+    inline bool operator==(const seq_iterator& r) const { return _ptr == r._ptr; }
+    inline bool operator!=(const seq_iterator& r) const { return _ptr != r._ptr; }
 
 private:
-    pointer_intern _ptr;
-    key_type       _key;
-    size_t         _ver;
-    cTable_t&      _tab;
+    pointer_intern    _ptr;
+    key_type          _key;
+    size_t            _ver;
+    const_table_type& _tab;
 
     inline void refresh()
     {
-        SeqIterator it = _tab.find(_key);
+        seq_iterator it = _tab.find(_key);
         _ptr = it._ptr;
         _ver = it._ver;
     }
@@ -110,22 +109,22 @@ private:
 
 template<class E, class HashFct = utils_tm::hash_tm::default_hash,
          class A = std::allocator<E>>
-class SeqCircular : public BaseCircular<E, HashFct, A>
+class seq_circular : public base_circular<E, HashFct, A>
 {
 private:
-    using This_t             = SeqCircular<E,HashFct,A>;
-    using Base_t             = BaseCircular   <E,HashFct,A>;
+    using this_type          = seq_circular<E,HashFct,A>;
+    using base_type          = base_circular   <E,HashFct,A>;
 
 public:
     using value_intern       = E;
 
-    using key_type           = typename Base_t::key_type;
-    using mapped_type        = typename Base_t::mapped_type;
-    using value_type         = typename Base_t::value_type;
-    using iterator           = SeqIterator<This_t, false>;
-    using const_iterator     = SeqIterator<This_t, true>;
-    using size_type          = typename Base_t::size_type;
-    using difference_type    = typename Base_t::difference_type;
+    using key_type           = typename base_type::key_type;
+    using mapped_type        = typename base_type::mapped_type;
+    using value_type         = typename base_type::value_type;
+    using iterator           = seq_iterator<this_type, false>;
+    using const_iterator     = seq_iterator<this_type, true>;
+    using size_type          = typename base_type::size_type;
+    using difference_type    = typename base_type::difference_type;
     using reference          =       std::pair<const key_type, mapped_type>&;
     using const_reference    = const std::pair<const key_type, mapped_type>&;
     using mapped_reference       = mapped_type&;
@@ -138,31 +137,31 @@ public:
     using node_type            = void;
 
 private:
-    using BaseCircular<E,HashFct,A>::_t;
-    using BaseCircular<E,HashFct,A>::_bitmask;
-    using BaseCircular<E,HashFct,A>::h;
-    using BaseCircular<E,HashFct,A>::_capacity;
-    using BaseCircular<E,HashFct,A>::_hash;
-    using BaseCircular<E,HashFct,A>::_version;
-    using BaseCircular<E,HashFct,A>::_right_shift;
+    using base_circular<E,HashFct,A>::_t;
+    using base_circular<E,HashFct,A>::_bitmask;
+    using base_circular<E,HashFct,A>::h;
+    using base_circular<E,HashFct,A>::_capacity;
+    using base_circular<E,HashFct,A>::_hash;
+    using base_circular<E,HashFct,A>::_version;
+    using base_circular<E,HashFct,A>::_right_shift;
     static constexpr double _max_fill_factor = 0.666;
 
     template<class, bool>
-    friend class SeqIterator;
+    friend class seq_iterator;
 
 public:
 
-    SeqCircular(size_t size )
-        : BaseCircular<E,HashFct,A>::BaseCircular(size),
+    seq_circular(size_t size )
+        : base_circular<E,HashFct,A>::base_circular(size),
           _n_elem(0), _thresh(_capacity*_max_fill_factor) {}
 
-    SeqCircular(size_t size, size_t version)
-        : BaseCircular<E,HashFct,A>::BaseCircular(size, version),
+    seq_circular(size_t size, size_t version)
+        : base_circular<E,HashFct,A>::base_circular(size, version),
           _n_elem(0), _thresh(_capacity*_max_fill_factor) {}
 
-    // These are used for our tests, such that SeqCircular behaves like GrowTable
-    using Handle = SeqCircular<E,HashFct,A>&;
-    Handle get_handle() { return *this; }
+    // These are used for our tests, such that seq_circular behaves like grow_table
+    using handle_type = seq_circular<E,HashFct,A>&;
+    handle_type get_handle() { return *this; }
 
     iterator       begin();
     iterator       end();
@@ -209,13 +208,13 @@ private:
 
     inline void grow()
     {
-        This_t temp(_capacity << 1, _version+1);
+        this_type temp(_capacity << 1, _version+1);
         migrate(temp);
         swap(temp);
     }
 
 
-    void swap(SeqCircular & o)
+    void swap(seq_circular & o)
     {
         std::swap(_capacity   , o._capacity);
         std::swap(_version    , o._version);
@@ -226,7 +225,7 @@ private:
         std::swap(_right_shift, o._right_shift);
     }
 
-    inline size_t migrate( SeqCircular& target )
+    inline size_t migrate( seq_circular& target )
     {
         std::fill( target._t ,target._t + target._capacity , E::get_empty() );
 
@@ -251,8 +250,8 @@ private:
 };
 
 template<class E, class HF, class A>
-inline typename SeqCircular<E,HF,A>::iterator
-SeqCircular<E,HF,A>::begin()
+inline typename seq_circular<E,HF,A>::iterator
+seq_circular<E,HF,A>::begin()
 {
     for (size_t i = 0; i < _capacity; ++i)
     {
@@ -263,15 +262,15 @@ SeqCircular<E,HF,A>::begin()
 }
 
 template<class E, class HF, class A>
-inline typename SeqCircular<E,HF,A>::iterator
-SeqCircular<E,HF,A>::end()
+inline typename seq_circular<E,HF,A>::iterator
+seq_circular<E,HF,A>::end()
 {
     return make_it(nullptr, key_type());
 }
 
 template<class E, class HF, class A>
-inline typename SeqCircular<E,HF,A>::const_iterator
-SeqCircular<E,HF,A>::cbegin() const
+inline typename seq_circular<E,HF,A>::const_iterator
+seq_circular<E,HF,A>::cbegin() const
 {
     for (size_t i = 0; i < _capacity; ++i)
     {
@@ -282,15 +281,15 @@ SeqCircular<E,HF,A>::cbegin() const
 }
 
 template<class E, class HF, class A>
-inline typename SeqCircular<E,HF,A>::const_iterator
-SeqCircular<E,HF,A>::cend() const
+inline typename seq_circular<E,HF,A>::const_iterator
+seq_circular<E,HF,A>::cend() const
 {
     return make_cit(nullptr, key_type());
 }
 
 template<class E, class HF, class A>
-inline typename SeqCircular<E,HF,A>::iterator
-SeqCircular<E,HF,A>::find(const key_type & k)
+inline typename seq_circular<E,HF,A>::iterator
+seq_circular<E,HF,A>::find(const key_type & k)
 {
     size_t htemp = h(k);
     for (size_t i = htemp;;++i)  // i < htemp+MaDis
@@ -302,8 +301,8 @@ SeqCircular<E,HF,A>::find(const key_type & k)
 }
 
 template<class E, class HF, class A>
-inline typename SeqCircular<E,HF,A>::const_iterator
-SeqCircular<E,HF,A>::find(const key_type & k) const
+inline typename seq_circular<E,HF,A>::const_iterator
+seq_circular<E,HF,A>::find(const key_type & k) const
 {
     size_t htemp = h(k);
     for (size_t i = htemp;;++i)
@@ -315,8 +314,8 @@ SeqCircular<E,HF,A>::find(const key_type & k) const
 }
 
 template<class E, class HF, class A>
-inline typename SeqCircular<E,HF,A>::insert_return_type
-SeqCircular<E,HF,A>::insert(const key_type& k, const mapped_type& d)
+inline typename seq_circular<E,HF,A>::insert_return_type
+seq_circular<E,HF,A>::insert(const key_type& k, const mapped_type& d)
 {
     size_t htemp = h(k);
     for (size_t i = htemp;;++i)
@@ -341,8 +340,8 @@ SeqCircular<E,HF,A>::insert(const key_type& k, const mapped_type& d)
 
 template<class E, class HF, class A>
 template<class F, class ...Types>
-inline typename SeqCircular<E,HF,A>::insert_return_type
-SeqCircular<E,HF,A>::update(const key_type& k, F f, Types&& ... args)
+inline typename seq_circular<E,HF,A>::insert_return_type
+seq_circular<E,HF,A>::update(const key_type& k, F f, Types&& ... args)
 {
     size_t htemp = h(k);
     for (size_t i = htemp;;++i)
@@ -368,8 +367,8 @@ SeqCircular<E,HF,A>::update(const key_type& k, F f, Types&& ... args)
 
 template<class E, class HF, class A>
 template<class F, class ...Types>
-inline typename SeqCircular<E,HF,A>::insert_return_type
-SeqCircular<E,HF,A>::insert_or_update(const key_type& k, const mapped_type& d, F f, Types&& ... args)
+inline typename seq_circular<E,HF,A>::insert_return_type
+seq_circular<E,HF,A>::insert_or_update(const key_type& k, const mapped_type& d, F f, Types&& ... args)
 {
     size_t htemp = h(k);
     for (size_t i = htemp;;++i)
@@ -396,8 +395,8 @@ SeqCircular<E,HF,A>::insert_or_update(const key_type& k, const mapped_type& d, F
 
 
 template<class E, class HF, class A>
-inline typename SeqCircular<E,HF,A>::size_type
-SeqCircular<E,HF,A>::erase(const key_type & k)
+inline typename seq_circular<E,HF,A>::size_type
+seq_circular<E,HF,A>::erase(const key_type & k)
 {
     size_type i = h(k);
     for (;;++i)
@@ -425,5 +424,3 @@ SeqCircular<E,HF,A>::erase(const key_type & k)
 
 
 }
-
-#endif // SEQCIRCULAR

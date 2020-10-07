@@ -10,8 +10,7 @@
  * All rights reserved. Published under the BSD-2 license in the LICENSE file.
  ******************************************************************************/
 
-#ifndef RETURNELEMENT_H
-#define RETURNELEMENT_H
+#pragma once
 
 #include <stdlib.h>
 #include <tuple>
@@ -78,5 +77,3 @@ inline bool successful(ReturnCode ec)
 // };
 
 }
-
-#endif // RETURNELEMENT_H

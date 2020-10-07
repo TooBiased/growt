@@ -17,41 +17,42 @@ namespace growt
 
 // Forward Declarations ********************************************************
 template <class, bool>
-class MappedRefGrowT;
+class growt_mapped_reference;
 template <class, bool>
-class ReferenceGrowT;
+class growt_reference;
 template <class, bool>
-class IteratorGrowt;
+class growt_iterator;
 
 template <class, bool>
-class ReferenceBase;
+class base_reference;
 
 
 
 // Mapped Reference
 template <class BaseTable, bool is_const = false>
-class MappedRefBase
+class base_mapped_reference
 {
 private:
-    using BTable_t       = BaseTable;
-    using key_type       = typename BTable_t::key_type;
-    using mapped_type    = typename BTable_t::mapped_type;
-    using pair_type      = std::pair<key_type, mapped_type>;
-    using value_nc       = std::pair<const key_type, mapped_type>;
-    using value_intern   = typename BTable_t::value_intern;
-    using pointer_intern = value_intern*;
+    using base_table_type = BaseTable;
+    using key_type        = typename base_table_type::key_type;
+    using mapped_type     = typename base_table_type::mapped_type;
+    using pair_type       = std::pair<key_type, mapped_type>;
+    using value_nc        = std::pair<const key_type, mapped_type>;
+    using value_intern    = typename base_table_type::value_intern;
+    using pointer_intern  = value_intern*;
 
     template <class, bool>
-    friend class MappedRefGrowT;
+    friend class growt_mapped_reference;
     template <class, bool>
-    friend class ReferenceGrowT;
+    friend class growt_reference;
     template <class, bool>
-    friend class ReferenceBase;
+    friend class base_reference;
 public:
-    using value_type   = typename
-        std::conditional<is_const, const value_nc, value_nc>::type;
+    using value_type       = typename std::conditional<is_const,
+                                                       const value_nc,
+                                                       value_nc>::type;
 
-    MappedRefBase(value_type copy, pointer_intern ptr)
+    base_mapped_reference(value_type copy, pointer_intern ptr)
         : _copy(copy), _ptr(ptr) { }
 
     inline void refresh() { _copy = *_ptr; }
@@ -59,9 +60,11 @@ public:
     template<bool is_const2 = is_const>
     inline typename std::enable_if<!is_const2>::type operator=(const mapped_type& value)
     { _ptr->setData(value); }
+
     template<class F>
     inline void update   (const mapped_type& value, F f)
     { _ptr->update(_copy.first, value, f); }
+
     inline bool compare_exchange(mapped_type& exp, const mapped_type& val)
     {
         auto temp = value_intern(_copy.first, exp);
@@ -83,28 +86,29 @@ private:
 
 // Reference *******************************************************************
 template <class BaseTable, bool is_const = false>
-class ReferenceBase
+class base_reference
 {
 private:
-    using BTable_t       = BaseTable;
-    using key_type       = typename BTable_t::key_type;
-    using mapped_type    = typename BTable_t::mapped_type;
-    using pair_type      = std::pair<key_type, mapped_type>;
-    using value_nc       = std::pair<const key_type, mapped_type>;
-    using value_intern   = typename BTable_t::value_intern;
-    using pointer_intern = value_intern*;
+    using base_table_type = BaseTable;
+    using key_type        = typename base_table_type::key_type;
+    using mapped_type     = typename base_table_type::mapped_type;
+    using pair_type       = std::pair<key_type, mapped_type>;
+    using value_nc        = std::pair<const key_type, mapped_type>;
+    using value_intern    = typename base_table_type::value_intern;
+    using pointer_intern  = value_intern*;
 
-    using mapped_ref     = MappedRefBase<BaseTable, is_const>;
+    using mapped_ref      = base_mapped_reference<BaseTable, is_const>;
 
     template <class, bool>
-    friend class ReferenceGrowT;
+    friend class growt_reference;
     template <class, bool>
-    friend class MappedRefGrowT;
+    friend class growt_mapped_reference;
 public:
-    using value_type   = typename
-        std::conditional<is_const, const value_nc, value_nc>::type;
+    using value_type      = typename std::conditional<is_const,
+                                                      const value_nc,
+                                                      value_nc>::type;
 
-    ReferenceBase(value_type copy, pointer_intern ptr)
+    base_reference(value_type copy, pointer_intern ptr)
         : second(copy, ptr), first(second._copy.first) { }
 
     inline void refresh() { second.refresh(); }
@@ -112,6 +116,7 @@ public:
     template<class F>
     inline void update   (const mapped_type& value, F f)
     { second.update(value, f); }
+
     inline bool compare_exchange(mapped_type& exp, const mapped_type& val)
     {
         return second.compare_exchange(exp,val);
@@ -129,48 +134,51 @@ public:
 
 // Iterator ********************************************************************
 template <class BaseTable, bool is_const = false>
-class IteratorBase
+class base_iterator
 {
 private:
-    using BTable_t       = BaseTable;
-    using key_type       = typename BTable_t::key_type;
-    using mapped_type    = typename BTable_t::mapped_type;
-    using pair_type      = std::pair<key_type, mapped_type>;
-    using value_nc       = std::pair<const key_type, mapped_type>;
-    using value_intern   = typename BTable_t::value_intern;
-    using pointer_intern = value_intern*;
+    using base_table_type   = BaseTable;
+    using key_type          = typename base_table_type::key_type;
+    using mapped_type       = typename base_table_type::mapped_type;
+    using pair_type         = std::pair<key_type, mapped_type>;
+    using value_nc          = std::pair<const key_type, mapped_type>;
+    using value_intern      = typename base_table_type::value_intern;
+    using pointer_intern    = value_intern*;
 
     template <class, bool>
-    friend class IteratorGrowT;
+    friend class growt_iterator;
     template <class, bool>
-    friend class ReferenceGrowT;
+    friend class growt_reference;
 public:
-    using difference_type = std::ptrdiff_t;
-    using value_type = typename std::conditional<is_const, const value_nc, value_nc>::type;
-    using reference  = ReferenceBase<BaseTable, is_const>;
+    using difference_type   = std::ptrdiff_t;
+    using value_type        = typename std::conditional<is_const,
+                                                      const value_nc,
+                                                      value_nc>::type;
+    using reference         = base_reference<BaseTable, is_const>;
     // using pointer    = value_type*;
     using iterator_category = std::forward_iterator_tag;
 
     // template<class T, bool b>
-    // friend void swap(IteratorBase<T,b>& l, IteratorBase<T,b>& r);
+    // friend void swap(base_iterator<T,b>& l, base_iterator<T,b>& r);
     template<class T, bool b>
-    friend bool operator==(const IteratorBase<T,b>& l, const IteratorBase<T,b>& r);
+    friend bool operator==(const base_iterator<T,b>& l, const base_iterator<T,b>& r);
     template<class T, bool b>
-    friend bool operator!=(const IteratorBase<T,b>& l, const IteratorBase<T,b>& r);
+    friend bool operator!=(const base_iterator<T,b>& l, const base_iterator<T,b>& r);
 
     // Constructors ************************************************************
-    IteratorBase(const pair_type& copy, value_intern* ptr, value_intern* eptr)
+    base_iterator(const pair_type& copy, value_intern* ptr, value_intern* eptr)
         : _copy(copy), _ptr(ptr), _eptr(eptr) { }
 
-    IteratorBase(const IteratorBase& rhs)
+    base_iterator(const base_iterator& rhs)
         : _copy(rhs._copy), _ptr(rhs._ptr), _eptr(rhs._eptr) { }
-    IteratorBase& operator=(const IteratorBase& r)
+
+    base_iterator& operator=(const base_iterator& r)
     { _copy = r._copy; _ptr = r._ptr; _eptr = r._eptr; return *this; }
 
-    ~IteratorBase() = default;
+    ~base_iterator() = default;
 
     // Basic Iterator Functionality ********************************************
-    inline IteratorBase& operator++()
+    inline base_iterator& operator++()
     {
         ++_ptr;
         while ( _ptr < _eptr && (_ptr->is_empty() || _ptr->is_deleted())) { ++_ptr; }
@@ -184,9 +192,9 @@ public:
         return *this;
     }
 
-    inline IteratorBase& operator++(int)
+    inline base_iterator& operator++(int)
     {
-        IteratorBase copy(*this);
+        base_iterator copy(*this);
         ++(*this);
         return copy;
     }
@@ -194,8 +202,8 @@ public:
     inline reference operator* () const { return reference(_copy, _ptr); }
     // pointer   operator->() const { return  _ptr; }
 
-    inline bool operator==(const IteratorBase& rhs) const { return _ptr == rhs._ptr; }
-    inline bool operator!=(const IteratorBase& rhs) const { return _ptr != rhs._ptr; }
+    inline bool operator==(const base_iterator& rhs) const { return _ptr == rhs._ptr; }
+    inline bool operator!=(const base_iterator& rhs) const { return _ptr != rhs._ptr; }
 
     // Functions necessary for concurrency *************************************
     inline void refresh () { _copy = *_ptr; }

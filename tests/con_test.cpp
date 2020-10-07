@@ -150,7 +150,7 @@ struct test_in_stages {
 
         utils_tm::pin_to_core(t.id);
 
-        using Handle = typename HASHTYPE::Handle;
+        using handle_type = typename HASHTYPE::handle_type;
 
         if (ThreadType::is_main)
         {
@@ -179,14 +179,14 @@ struct test_in_stages {
             // Needed for synchronization (main thread has finished set_up_hash)
             t.synchronize();
 
-            Handle hash = hash_table.get_handle();
+            handle_type hash = hash_table.get_handle();
 
 
             // STAGE2 n Insertions [2 .. n+1]
             {
                 if (ThreadType::is_main) current_block.store(0);
 
-                auto duration = t.synchronized(fill<Handle>, hash, n);
+                auto duration = t.synchronized(fill<handle_type>, hash, n);
 
                 t.out << otm::width(12) << duration.second/1000000.;
             }
@@ -195,7 +195,7 @@ struct test_in_stages {
             {
                 if (ThreadType::is_main) current_block.store(0);
 
-                auto duration = t.synchronized(find_contended<Handle>, hash, n);
+                auto duration = t.synchronized(find_contended<handle_type>, hash, n);
 
                 t.out << otm::width(12) << duration.second/1000000.;
             }
@@ -204,7 +204,7 @@ struct test_in_stages {
             {
                 if (ThreadType::is_main) current_block.store(0);
 
-                auto duration = t.synchronized(update_contended<Handle>,
+                auto duration = t.synchronized(update_contended<handle_type>,
                                                hash, n);
 
 
@@ -215,7 +215,7 @@ struct test_in_stages {
             {
                 if (ThreadType::is_main) current_block.store(0);
 
-                auto duration = t.synchronized(val_update<Handle>, hash, n);
+                auto duration = t.synchronized(val_update<handle_type>, hash, n);
 
 
                 t.out << otm::width(12) << duration.second/1000000.

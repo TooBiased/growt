@@ -11,7 +11,7 @@ using murmur2_hash = utils_tm::hash_tm::murmur2_hash;
 // USING definitions.h (possibly slower compilation)
 #include "data-structures/definitions.h"
 
-using Table_t = growt::uaGrow<murmur2_hash,
+using table_type = growt::uaGrow<murmur2_hash,
                               growt::AlignedAllocator<> >;
 
 //////////////////////////////////////////////////////////////
@@ -22,7 +22,7 @@ using Table_t = growt::uaGrow<murmur2_hash,
 // #include "data-structures/strategy/wstrat_user.h"
 // #include "data-structures/strategy/estrat_async.h"
 // #include "data-structures/growtable.h"
-// using Table_t = growt::GrowTable<growt::Circular<growt::MarkableElement,
+// using table_type = growt::grow_table<growt::Circular<growt::MarkableElement,
 //                                                  murmur2_hash,
 //                                                  growt::AlignedAllocator<> >,
 //                                  growt::WStratUser,
@@ -32,7 +32,7 @@ using Table_t = growt::uaGrow<murmur2_hash,
 
 // insert all keys between 1 and n into table with <key=i, data=i>
 // print message if insert is not successful
-void insertions(Table_t& table, size_t n)
+void insertions(table_type& table, size_t n)
 {
     // obtain a handle
     auto handle = table.get_handle();
@@ -47,10 +47,10 @@ void insertions(Table_t& table, size_t n)
 }
 
 // repeatedly checks "table", if n was inserted (as a key) prints n and stops
-void wait_for_k(Table_t& table, size_t k)
+void wait_for_k(table_type& table, size_t k)
 {
     // obtain a handle (alternative)
-    Table_t::Handle handle{table};
+    table_type::handle_type handle{table};
 
     while (handle.find(k) == handle.end()) { ; }
 
@@ -59,7 +59,7 @@ void wait_for_k(Table_t& table, size_t k)
 
 // randomly looks for keys between 1 and n
 // after n tries it prints the success rate and the average data height
-void search_n_and_mean(Table_t& table, size_t n)
+void search_n_and_mean(table_type& table, size_t n)
 {
     auto handle = table.get_handle();
 
@@ -85,7 +85,7 @@ void search_n_and_mean(Table_t& table, size_t n)
 
 // increases every second inserted number by 42
 // this keeps repeating updates until one was successful (waits till key was inserted)
-void update_every_scnd(Table_t& table, size_t n)
+void update_every_scnd(table_type& table, size_t n)
 {
     auto handle = table.get_handle();
 
@@ -106,7 +106,7 @@ void update_every_scnd(Table_t& table, size_t n)
 }
 
 // check update
-void check_update(Table_t& table, size_t n)
+void check_update(table_type& table, size_t n)
 {
     auto handle = table.get_handle();
 
@@ -139,7 +139,7 @@ void check_update(Table_t& table, size_t n)
     }
 }
 
-void check_function_compile(Table_t& table)
+void check_function_compile(table_type& table)
 {
     auto handle = table.get_handle();
     if (handle[11] != 53) std::cout << "[] operator returns "
@@ -176,7 +176,7 @@ int main (int, char**)
     // set the capacity such that the table has to grow by a factor of 10
     size_t n   = 1000000;
     size_t cap =  100000;
-    Table_t hashTable(cap);
+    table_type hashTable(cap);
 
     std::thread in_thread  (insertions       , std::ref(hashTable), n);
     std::thread wait_thread(wait_for_k       , std::ref(hashTable), n);

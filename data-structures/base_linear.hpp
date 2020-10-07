@@ -27,13 +27,13 @@ namespace growt {
 
 template<class E, class HashFct = utils_tm::hash_tm::default_hash,
          class A = std::allocator<E>>
-class base_circular
+class base_linear
 {
 private:
-    using this_type          = base_circular<E,HashFct,A>;
+    using this_type          = base_linear<E,HashFct,A>;
     using allocator_type     = typename A::template rebind<E>::other;
 
-    template <class> friend class grow_table_handle;
+    template <class> friend class migration_table_handle;
 
 public:
     using value_intern           = E;
@@ -62,18 +62,18 @@ private:
     using insert_return_intern = std::pair<iterator, ReturnCode>;
 
 public:
-    base_circular(size_type size_ = 1<<18);
-    base_circular(size_type size_, size_type version_);
+    base_linear(size_type size_ = 1<<18);
+    base_linear(size_type size_, size_type version_);
 
-    base_circular(const base_circular&) = delete;
-    base_circular& operator=(const base_circular&) = delete;
+    base_linear(const base_linear&) = delete;
+    base_linear& operator=(const base_linear&) = delete;
 
     // Obviously move-constructor and move-assignment are not thread safe
     // They are merely comfort functions used during setup
-    base_circular(base_circular&& rhs);
-    base_circular& operator=(base_circular&& rhs);
+    base_linear(base_linear&& rhs);
+    base_linear& operator=(base_linear&& rhs);
 
-    ~base_circular();
+    ~base_linear();
 
     handle_type get_handle() { return *this; }
 
@@ -133,7 +133,7 @@ public:
 protected:
     allocator_type _allocator;
     static_assert(std::is_same<typename allocator_type::value_type, value_intern>::value,
-                  "Wrong allocator type given to base_circular!");
+                  "Wrong allocator type given to base_linear!");
 
     size_type   _bitmask;
     size_type   _right_shift;
@@ -234,7 +234,7 @@ public:
 // CONSTRUCTORS/ASSIGNMENTS ****************************************************
 
 template<class E, class HashFct, class A>
-base_circular<E,HashFct,A>::base_circular(size_type capacity_)
+base_linear<E,HashFct,A>::base_linear(size_type capacity_)
     : _capacity(compute_capacity(capacity_)),
       _version(0),
       _current_copy_block(0),
@@ -250,7 +250,7 @@ base_circular<E,HashFct,A>::base_circular(size_type capacity_)
 
 /*should always be called with a capacity_=2^k  */
 template<class E, class HashFct, class A>
-base_circular<E,HashFct,A>::base_circular(size_type capacity_, size_type version_)
+base_linear<E,HashFct,A>::base_linear(size_type capacity_, size_type version_)
     : _capacity(capacity_),
       _version(version_),
       _current_copy_block(0),
@@ -265,14 +265,14 @@ base_circular<E,HashFct,A>::base_circular(size_type capacity_, size_type version
 }
 
 template<class E, class HashFct, class A>
-base_circular<E,HashFct,A>::~base_circular()
+base_linear<E,HashFct,A>::~base_linear()
 {
     if (_t) _allocator.deallocate(_t, _capacity);
 }
 
 
 template<class E, class HashFct, class A>
-base_circular<E,HashFct,A>::base_circular(base_circular&& rhs)
+base_linear<E,HashFct,A>::base_linear(base_linear&& rhs)
     : _capacity(rhs._capacity), _version(rhs._version),
       _current_copy_block(rhs._current_copy_block.load()),
       _bitmask(rhs._bitmask), _right_shift(rhs._right_shift), _t(nullptr)
@@ -286,8 +286,8 @@ base_circular<E,HashFct,A>::base_circular(base_circular&& rhs)
 }
 
 template<class E, class HashFct, class A>
-base_circular<E,HashFct,A>&
-base_circular<E,HashFct,A>::operator=(base_circular&& rhs)
+base_linear<E,HashFct,A>&
+base_linear<E,HashFct,A>::operator=(base_linear&& rhs)
 {
     if (rhs._current_copy_block.load())
         std::invalid_argument("Cannot move a growing table!");
@@ -314,8 +314,8 @@ base_circular<E,HashFct,A>::operator=(base_circular&& rhs)
 // ITERATOR FUNCTIONALITY ******************************************************
 
 template<class E, class HashFct, class A>
-inline typename base_circular<E,HashFct,A>::iterator
-base_circular<E,HashFct,A>::begin()
+inline typename base_linear<E,HashFct,A>::iterator
+base_linear<E,HashFct,A>::begin()
 {
     for (size_t i = 0; i<_capacity; ++i)
     {
@@ -327,14 +327,14 @@ base_circular<E,HashFct,A>::begin()
 }
 
 template<class E, class HashFct, class A>
-inline typename base_circular<E,HashFct,A>::iterator
-base_circular<E,HashFct,A>::end()
+inline typename base_linear<E,HashFct,A>::iterator
+base_linear<E,HashFct,A>::end()
 { return iterator(std::make_pair(key_type(), mapped_type()),nullptr,nullptr); }
 
 
 template<class E, class HashFct, class A>
-inline typename base_circular<E,HashFct,A>::const_iterator
-base_circular<E,HashFct,A>::cbegin() const
+inline typename base_linear<E,HashFct,A>::const_iterator
+base_linear<E,HashFct,A>::cbegin() const
 {
     for (size_t i = 0; i<_capacity; ++i)
     {
@@ -346,8 +346,8 @@ base_circular<E,HashFct,A>::cbegin() const
 }
 
 template<class E, class HashFct, class A>
-inline typename base_circular<E,HashFct,A>::const_iterator
-base_circular<E,HashFct,A>::cend() const
+inline typename base_linear<E,HashFct,A>::const_iterator
+base_linear<E,HashFct,A>::cend() const
 {
     return const_iterator(std::make_pair(key_type(),mapped_type()),
                           nullptr,nullptr);
@@ -357,8 +357,8 @@ base_circular<E,HashFct,A>::cend() const
 // RANGE ITERATOR FUNCTIONALITY ************************************************
 
 template<class E, class HashFct, class A>
-inline typename base_circular<E,HashFct,A>::range_iterator
-base_circular<E,HashFct,A>::range(size_t rstart, size_t rend)
+inline typename base_linear<E,HashFct,A>::range_iterator
+base_linear<E,HashFct,A>::range(size_t rstart, size_t rend)
 {
     auto temp_rend = std::min(rend, _capacity);
     for (size_t i = rstart; i < temp_rend; ++i)
@@ -373,8 +373,8 @@ base_circular<E,HashFct,A>::range(size_t rstart, size_t rend)
 }
 
 template<class E, class HashFct, class A>
-inline typename base_circular<E,HashFct,A>::const_range_iterator
-base_circular<E,HashFct,A>::crange(size_t rstart, size_t rend)
+inline typename base_linear<E,HashFct,A>::const_range_iterator
+base_linear<E,HashFct,A>::crange(size_t rstart, size_t rend)
 {
     auto temp_rend = std::min(rend, _capacity);
     for (size_t i = rstart; i < temp_rend; ++i)
@@ -393,8 +393,8 @@ base_circular<E,HashFct,A>::crange(size_t rstart, size_t rend)
 // MAIN HASH TABLE FUNCTIONALITY (INTERN) **************************************
 
 template<class E, class HashFct, class A>
-inline typename base_circular<E,HashFct,A>::insert_return_intern
-base_circular<E,HashFct,A>::insert_intern(const key_type& k,
+inline typename base_linear<E,HashFct,A>::insert_return_intern
+base_linear<E,HashFct,A>::insert_intern(const key_type& k,
                                          const mapped_type& d)
 {
     size_type htemp = h(k);
@@ -430,8 +430,8 @@ base_circular<E,HashFct,A>::insert_intern(const key_type& k,
 
 
 template<class E, class HashFct, class A> template<class F, class ... Types>
-inline typename base_circular<E,HashFct,A>::insert_return_intern
-base_circular<E,HashFct,A>::update_intern(const key_type& k, F f, Types&& ... args)
+inline typename base_linear<E,HashFct,A>::insert_return_intern
+base_linear<E,HashFct,A>::update_intern(const key_type& k, F f, Types&& ... args)
 {
     size_type htemp = h(k);
 
@@ -470,8 +470,8 @@ base_circular<E,HashFct,A>::update_intern(const key_type& k, F f, Types&& ... ar
 }
 
 template<class E, class HashFct, class A> template<class F, class ... Types>
-inline typename base_circular<E,HashFct,A>::insert_return_intern
-base_circular<E,HashFct,A>::update_unsafe_intern(const key_type& k, F f, Types&& ... args)
+inline typename base_linear<E,HashFct,A>::insert_return_intern
+base_linear<E,HashFct,A>::update_unsafe_intern(const key_type& k, F f, Types&& ... args)
 {
     size_type htemp = h(k);
 
@@ -510,8 +510,8 @@ base_circular<E,HashFct,A>::update_unsafe_intern(const key_type& k, F f, Types&&
 
 
 template<class E, class HashFct, class A> template<class F, class ... Types>
-inline typename base_circular<E,HashFct,A>::insert_return_intern
-base_circular<E,HashFct,A>::insert_or_update_intern(const key_type& k,
+inline typename base_linear<E,HashFct,A>::insert_return_intern
+base_linear<E,HashFct,A>::insert_or_update_intern(const key_type& k,
                                                    const mapped_type& d,
                                                    F f, Types&& ... args)
 {
@@ -554,8 +554,8 @@ base_circular<E,HashFct,A>::insert_or_update_intern(const key_type& k,
 }
 
 template<class E, class HashFct, class A> template<class F, class ... Types>
-inline typename base_circular<E,HashFct,A>::insert_return_intern
-base_circular<E,HashFct,A>::insert_or_update_unsafe_intern(const key_type& k,
+inline typename base_linear<E,HashFct,A>::insert_return_intern
+base_linear<E,HashFct,A>::insert_or_update_unsafe_intern(const key_type& k,
                                                           const mapped_type& d,
                                                           F f, Types&& ... args)
 {
@@ -599,7 +599,7 @@ base_circular<E,HashFct,A>::insert_or_update_unsafe_intern(const key_type& k,
 }
 
 template<class E, class HashFct, class A>
-inline ReturnCode base_circular<E,HashFct,A>::erase_intern(const key_type& k)
+inline ReturnCode base_linear<E,HashFct,A>::erase_intern(const key_type& k)
 {
     size_type htemp = h(k);
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
@@ -630,7 +630,7 @@ inline ReturnCode base_circular<E,HashFct,A>::erase_intern(const key_type& k)
 }
 
 template<class E, class HashFct, class A>
-inline ReturnCode base_circular<E,HashFct,A>::erase_if_intern(const key_type& k, const mapped_type& d)
+inline ReturnCode base_linear<E,HashFct,A>::erase_if_intern(const key_type& k, const mapped_type& d)
 {
     size_type htemp = h(k);
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
@@ -669,8 +669,8 @@ inline ReturnCode base_circular<E,HashFct,A>::erase_if_intern(const key_type& k,
 // MAIN HASH TABLE FUNCTIONALITY (EXTERN) **************************************
 
 template<class E, class HashFct, class A>
-inline typename base_circular<E,HashFct,A>::iterator
-base_circular<E,HashFct,A>::find(const key_type& k)
+inline typename base_linear<E,HashFct,A>::iterator
+base_linear<E,HashFct,A>::find(const key_type& k)
 {
     size_type htemp = h(k);
     for (size_type i = htemp; ; ++i)
@@ -685,8 +685,8 @@ base_circular<E,HashFct,A>::find(const key_type& k)
 }
 
 template<class E, class HashFct, class A>
-inline typename base_circular<E,HashFct,A>::const_iterator
-base_circular<E,HashFct,A>::find(const key_type& k) const
+inline typename base_linear<E,HashFct,A>::const_iterator
+base_linear<E,HashFct,A>::find(const key_type& k) const
 {
     size_type htemp = h(k);
     for (size_type i = htemp; ; ++i)
@@ -701,48 +701,48 @@ base_circular<E,HashFct,A>::find(const key_type& k) const
 }
 
 template<class E, class HashFct, class A>
-inline typename base_circular<E,HashFct,A>::insert_return_type
-base_circular<E,HashFct,A>::insert(const key_type& k, const mapped_type& d)
+inline typename base_linear<E,HashFct,A>::insert_return_type
+base_linear<E,HashFct,A>::insert(const key_type& k, const mapped_type& d)
 {
     auto[it,rcode] = insert_intern(k,d);
     return std::make_pair(it, successful(rcode));
 }
 
 template<class E, class HashFct, class A>
-inline typename base_circular<E,HashFct,A>::size_type
-base_circular<E,HashFct,A>::erase(const key_type& k)
+inline typename base_linear<E,HashFct,A>::size_type
+base_linear<E,HashFct,A>::erase(const key_type& k)
 {
     ReturnCode c = erase_intern(k);
     return (successful(c)) ? 1 : 0;
 }
 
 template<class E, class HashFct, class A>
-inline typename base_circular<E,HashFct,A>::size_type
-base_circular<E,HashFct,A>::erase_if(const key_type& k, const mapped_type& d)
+inline typename base_linear<E,HashFct,A>::size_type
+base_linear<E,HashFct,A>::erase_if(const key_type& k, const mapped_type& d)
 {
     ReturnCode c = erase_if_intern(k,d);
     return (successful(c)) ? 1 : 0;
 }
 
 template<class E, class HashFct, class A> template <class F, class ... Types>
-inline typename base_circular<E,HashFct,A>::insert_return_type
-base_circular<E,HashFct,A>::update(const key_type& k, F f, Types&& ... args)
+inline typename base_linear<E,HashFct,A>::insert_return_type
+base_linear<E,HashFct,A>::update(const key_type& k, F f, Types&& ... args)
 {
     auto[it,rcode] = update_intern(k,f, std::forward<Types>(args)...);
     return std::make_pair(it, successful(rcode));
 }
 
 template<class E, class HashFct, class A> template <class F, class ... Types>
-inline typename base_circular<E,HashFct,A>::insert_return_type
-base_circular<E,HashFct,A>::update_unsafe(const key_type& k, F f, Types&& ... args)
+inline typename base_linear<E,HashFct,A>::insert_return_type
+base_linear<E,HashFct,A>::update_unsafe(const key_type& k, F f, Types&& ... args)
 {
     auto[it,rcode] = update_unsafe_intern(k,f, std::forward<Types>(args)...);
     return std::make_pair(it, successful(rcode));
 }
 
 template<class E, class HashFct, class A> template <class F, class ... Types>
-inline typename base_circular<E,HashFct,A>::insert_return_type
-base_circular<E,HashFct,A>::insert_or_update(const key_type& k,
+inline typename base_linear<E,HashFct,A>::insert_return_type
+base_linear<E,HashFct,A>::insert_or_update(const key_type& k,
                                             const mapped_type& d,
                                             F f, Types&& ... args)
 {
@@ -752,8 +752,8 @@ base_circular<E,HashFct,A>::insert_or_update(const key_type& k,
 }
 
 template<class E, class HashFct, class A> template <class F, class ... Types>
-inline typename base_circular<E,HashFct,A>::insert_return_type
-base_circular<E,HashFct,A>::insert_or_update_unsafe(const key_type& k,
+inline typename base_linear<E,HashFct,A>::insert_return_type
+base_linear<E,HashFct,A>::insert_or_update_unsafe(const key_type& k,
                                                    const mapped_type& d,
                                                    F f, Types&& ... args)
 {
@@ -777,8 +777,8 @@ base_circular<E,HashFct,A>::insert_or_update_unsafe(const key_type& k,
 
 // TRIVIAL MIGRATION (ASSUMES INITIALIZED TABLE)
 // template<class E, class HashFct, class A>
-// inline typename base_circular<E,HashFct,A>::size_type
-// base_circular<E,HashFct,A>::migrate(this_type& target, size_type s, size_type e)
+// inline typename base_linear<E,HashFct,A>::size_type
+// base_linear<E,HashFct,A>::migrate(this_type& target, size_type s, size_type e)
 // {
 //     size_type count = 0;
 //     for (size_t i = s; i < e; ++i)
@@ -795,8 +795,8 @@ base_circular<E,HashFct,A>::insert_or_update_unsafe(const key_type& k,
 // }
 
 template<class E, class HashFct, class A>
-inline typename base_circular<E,HashFct,A>::size_type
-base_circular<E,HashFct,A>::migrate(this_type& target, size_type s, size_type e)
+inline typename base_linear<E,HashFct,A>::size_type
+base_linear<E,HashFct,A>::migrate(this_type& target, size_type s, size_type e)
 {
     size_type n = 0;
     auto i = s;
@@ -864,7 +864,7 @@ base_circular<E,HashFct,A>::migrate(this_type& target, size_type s, size_type e)
 }
 
 template<class E, class HashFct, class A>
-inline void base_circular<E,HashFct,A>::insert_unsafe(const value_intern& e)
+inline void base_linear<E,HashFct,A>::insert_unsafe(const value_intern& e)
 {
     const key_type k = e.get_key();
 

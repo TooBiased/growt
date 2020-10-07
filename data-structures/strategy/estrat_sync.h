@@ -48,7 +48,7 @@
 
 namespace growt {
 
-template<class Table_t> size_t blockwise_migrate(Table_t source, Table_t target);
+template<class table_type> size_t blockwise_migrate(table_type source, table_type target);
 
 
 template <class Parent>
@@ -57,10 +57,10 @@ class EStratSync
 public:
     static constexpr size_t max_sim_threads = 256;
 
-    using BaseTable_t   = typename Parent::BaseTable_t;
-    using WorkerStratL  = typename Parent::WorkerStrat_t::local_data_t;
-    using HashPtr       = std::atomic<BaseTable_t*>;
-    using HashPtrRef    = BaseTable_t*;
+    using base_table_type   = typename Parent::base_table_type;
+    using WorkerStratL  = typename Parent::worker_strat::local_data_t;
+    using hash_ptr       = std::atomic<base_table_type*>;
+    using hash_ptr_reference    = base_table_type*;
 
 
     class local_data_t;
@@ -74,7 +74,7 @@ public:
 
         global_data_t(size_t size_) : _currently_growing(0), _handle_id(0)
         {
-            auto temp = new BaseTable_t(size_);
+            auto temp = new base_table_type(size_);
             _g_table_r.store( temp, std::memory_order_relaxed );
             _g_table_w.store( temp, std::memory_order_relaxed );
             //for (size_t i = 0; i<max_sim_threads; ++i)
@@ -105,11 +105,11 @@ public:
         // align to cache line
         std::atomic_size_t _currently_growing;
         std::atomic_size_t _handle_id;
-        HashPtr            _g_table_r;
-        HashPtr            _g_table_w;
+        hash_ptr            _g_table_r;
+        hash_ptr            _g_table_w;
         alignas(128) HandleFlags _handle_flags[max_sim_threads];
 
-        size_t registerHandle()
+        size_t register_handle()
         {
             for (size_t i = 0; i < max_sim_threads; ++i)
             {
@@ -140,7 +140,7 @@ public:
 
         local_data_t(Parent& parent, WorkerStratL &wstrat)
             : _parent(parent), _global(parent._global_exclusion), _worker_strat(wstrat),
-              _id(_global.registerHandle()), _epoch(0),
+              _id(_global.register_handle()), _epoch(0),
               _flags(_global._handle_flags[_id])
               //own_flag(_global.writing[_id<<4]), mig_flag(_global.writing[(_id<<4)+1])
         { }
@@ -193,7 +193,7 @@ public:
         //std::atomic_size_t& mig_flag;
 
     public:
-        inline HashPtrRef get_table()
+        inline hash_ptr_reference get_table()
         {
             //own_flag = 1;
             _flags.table_op.store(1, std::memory_order_release);
@@ -224,8 +224,8 @@ public:
             if (! change_stage<false>(stage, 1u)) { help_grow(); return; }
 
             auto t_cur   = _global._g_table_r.load(std::memory_order_acquire);
-            auto t_next  = new BaseTable_t(//t_cur->size << 1, t_cur->_version+1);
-                        BaseTable_t::resize(t_cur->_capacity,
+            auto t_next  = new base_table_type(//t_cur->size << 1, t_cur->_version+1);
+                        base_table_type::resize(t_cur->_capacity,
                             _parent._elements.load(std::memory_order_acquire),
                             _parent._dummies.load(std::memory_order_acquire)),
                         t_cur->_version+1);

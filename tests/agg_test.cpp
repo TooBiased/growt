@@ -101,7 +101,7 @@ struct test_in_stages
 
         utils_tm::pin_to_core(t.id);
 
-        using Handle = typename HASHTYPE::Handle;
+        using handle_type = typename HASHTYPE::handle_type;
 
         if (ThreadType::is_main)
         {
@@ -130,14 +130,14 @@ struct test_in_stages
 
             t.synchronize();
 
-            Handle hash = hash_table.get_handle();
+            handle_type hash = hash_table.get_handle();
 
 
             // STAGE2 n Insertions [2 .. n+1]
             {
                 if (ThreadType::is_main) current_block.store(0);
 
-                auto duration = t.synchronized(aggregate<Handle>, hash, n);
+                auto duration = t.synchronized(aggregate<handle_type>, hash, n);
 
                 t.out << otm::width(12) << duration.second/1000000.;
             }
@@ -146,7 +146,7 @@ struct test_in_stages
             {
                 if (ThreadType::is_main) current_block.store(0);
 
-                auto duration = t.synchronized(validate_aggregate<Handle>, hash, n);
+                auto duration = t.synchronized(validate_aggregate<handle_type>, hash, n);
 
                 t.out << otm::width(12) << duration.second/1000000.
                       << otm::width(9)  << errors.load();

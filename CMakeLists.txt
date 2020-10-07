@@ -260,6 +260,11 @@ function( GrowXExecutable variant cpp directory name )
   target_link_libraries(${name} ${TEST_DEP_LIBRARIES} ${ALLOC_LIB})
 endfunction( GrowXExecutable )
 
+GrowTExecutable( UAGROWNEW ins_test new ins_full_new )
+GrowTExecutable( UAGROWNEW mix_test new mix_full_new )
+GrowTExecutable( UAGROWNEW con_test new con_full_new )
+GrowTExecutable( UAGROWNEW agg_test new agg_full_new )
+
 
 GrowTExecutable( FOLKLORE ins_test ins ins_none_folklore )
 GrowTExecutable( FOLKLORE mix_test mix mix_none_folklore )

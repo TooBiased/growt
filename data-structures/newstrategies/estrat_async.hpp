@@ -9,9 +9,7 @@
  *
  * All rights reserved. Published under the BSD-2 license in the LICENSE file.
  ******************************************************************************/
-
-#ifndef ESTRAT_ASYNC_H
-#define ESTRAT_ASYNC_H
+#pragma once
 
 #include <atomic>
 #include <mutex>
@@ -24,11 +22,11 @@
  * This is a exclusion strategy for our growtable.
  *
  * Every exclusion strategy has to implement the following
- *  - subclass: global_data_t      (is stored at the growtable object)
+ *  - subclass: global_data_type     (is stored at the growtable object)
  *     - THIS OBJECT STORES THE ACTUAL HASH TABLE (AT LEAST THE POINTER)
  *           (This is important, because the exclusion strategy dictates,
  *            if reference counting is necessary.)
- *  - subclass: local_data_t       (is stored at each handle)
+ *  - subclass: local_data_type      (is stored at each handle)
  *     - init()
  *     - deinit()
  *     - getTable()   (gets current table and protects it from destruction)
@@ -53,35 +51,38 @@ template<class table_type> size_t blockwise_migrate(table_type source, table_typ
 
 
 template<class Parent>
-class EStratAsync
+class estrat_async
 {
+private:
+    using this_type             = estrat_async<Parent>;
+    using parent_type           = Parent;
 public:
-    using base_table_type   = typename Parent::base_table_type;
+    using base_table_type       = typename Parent::base_table_type;
     using hash_ptr_reference    = std::shared_ptr<base_table_type>&;
-    using hash_ptr       = std::shared_ptr<base_table_type>;
+    using hash_ptr              = std::shared_ptr<base_table_type>;
 
     static_assert(std::is_same<typename base_table_type::value_intern, MarkableElement>::value,
                   "Asynchroneous migration can only be chosen with MarkableElement!!!" );
 
-    class local_data_t;
+    class local_data_type;
 
     // STORED AT THE GLOBAL OBJECT
     //  - SHARED POINTERS TO BOTH THE CURRENT AND THE TARGET TABLE
     //  - VERSION COUNTERS
     //  - MUTEX FOR SAVE CHANGING OF SHARED POINTERS
-    class global_data_t
+    class global_data_type
     {
     public:
-        global_data_t(size_t size_) : _g_epoch_r(0), _g_epoch_w(0), _n_helper(0)
+        global_data_type(size_t size_) : _g_epoch_r(0), _g_epoch_w(0), _n_helper(0)
         {
             _g_table_r = _g_table_w = std::make_shared<base_table_type>(size_);
         }
-        global_data_t(const global_data_t& source) = delete;
-        global_data_t& operator=(const global_data_t& source) = delete;
-        ~global_data_t() = default;
+        global_data_type(const global_data_type& source) = delete;
+        global_data_type& operator=(const global_data_type& source) = delete;
+        ~global_data_type() = default;
 
     private:
-        friend local_data_t;
+        friend local_data_type;
 
         std::atomic_size_t _g_epoch_r;
         std::atomic_size_t _g_epoch_w;
@@ -96,31 +97,31 @@ public:
     // STORED AT EACH HANDLE
     //  - CACHED TABLE (SHARED PTR) AND VERSION NUMBER
     //  - CONNECTIONS TO THE  WORKER STRATEGY AND THE GLOBAL TABLE
-    class local_data_t
+    class local_data_type
     {
     private:
-        using WorkerStratL  = typename Parent::worker_strat::local_data_t;
+        using worker_strat_local = typename Parent::worker_strat::local_data_type;
     public:
-        local_data_t(Parent& parent, WorkerStratL& wstrat)
+        local_data_type(Parent& parent, worker_strat_local& wstrat)
             : _parent(parent), _global(parent._global_exclusion),
               _worker_strat(wstrat),
               _epoch(0), _table(nullptr)
         { }
 
-        local_data_t(const local_data_t& source) = delete;
-        local_data_t& operator=(const local_data_t& source) = delete;
+        local_data_type(const local_data_type& source) = delete;
+        local_data_type& operator=(const local_data_type& source) = delete;
 
-        local_data_t(local_data_t&& source) = default;
-        local_data_t& operator=(local_data_t&& source) = default;
-        ~local_data_t() = default;
+        local_data_type(local_data_type&& source) = default;
+        local_data_type& operator=(local_data_type&& source) = default;
+        ~local_data_type() = default;
 
         inline void init() { load(); }
         inline void deinit() { }
 
     private:
-        Parent&        _parent;
-        global_data_t& _global;
-        WorkerStratL&  _worker_strat;
+        Parent&             _parent;
+        global_data_type&   _global;
+        worker_strat_local& _worker_strat;
 
         size_t _epoch;
         std::shared_ptr<base_table_type> _table;
@@ -274,5 +275,3 @@ public:
 };
 
 }
-
-#endif // ESTRAT_ASYNC_H
