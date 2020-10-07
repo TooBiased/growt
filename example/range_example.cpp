@@ -3,7 +3,7 @@
 #include <random>
 #include <cmath>
 
-#include "utils/hash/murmur2_hash.h"
+#include "utils/hash/murmur2_hash.hpp"
 #include "allocator/alignedallocator.h"
 using murmur2_hash = utils_tm::hash_tm::murmur2_hash;
 
