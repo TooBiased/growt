@@ -56,6 +56,38 @@ public:
     inline bool operator!=(complex_element& r) { return (key != r.key); }
 
 private:
-    static constexpr unsigned long long BITMASK    = (1ull << 63) -1;
-    static constexpr unsigned long long MARKED_BIT =  1ull << 63;
+
+    template <bool markable>
+    struct ptr_splitter;
+
+    template <>
+    struct ptr_splitter<true>
+    {
+        bool     mark        : 1;
+        uint64_t fingerprint : 15;
+        uint64_t pointer     : 48;
+    };
+
+    template <>
+    struct ptr_splitter<false>
+    {
+        static constexpr bool mark = false;
+        uint64_t fingerprint : 16;
+        uint64_t pointer     : 48;
+    };
+
+    using ptr_split = ptr_splitter<markable>;
+
+    union ptr_union
+    {
+        uint64_t  full;
+        ptr_split split;
+    };
+    static_assert(sizeof(ptr_union)==8,
+                  "complex element union size is unexpected");
+    static_assert(std::atomic<ptr_union>::is_always_lock_free,
+                  "complex element atomic is not lock free");
+
+
+    std::atomic<ptr_union> _ptr;
 };
