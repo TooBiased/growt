@@ -10,7 +10,7 @@
  * All rights reserved. Published under the BSD-2 license in the LICENSE file.
  ******************************************************************************/
 
-#include "tests/selection.h"
+#include "tests/selection.hpp"
 
 #include "utils/default_hash.hpp"
 #include "utils/thread_coordination.hpp"

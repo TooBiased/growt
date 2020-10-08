@@ -19,9 +19,9 @@
 #include <stdexcept>
 
 #include "utils/default_hash.hpp"
-#include "data-structures/returnelement.h"
-#include "data-structures/base_iterator.h"
-#include "example/update_fcts.h"
+#include "data-structures/returnelement.hpp"
+#include "data-structures/base_iterator.hpp"
+#include "example/update_fcts.hpp"
 
 namespace growt {
 
@@ -488,7 +488,7 @@ base_circular<E,HashFct,A>::update_unsafe_intern(const key_type& k, F f, Types&&
         {
             mapped_type data;
             bool        succ;
-            std::tie(data, succ) = _t[temp].nonAtomicUpdate(f,
+            std::tie(data, succ) = _t[temp].non_atomic_update(f,
                                                             std::forward<Types>(args)...);
             if (succ)
                 return make_insert_ret(k,data, &_t[temp],
@@ -574,7 +574,7 @@ base_circular<E,HashFct,A>::insert_or_update_unsafe_intern(const key_type& k,
         {
             mapped_type data;
             bool        succ;
-            std::tie(data, succ) = _t[temp].nonAtomicUpdate(f,
+            std::tie(data, succ) = _t[temp].non_atomic_update(f,
                                                             std::forward<Types>(args)...);
             if (succ)
                 return make_insert_ret(k,data, &_t[temp],

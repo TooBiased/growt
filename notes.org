@@ -1,0 +1,15 @@
+* Tasks
+
+** TODO change update and delete capabilities
+   [2020-10-08 Thu 13:14]
+   [[file:~/IMP/growt/data-structures/element_types/complex_element.hpp::bool%20atomic_delete(const%20complex_element%20&%20expected);]]
+for now I removed update and delete from complex data types
+
+
+** TODO we have to pass the hash value to the comparison for fingerprints
+   [2020-10-08 Thu 13:13]
+   [[file:~/IMP/growt/data-structures/element_types/complex_element.hpp::bool%20compare_key(const%20key_type%20&%20k)%20const;]]
+
+** TODO
+   [2020-10-08 Thu 13:12]
+   [[file:~/IMP/growt/data-structures/element_types/markableelement.h::static%20constexpr%20unsigned%20long%20long%20MARKED_BIT%20=%201ull%20<<%2063;]]

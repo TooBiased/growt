@@ -10,8 +10,8 @@
  * All rights reserved. Published under the BSD-2 license in the LICENSE file.
  ******************************************************************************/
 
-#include "tests/selection.h"
-#include "data-structures/returnelement.h"
+#include "tests/selection.hpp"
+#include "data-structures/returnelement.hpp"
 
 #include "utils/default_hash.hpp"
 #include "utils/zipf_keygen.hpp"
@@ -20,7 +20,7 @@
 #include "utils/command_line_parser.hpp"
 #include "utils/output.hpp"
 
-#include "example/update_fcts.h"
+#include "example/update_fcts.hpp"
 
 #include <random>
 

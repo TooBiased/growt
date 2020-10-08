@@ -4,12 +4,12 @@
 #include <cmath>
 
 #include "utils/hash/murmur2_hash.hpp"
-#include "allocator/alignedallocator.h"
+#include "allocator/alignedallocator.hpp"
 using murmur2_hash = utils_tm::hash_tm::murmur2_hash;
 
 //////////////////////////////////////////////////////////////
 // USING definitions.h (possibly slower compilation)
-#include "data-structures/definitions.h"
+#include "data-structures/definitions.hpp"
 using Table_t = growt::uaGrow<murmur2_hash, growt::AlignedAllocator<> >;
 
 static std::atomic_size_t aggregator_static {0};

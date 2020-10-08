@@ -15,7 +15,7 @@
 #pragma once
 
 #include "utils/default_hash.hpp"
-#include "data-structures/base_circular.h"
+#include "data-structures/base_circular.hpp"
 
 namespace growt {
 
@@ -57,9 +57,7 @@ public:
         : _ptr(p), _key(k), _ver(v), _tab(t) { }
 
     seq_iterator(const seq_iterator& r) = default;
-    //     : ptr(r.ptr), key(r.key), ver(r.ver), tab(r.tab) { }
     seq_iterator& operator=(const seq_iterator& r) = default;
-    // { ptr = r.ptr; key = r.key; ver = r.ver; tab = r.tab; return *this; }
 
     ~seq_iterator() = default;
 
@@ -71,7 +69,7 @@ public:
         if (_tab._version != _ver) refresh();
         while ( _ptr < _tab._t + _tab._capacity && _ptr->is_empty()) _ptr++;
         if (_ptr == _tab._t+ _tab._capacity) { _ptr = nullptr; _key = key_type(); }
-        else { _key = _ptr->getKey(); }
+        else { _key = _ptr->get_key(); }
         return *this;
     }
 
@@ -238,7 +236,7 @@ private:
             {
                 count++;
                 //target.insert( curr );
-                if (!target.insert(curr.key, curr.data).second)
+                if (!target.insert(curr.get_key(), curr.get_data()).second)
                 {
                     std::logic_error("Unsuccessful insert during sequential migration!");
                 }
@@ -256,7 +254,7 @@ seq_circular<E,HF,A>::begin()
     for (size_t i = 0; i < _capacity; ++i)
     {
         auto curr = _t[i];
-        if (! curr.is_empty()) return make_it(&_t[i], curr.getKey());
+        if (! curr.is_empty()) return make_it(&_t[i], curr.get_key());
     }
     return end();
 }
@@ -275,7 +273,7 @@ seq_circular<E,HF,A>::cbegin() const
     for (size_t i = 0; i < _capacity; ++i)
     {
         auto curr = _t[i];
-        if (! curr.is_empty()) return make_cit(&_t[i], curr.getKey());
+        if (! curr.is_empty()) return make_cit(&_t[i], curr.get_key());
     }
     return cend();
 }
@@ -412,7 +410,7 @@ seq_circular<E,HF,A>::erase(const key_type & k)
         E curr(_t[j & _bitmask]);
         if (curr.is_empty())
             return 1;
-        else if (h(curr.getKey()) <= i)
+        else if (h(curr.get_key()) <= i)
         {
             _t[i] = curr;
             _t[j&_bitmask] = value_intern::get_empty();

@@ -3,13 +3,13 @@
 #include <random>
 
 #include "utils/hash/murmur2_hash.hpp"
-#include "allocator/alignedallocator.h"
+#include "allocator/alignedallocator.hpp"
 
 using murmur2_hash = utils_tm::hash_tm::murmur2_hash;
 
 //////////////////////////////////////////////////////////////
 // USING definitions.h (possibly slower compilation)
-#include "data-structures/definitions.h"
+#include "data-structures/definitions.hpp"
 
 using table_type = growt::uaGrow<murmur2_hash,
                               growt::AlignedAllocator<> >;
@@ -17,11 +17,11 @@ using table_type = growt::uaGrow<murmur2_hash,
 //////////////////////////////////////////////////////////////
 // EQUAL RESULT without definitions.h (possibly faster compilation)
 //
-// #include "data-structures/markableelement.h"
-// #include "data-structures/circular.h"
-// #include "data-structures/strategy/wstrat_user.h"
-// #include "data-structures/strategy/estrat_async.h"
-// #include "data-structures/growtable.h"
+// #include "data-structures/markableelement.hpp"
+// #include "data-structures/circular.hpp"
+// #include "data-structures/strategy/wstrat_user.hpp"
+// #include "data-structures/strategy/estrat_async.hpp"
+// #include "data-structures/growtable.hpp"
 // using table_type = growt::grow_table<growt::Circular<growt::MarkableElement,
 //                                                  murmur2_hash,
 //                                                  growt::AlignedAllocator<> >,
@@ -147,7 +147,6 @@ void check_function_compile(table_type& table)
     //else std::cout << "[] operator works" << std::endl;
 
     /*
-
       begin
       end
       cbegin

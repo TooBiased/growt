@@ -19,9 +19,9 @@
 #define GROWTABLE_H
 
 
-#include "data-structures/returnelement.h"
-#include "data-structures/grow_iterator.h"
-#include "example/update_fcts.h"
+#include "data-structures/returnelement.hpp"
+#include "data-structures/grow_iterator.hpp"
+#include "example/update_fcts.hpp"
 
 #include <atomic>
 #include <memory>

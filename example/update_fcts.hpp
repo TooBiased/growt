@@ -4,8 +4,6 @@
 namespace growt{
 namespace example{
 
-
-
 struct Increment
 {
     using mapped_type = uint64_t;

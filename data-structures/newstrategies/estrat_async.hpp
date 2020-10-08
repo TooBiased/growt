@@ -15,7 +15,7 @@
 #include <mutex>
 #include <memory>
 
-#include "data-structures/markableelement.h"
+#include "data-structures/element_types/markable_element.hpp"
 
 /*******************************************************************************
  *
@@ -61,8 +61,8 @@ public:
     using hash_ptr_reference    = std::shared_ptr<base_table_type>&;
     using hash_ptr              = std::shared_ptr<base_table_type>;
 
-    static_assert(std::is_same<typename base_table_type::value_intern, MarkableElement>::value,
-                  "Asynchroneous migration can only be chosen with MarkableElement!!!" );
+    static_assert(std::is_same<typename base_table_type::value_intern, markable_element>::value,
+                  "Asynchroneous migration can only be chosen with markable_element!!!" );
 
     class local_data_type;
 

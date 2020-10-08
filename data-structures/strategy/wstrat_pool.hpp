@@ -13,7 +13,7 @@
 #ifndef WSTRAT_POOL_H
 #define WSTRAT_POOL_H
 
-#include "allocator/counting_wait.h"
+#include "data-structures/strategy/counting_wait.hpp"
 
 #include <atomic>
 #include <thread>
