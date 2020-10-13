@@ -165,7 +165,7 @@ private:
 
 public:
     using hash_ptr_reference       = typename exclusion_strat::hash_ptr_reference;
-    using value_intern       = typename base_table_type::value_intern;
+    using slot_config       = typename base_table_type::slot_config;
 
     using key_type           = typename base_table_type::key_type;
     using mapped_type        = typename base_table_type::mapped_type;

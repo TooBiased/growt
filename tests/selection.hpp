@@ -267,16 +267,17 @@
 #endif //JUNCTION_LEAPFROG
 
 #ifdef UAGROWNEW
-#include "data-structures/element_types/markable_element.hpp"
+#include "data-structures/element_types/simple_slot.hpp"
 #include "data-structures/base_linear.hpp"
 #include "data-structures/newstrategies/wstrat_user.hpp"
 #include "data-structures/newstrategies/estrat_async.hpp"
 #include "data-structures/migration_table.hpp"
-//#include "data-structures/ancient_grow.hpp"
-#define HASHTYPE growt::migration_table<growt::base_linear<growt::markable_element, \
-                                                           HASHFCT,     \
-                                                           ALLOCATOR<> >, \
-                                        growt::wstrat_user, growt::estrat_async>
+using HASHTYPE = growt::migration_table<growt::base_linear<
+                                       growt::simple_slot<size_t, size_t, true>,
+                                       HASHFCT,
+                                       ALLOCATOR<>
+                                       >
+                                   , growt::wstrat_user, growt::estrat_async>;
 
 #endif // UAGROWNEW
 

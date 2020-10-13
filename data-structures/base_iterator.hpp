@@ -33,13 +33,16 @@ template <class BaseTable, bool is_const = false>
 class base_mapped_reference
 {
 private:
-    using base_table_type = BaseTable;
-    using key_type        = typename base_table_type::key_type;
-    using mapped_type     = typename base_table_type::mapped_type;
-    using pair_type       = std::pair<key_type, mapped_type>;
-    using value_nc        = std::pair<const key_type, mapped_type>;
-    using value_intern    = typename base_table_type::value_intern;
-    using pointer_intern  = value_intern*;
+    using base_table_type  = BaseTable;
+    using key_type         = typename base_table_type::key_type;
+    using mapped_type      = typename base_table_type::mapped_type;
+    using pair_type        = std::pair<key_type, mapped_type>;
+    using value_nc         = std::pair<const key_type, mapped_type>;
+    //using value_intern    = typename base_table_type::value_intern;
+    //using pointer_intern  = value_intern*;
+    using slot_config      = typename base_table_type::slot_config;
+    using slot_type        = typename slot_config::slot_type;
+    using atomic_slot_type = typename slot_config::atomic_slot_type;
 
     template <class, bool>
     friend class growt_mapped_reference;
@@ -52,7 +55,7 @@ public:
                                                        const value_nc,
                                                        value_nc>::type;
 
-    base_mapped_reference(value_type copy, pointer_intern ptr)
+    base_mapped_reference(value_type copy, atomic_slot_type* ptr)
         : _copy(copy), _ptr(ptr) { }
 
     inline void refresh() { _copy = *_ptr; }
@@ -67,8 +70,8 @@ public:
 
     inline bool compare_exchange(mapped_type& exp, const mapped_type& val)
     {
-        auto temp = value_intern(_copy.first, exp);
-        if (_ptr->CAS(temp, value_intern(_copy.first, val)))
+        auto temp = slot_type(_copy.first, exp);
+        if (_ptr->CAS(temp, slot_type(_copy.first, val)))
         { _copy.second = val; return true; }
         else
         { _copy.second = temp.second; exp = temp.second; return false; }
@@ -77,8 +80,8 @@ public:
     inline operator mapped_type()  const { return _copy.second; }
 
 private:
-    pair_type      _copy;
-    pointer_intern _ptr;
+    pair_type         _copy;
+    atomic_slot_type* _ptr;
 };
 
 
@@ -89,13 +92,16 @@ template <class BaseTable, bool is_const = false>
 class base_reference
 {
 private:
-    using base_table_type = BaseTable;
-    using key_type        = typename base_table_type::key_type;
-    using mapped_type     = typename base_table_type::mapped_type;
-    using pair_type       = std::pair<key_type, mapped_type>;
-    using value_nc        = std::pair<const key_type, mapped_type>;
-    using value_intern    = typename base_table_type::value_intern;
-    using pointer_intern  = value_intern*;
+    using base_table_type  = BaseTable;
+    using key_type         = typename base_table_type::key_type;
+    using mapped_type      = typename base_table_type::mapped_type;
+    using pair_type        = std::pair<key_type, mapped_type>;
+    using value_nc         = std::pair<const key_type, mapped_type>;
+    // using value_intern    = typename base_table_type::value_intern;
+    // using pointer_intern  = value_intern*;
+    using slot_config      = typename base_table_type::slot_config;
+    using slot_type        = typename slot_config::slot_type;
+    using atomic_slot_type = typename slot_config::atomic_slot_type;
 
     using mapped_ref      = base_mapped_reference<BaseTable, is_const>;
 
@@ -108,7 +114,7 @@ public:
                                                       const value_nc,
                                                       value_nc>::type;
 
-    base_reference(value_type copy, pointer_intern ptr)
+    base_reference(value_type copy, atomic_slot_type* ptr)
         : second(copy, ptr), first(second._copy.first) { }
 
     inline void refresh() { second.refresh(); }
@@ -142,8 +148,11 @@ private:
     using mapped_type       = typename base_table_type::mapped_type;
     using pair_type         = std::pair<key_type, mapped_type>;
     using value_nc          = std::pair<const key_type, mapped_type>;
-    using value_intern      = typename base_table_type::value_intern;
-    using pointer_intern    = value_intern*;
+    // using value_intern      = typename base_table_type::value_intern;
+    // using pointer_intern    = value_intern*;
+    using slot_config       = typename base_table_type::slot_config;
+    using slot_type         = typename slot_config::slot_type;
+    using atomic_slot_type  = typename slot_config::atomic_slot_type;
 
     template <class, bool>
     friend class growt_iterator;
@@ -166,7 +175,7 @@ public:
     friend bool operator!=(const base_iterator<T,b>& l, const base_iterator<T,b>& r);
 
     // Constructors ************************************************************
-    base_iterator(const pair_type& copy, value_intern* ptr, value_intern* eptr)
+    base_iterator(const pair_type& copy, atomic_slot_type* ptr, atomic_slot_type* eptr)
         : _copy(copy), _ptr(ptr), _eptr(eptr) { }
 
     base_iterator(const base_iterator& rhs)
@@ -210,7 +219,7 @@ public:
 
     inline bool erase()
     {
-        auto temp   = value_intern(reinterpret_cast<value_type>(_copy));
+        auto temp   = slot_type(reinterpret_cast<value_type>(_copy));
         while (!temp.is_deleted)
         {
             if (_ptr->atomic_delete(temp))
@@ -221,9 +230,9 @@ public:
     }
 
 private:
-    pair_type      _copy;
-    pointer_intern _ptr;
-    pointer_intern _eptr;
+    pair_type         _copy;
+    atomic_slot_type* _ptr;
+    atomic_slot_type* _eptr;
 };
 
 

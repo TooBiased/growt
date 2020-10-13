@@ -61,7 +61,7 @@ public:
     using hash_ptr_reference    = std::shared_ptr<base_table_type>&;
     using hash_ptr              = std::shared_ptr<base_table_type>;
 
-    static_assert(std::is_same<typename base_table_type::value_intern, markable_element>::value,
+    static_assert(base_table_type::slot_config::allows_marking,
                   "Asynchroneous migration can only be chosen with markable_element!!!" );
 
     class local_data_type;

@@ -26,22 +26,25 @@
 namespace growt {
 
 template<class E, class HashFct = utils_tm::hash_tm::default_hash,
-         class A = std::allocator<E>>
+         class A = std::allocator<typename E::atomic_slot_type>>
 class base_linear
 {
 private:
     using this_type          = base_linear<E,HashFct,A>;
-    using allocator_type     = typename A::template rebind<E>::other;
+    using allocator_type     = typename A::template rebind<
+        typename E::atomic_slot_type>::other;
 
     template <class> friend class migration_table_handle;
 
 public:
-    using value_intern           = E;
+    using slot_config            = E;
+    using slot_type              = typename E::slot_type;
+    using atomic_slot_type       = typename E::atomic_slot_type;
 
-    using key_type               = typename value_intern::key_type;
-    using mapped_type            = typename value_intern::mapped_type;
-    using value_type             = E;//typename std::pair<const key_type, mapped_type>;
-    using iterator               = base_iterator<this_type, false>;//E*;
+    using key_type               = typename E::key_type;
+    using mapped_type            = typename E::mapped_type;
+    using value_type             = typename E::value_type;
+    using iterator               = base_iterator<this_type, false>;
     using const_iterator         = base_iterator<this_type, true>;
     using size_type              = size_t;
     using difference_type        = std::ptrdiff_t;
@@ -132,14 +135,15 @@ public:
 
 protected:
     allocator_type _allocator;
-    static_assert(std::is_same<typename allocator_type::value_type, value_intern>::value,
+    static_assert(std::is_same<typename allocator_type::value_type,
+                               atomic_slot_type>::value,
                   "Wrong allocator type given to base_linear!");
 
     size_type   _bitmask;
     size_type   _right_shift;
     HashFct     _hash;
 
-    value_intern* _t;
+    atomic_slot_type* _t;
     size_type h(const key_type & k) const { return _hash(k) >> _right_shift; }
 
 private:
@@ -171,19 +175,19 @@ private:
     // HELPER FUNCTION FOR ITERATOR CREATION ***********************************
 
     inline iterator           make_iterator (const key_type& k, const mapped_type& d,
-                                            value_intern* ptr)
+                                            atomic_slot_type* ptr)
     { return iterator(std::make_pair(k,d), ptr, _t+_capacity); }
     inline const_iterator     make_citerator (const key_type& k, const mapped_type& d,
-                                            value_intern* ptr) const
+                                            atomic_slot_type* ptr) const
     { return const_iterator(std::make_pair(k,d), ptr, _t+_capacity); }
     inline insert_return_type make_insert_ret(const key_type& k, const mapped_type& d,
-                                            value_intern* ptr, bool succ)
+                                            atomic_slot_type* ptr, bool succ)
     { return std::make_pair(make_iterator(k,d, ptr), succ); }
     inline insert_return_type make_insert_ret(iterator it, bool succ)
     { return std::make_pair(it, succ); }
 
     inline insert_return_intern make_insert_ret(const key_type& k, const mapped_type& d,
-                                            value_intern* ptr, ReturnCode code)
+                                                atomic_slot_type* ptr, ReturnCode code)
     { return std::make_pair(make_iterator(k,d, ptr), code); }
     inline insert_return_intern make_insert_ret(iterator it, ReturnCode code)
     { return std::make_pair(it, code); }
@@ -193,7 +197,7 @@ private:
 
     // OTHER HELPER FUNCTIONS **************************************************
 
-    void insert_unsafe(const value_intern& e);
+    void insert_unsafe(const slot_type& e);
 
     // capacity is at least twice as large, as the inserted capacity
     static size_type compute_capacity(size_type desired_capacity)
@@ -245,7 +249,7 @@ base_linear<E,HashFct,A>::base_linear(size_type capacity_)
     _t = _allocator.allocate(_capacity);
     if ( !_t ) std::bad_alloc();
 
-    std::fill( _t ,_t + _capacity , value_intern::get_empty() );
+    std::fill( _t ,_t + _capacity , E::get_empty() );
 }
 
 /*should always be called with a capacity_=2^k  */
@@ -293,7 +297,7 @@ base_linear<E,HashFct,A>::operator=(base_linear&& rhs)
         std::invalid_argument("Cannot move a growing table!");
     _capacity   = rhs._capacity;
     _version    = rhs._version;
-    _current_copy_block.store(0);;
+    _current_copy_block.store(0);
     _bitmask     = rhs._bitmask;
     _right_shift = rhs._right_shift;
     rhs._capacity    = 0;
@@ -319,9 +323,9 @@ base_linear<E,HashFct,A>::begin()
 {
     for (size_t i = 0; i<_capacity; ++i)
     {
-        auto temp = _t[i];
+        auto temp = _t[i].load();
         if (!temp.is_empty() && !temp.is_deleted())
-            return make_iterator(temp.get_key(), temp.get_data(), &_t[i]);
+            return make_iterator(temp.get_key(), temp.get_mapped(), &_t[i]);
     }
     return end();
 }
@@ -338,9 +342,9 @@ base_linear<E,HashFct,A>::cbegin() const
 {
     for (size_t i = 0; i<_capacity; ++i)
     {
-        auto temp = _t[i];
+        auto temp = _t[i].load();
         if (!temp.is_empty() && !temp.is_deleted())
-            return make_citerator(temp.get_key(), temp.get_data(), &_t[i]);
+            return make_citerator(temp.get_key(), temp.get_mapped(), &_t[i]);
     }
     return end();
 }
@@ -363,10 +367,10 @@ base_linear<E,HashFct,A>::range(size_t rstart, size_t rend)
     auto temp_rend = std::min(rend, _capacity);
     for (size_t i = rstart; i < temp_rend; ++i)
     {
-        auto temp = _t[i];
+        auto temp = _t[i].load();
         if (!temp.is_empty() && !temp.is_deleted())
             return range_iterator(std::make_pair(temp.get_key(),
-                                                 temp.get_data()),
+                                                 temp.get_mapped()),
                                   &_t[i], &_t[temp_rend]);
     }
     return range_end();
@@ -379,10 +383,10 @@ base_linear<E,HashFct,A>::crange(size_t rstart, size_t rend)
     auto temp_rend = std::min(rend, _capacity);
     for (size_t i = rstart; i < temp_rend; ++i)
     {
-        auto temp = _t[i];
+        auto temp = _t[i].load();
         if (!temp.is_empty() && !temp.is_deleted())
             return const_range_iterator(std::make_pair(temp.get_key(),
-                                                       temp.get_data()),
+                                                       temp.get_mapped()),
                                   &_t[i], &_t[temp_rend]);
     }
     return range_cend();
@@ -402,18 +406,18 @@ base_linear<E,HashFct,A>::insert_intern(const key_type& k,
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & _bitmask;
-        value_intern curr(_t[temp]);
+        auto curr = _t[temp].load();
 
         if (curr.is_marked())
             return make_insert_ret(end(),
                                    ReturnCode::UNSUCCESS_INVALID);
 
-        else if (curr.compare_key(k))
-            return make_insert_ret(k, curr.get_data(), &_t[temp],
+        else if (curr.compare_key(k, htemp))
+            return make_insert_ret(k, curr.get_mapped(), &_t[temp],
                                    ReturnCode::UNSUCCESS_ALREADY_USED);
         else if (curr.is_empty())
         {
-            if ( _t[temp].cas(curr, value_intern(k,d)) )
+            if ( _t[temp].cas(curr, slot_type(k,d,htemp)) )
                 return make_insert_ret(k,d, &_t[temp],
                                        ReturnCode::SUCCESS_IN);
 
@@ -438,13 +442,13 @@ base_linear<E,HashFct,A>::update_intern(const key_type& k, F f, Types&& ... args
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & _bitmask;
-        value_intern curr(_t[temp]);
+        auto curr =_t[temp].load();
         if (curr.is_marked())
         {
             return make_insert_ret(end(),
                                    ReturnCode::UNSUCCESS_INVALID);
         }
-        else if (curr.compare_key(k))
+        else if (curr.compare_key(k, htemp))
         {
             mapped_type data;
             bool        succ;
@@ -478,13 +482,13 @@ base_linear<E,HashFct,A>::update_unsafe_intern(const key_type& k, F f, Types&& .
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & _bitmask;
-        value_intern curr(_t[temp]);
+        auto curr = _t[temp];
         if (curr.is_marked())
         {
             return make_insert_ret(end(),
                                    ReturnCode::UNSUCCESS_INVALID);
         }
-        else if (curr.compare_key(k))
+        else if (curr.compare_key(k, htemp))
         {
             mapped_type data;
             bool        succ;
@@ -520,12 +524,12 @@ base_linear<E,HashFct,A>::insert_or_update_intern(const key_type& k,
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & _bitmask;
-        value_intern curr(_t[temp]);
+        auto curr = _t[temp].load();
         if (curr.is_marked())
         {
             return make_insert_ret(end(), ReturnCode::UNSUCCESS_INVALID);
         }
-        else if (curr.compare_key(k))
+        else if (curr.compare_key(k, htemp))
         {
             mapped_type data;
             bool        succ;
@@ -538,7 +542,7 @@ base_linear<E,HashFct,A>::insert_or_update_intern(const key_type& k,
         }
         else if (curr.is_empty())
         {
-            if ( _t[temp].cas(curr, value_intern(k,d)) )
+            if ( _t[temp].cas(curr, slot_type(k,d,htemp)) )
                 return make_insert_ret(k,d, &_t[temp],
                                        ReturnCode::SUCCESS_IN);
 
@@ -564,13 +568,13 @@ base_linear<E,HashFct,A>::insert_or_update_unsafe_intern(const key_type& k,
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & _bitmask;
-        value_intern curr(_t[temp]);
+        auto curr = _t[temp].load();
         if (curr.is_marked())
         {
             return make_insert_ret(end(),
                                    ReturnCode::UNSUCCESS_INVALID);
         }
-        else if (curr.compare_key(k))
+        else if (curr.compare_key(k, htemp))
         {
             mapped_type data;
             bool        succ;
@@ -583,7 +587,7 @@ base_linear<E,HashFct,A>::insert_or_update_unsafe_intern(const key_type& k,
         }
         else if (curr.is_empty())
         {
-            if ( _t[temp].cas(curr, value_intern(k,d)) )
+            if ( _t[temp].cas(curr, slot_type(k,d,htemp)) )
                 return make_insert_ret(k,d, &_t[temp],
                                        ReturnCode::SUCCESS_IN);
             //somebody changed the current element! recheck it
@@ -605,12 +609,12 @@ inline ReturnCode base_linear<E,HashFct,A>::erase_intern(const key_type& k)
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & _bitmask;
-        value_intern curr(_t[temp]);
+        auto curr = _t[temp].load();
         if (curr.is_marked())
         {
             return ReturnCode::UNSUCCESS_INVALID;
         }
-        else if (curr.compare_key(k))
+        else if (curr.compare_key(k, htemp))
         {
             if (_t[temp].atomic_delete(curr))
                 return ReturnCode::SUCCESS_DEL;
@@ -636,14 +640,14 @@ inline ReturnCode base_linear<E,HashFct,A>::erase_if_intern(const key_type& k, c
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & _bitmask;
-        value_intern curr(_t[temp]);
+        auto curr = _t[temp].load();
         if (curr.is_marked())
         {
             return ReturnCode::UNSUCCESS_INVALID;
         }
-        else if (curr.compare_key(k))
+        else if (curr.compare_key(k, htemp))
         {
-            if (curr.get_data() != d) return ReturnCode::UNSUCCESS_NOT_FOUND;
+            if (curr.get_mapped() != d) return ReturnCode::UNSUCCESS_NOT_FOUND;
 
             if (_t[temp].atomic_delete(curr))
                 return ReturnCode::SUCCESS_DEL;
@@ -675,9 +679,9 @@ base_linear<E,HashFct,A>::find(const key_type& k)
     size_type htemp = h(k);
     for (size_type i = htemp; ; ++i)
     {
-        value_intern curr(_t[i & _bitmask]);
-        if (curr.compare_key(k))
-            return make_iterator(k, curr.get_data(), &_t[i & _bitmask]);
+        auto curr = _t[i & _bitmask].load();
+        if (curr.compare_key(k, htemp))
+            return make_iterator(k, curr.get_mapped(), &_t[i & _bitmask]);
         if (curr.is_empty())
             return end();
     }
@@ -691,9 +695,9 @@ base_linear<E,HashFct,A>::find(const key_type& k) const
     size_type htemp = h(k);
     for (size_type i = htemp; ; ++i)
     {
-        value_intern curr(_t[i & _bitmask]);
-        if (curr.compare_key(k))
-            return make_citerator(k, curr.get_data(), &_t[i & _bitmask]);
+        auto curr = _t[i & _bitmask].load;
+        if (curr.compare_key(k, htemp))
+            return make_citerator(k, curr.get_mapped(), &_t[i & _bitmask]);
         if (curr.is_empty())
             return cend();
     }
@@ -787,7 +791,7 @@ base_linear<E,HashFct,A>::insert_or_update_unsafe(const key_type& k,
 //         while (! _t[i].atomic_mark(curr))
 //         { /* retry until we successfully mark the element */ }
 
-//         target.insert(curr.get_key(), curr.get_data());
+//         target.insert(curr.get_key(), curr.get_mapped());
 //         ++count;
 //     }
 
@@ -800,7 +804,7 @@ base_linear<E,HashFct,A>::migrate(this_type& target, size_type s, size_type e)
 {
     size_type n = 0;
     auto i = s;
-    auto curr = value_intern::get_empty();
+    auto curr = E::get_empty();
 
     //HOW MUCH BIGGER IS THE TARGET TABLE
     auto shift = 0u;
@@ -810,7 +814,7 @@ base_linear<E,HashFct,A>::migrate(this_type& target, size_type s, size_type e)
     //FINDS THE FIRST EMPTY BUCKET (START OF IMPLICIT BLOCK)
     while (i<e)
     {
-        curr = _t[i];                    //no bitmask necessary (within one block)
+        curr = _t[i].load();           //no bitmask necessary (within one block)
         if (curr.is_empty())
         {
             if (_t[i].atomic_mark(curr)) break;
@@ -819,12 +823,12 @@ base_linear<E,HashFct,A>::migrate(this_type& target, size_type s, size_type e)
         ++i;
     }
 
-    std::fill(target._t+(i<<shift), target._t+(e<<shift), value_intern::get_empty());
+    std::fill(target._t+(i<<shift), target._t+(e<<shift), E::get_empty());
 
     //MIGRATE UNTIL THE END OF THE BLOCK
     for (; i<e; ++i)
     {
-        curr = _t[i];
+        curr = _t[i].load();
         if (! _t[i].atomic_mark(curr))
         {
             --i;
@@ -848,10 +852,11 @@ base_linear<E,HashFct,A>::migrate(this_type& target, size_type s, size_type e)
     {
         auto pos  = i&_bitmask;
         auto t_pos= pos<<shift;
-        for (size_type j = 0; j < 1ull<<shift; ++j) target._t[t_pos+j] = value_intern::get_empty();
+        for (size_type j = 0; j < 1ull<<shift; ++j)
+            target._t[t_pos+j].non_atomic_set(E::get_empty());
         //target.t[t_pos] = E::get_empty();
 
-        curr = _t[pos];
+        curr = _t[pos].load();
 
         if (! _t[pos].atomic_mark(curr)) --i;
         if ( (b = ! curr.is_empty()) ) // this might be nicer as an else if, but this is faster
@@ -864,7 +869,7 @@ base_linear<E,HashFct,A>::migrate(this_type& target, size_type s, size_type e)
 }
 
 template<class E, class HashFct, class A>
-inline void base_linear<E,HashFct,A>::insert_unsafe(const value_intern& e)
+inline void base_linear<E,HashFct,A>::insert_unsafe(const slot_type& e)
 {
     const key_type k = e.get_key();
 
@@ -872,10 +877,10 @@ inline void base_linear<E,HashFct,A>::insert_unsafe(const value_intern& e)
     for (size_type i = htemp; ; ++i)  // i < htemp + MaDis
     {
         size_type temp = i & _bitmask;
-        value_intern curr(_t[temp]);
+        auto curr = _t[temp].load();
         if (curr.is_empty())
         {
-            _t[temp] = e;
+            _t[temp].non_atomic_set(e);
             return;
         }
     }

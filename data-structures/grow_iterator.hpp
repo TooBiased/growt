@@ -187,8 +187,13 @@ private:
     using mapped_type        = typename table_type::mapped_type;
     using pair_type          = std::pair<key_type, mapped_type>;
     using value_nc           = std::pair<const key_type, mapped_type>;
-    using value_intern       = typename table_type::value_intern;
-    using pointer_intern     = value_intern*;
+    //using value_intern       = typename table_type::value_intern;
+    //using pointer_intern     = value_intern*;
+
+    using slot_config        = typename table_type::slot_config;
+    using slot_type          = typename slot_config::slot_type;
+    using atomic_slot_type   = typename slot_config::atomic_slot_type;
+
     using hash_ptr_reference = typename table_type::hash_ptr_reference;
     using base_table_type    = typename std::conditional<is_const,
                                             const typename table_type::base_table_type,
