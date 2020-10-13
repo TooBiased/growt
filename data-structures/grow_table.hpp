@@ -171,12 +171,13 @@ private:
 public:
     using hash_ptr_reference = typename exclusion_strat::hash_ptr_reference;
     using value_intern       = typename base_table_type::value_intern;
+    using slot_config        = typename base_table_type::slot_config;
 
     using key_type           = typename base_table_type::key_type;
     using mapped_type        = typename base_table_type::mapped_type;
     using value_type         = typename std::pair<const key_type, mapped_type>;
-    using iterator           = growt_iterator<this_type, false>;//value_intern*;
-    using const_iterator     = growt_iterator<this_type, true>;//growt_iterator<this_type, true>;
+    using iterator           = growt_iterator<this_type, false>;
+    using const_iterator     = growt_iterator<this_type, true>;
     using size_type          = size_t;
     using difference_type    = std::ptrdiff_t;
     using reference          = growt_reference<this_type, false>;

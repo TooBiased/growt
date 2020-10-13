@@ -297,6 +297,67 @@ GrowTExecutable( USGROW agg_test agg agg_full_usGrowT )
 GrowTExecutable( PAGROW agg_test agg agg_full_paGrowT )
 GrowTExecutable( PSGROW agg_test agg agg_full_psGrowT )
 
+add_custom_target( folklore )
+add_dependencies( folklore
+  ins_none_folklore mix_none_folklore con_none_folklore
+  agg_none_folklore)
+
+add_custom_target( sequential )
+add_dependencies( sequential
+  ins_full_sequential mix_full_sequential con_full_sequential
+  agg_full_sequential)
+
+add_custom_target( uagrow )
+add_dependencies( uagrow
+  ins_full_uaGrowT mix_full_uaGrowT con_full_uaGrowT
+  agg_full_uaGrowT del_full_uaGrowT)
+
+add_custom_target( usgrow )
+add_dependencies( usgrow
+  ins_full_usGrowT mix_full_usGrowT con_full_usGrowT
+  agg_full_usGrowT del_full_usGrowT)
+
+add_custom_target( pagrow )
+add_dependencies( pagrow
+  ins_full_paGrowT mix_full_paGrowT con_full_paGrowT
+  agg_full_paGrowT del_full_paGrowT)
+
+add_custom_target( psgrow )
+add_dependencies( psgrow
+  ins_full_psGrowT mix_full_psGrowT con_full_psGrowT
+  agg_full_psGrowT del_full_psGrowT)
+
+add_custom_target( ins )
+add_dependencies( ins
+  ins_full_sequential ins_none_folklore
+  ins_full_uaGrowT    ins_full_usGrowT
+  ins_full_uaGrowT    ins_full_usGrowT)
+
+add_custom_target( agg )
+add_dependencies( agg
+  agg_full_sequential agg_none_folklore
+  agg_full_uaGrowT    agg_full_usGrowT
+  agg_full_uaGrowT    agg_full_usGrowT)
+
+add_custom_target( mix )
+add_dependencies( mix
+  mix_full_sequential mix_none_folklore
+  mix_full_uaGrowT    mix_full_usGrowT
+  mix_full_uaGrowT    mix_full_usGrowT)
+
+
+add_custom_target( con )
+add_dependencies( con
+  con_full_sequential con_none_folklore
+  con_full_uaGrowT    con_full_usGrowT
+  con_full_uaGrowT    con_full_usGrowT)
+
+
+add_custom_target( del )
+add_dependencies( del
+  del_full_uaGrowT    del_full_usGrowT
+  del_full_uaGrowT    del_full_usGrowT)
+
 if (GTOWT_BUILD_ALTERNATE_VARIANT)
   GrowTExecutable( USNGROW ins_test ins ins_full_usnGrowT )
   GrowTExecutable( PSNGROW ins_test ins ins_full_psnGrowT )
@@ -369,6 +430,13 @@ if (GROWT_BUILD_TBB)
   TBBExecutable( TBBUM  con_test con con_full_TBBum )
   TBBExecutable( TBBHM  agg_test agg agg_full_TBBhm )
   TBBExecutable( TBBUM  agg_test agg agg_full_TBBum )
+
+  add_custom_target( tbb )
+  add_dependencies( tbb
+    ins_full_TBBhm ins_full_TBBum
+    mix_full_TBBhm mix_full_TBBum
+    con_full_TBBhm con_full_TBBum
+    agg_full_TBBhm agg_full_TBBum)
 endif()
 
 if (GROWT_BUILD_FOLLY)
@@ -391,7 +459,10 @@ if (GROWT_BUILD_FOLLY)
   FollyExecutable( FOLLY  con_test con con_semi_folly )
   FollyExecutable( FOLLY  agg_test agg agg_semi_folly )
 
-  # set(CMAKE_CXX_FLAGS "${TEMP_FLAGS}")
+  add_custom_target( folly )
+  add_dependencies( folly
+    ins_semi_folly mix_semi_folly con_semi_folly
+    agg_semi_folly)
 endif()
 
 if (GROWT_BUILD_CUCKOO)
@@ -410,6 +481,11 @@ if (GROWT_BUILD_CUCKOO)
   CuckooExecutable( CUCKOO  con_test con con_full_cuckoo )
   CuckooExecutable( CUCKOO  agg_test agg agg_full_cuckoo )
   CuckooExecutable( CUCKOO  del_test del del_full_cuckoo )
+
+  add_custom_target( cuckoo )
+  add_dependencies( cuckoo
+    ins_full_cuckoo mix_full_cuckoo con_full_cuckoo
+    agg_full_cuckoo del_full_cuckoo)
 endif()
 
 if (GROWT_BUILD_JUNCTION)
@@ -438,6 +514,14 @@ if (GROWT_BUILD_JUNCTION)
   JunctionExecutable( JUNCTION_LEAPFROG    con_test con con_full_junction_leap )
   JunctionExecutable( JUNCTION_LEAPFROG    agg_test agg agg_full_junction_leap )
   JunctionExecutable( JUNCTION_LEAPFROG    del_test del del_full_junction_leap )
+
+  add_custom_target( junction )
+  add_dependencies( junction
+    ins_full_junction_linear ins_full_junction_grampa ins_full_junction_leap
+    mix_full_junction_linear mix_full_junction_grampa mix_full_junction_leap
+    con_full_junction_linear con_full_junction_grampa con_full_junction_leap
+    agg_full_junction_linear agg_full_junction_grampa agg_full_junction_leap
+    del_full_junction_linear del_full_junction_grampa del_full_junction_leap)
 endif()
 
 

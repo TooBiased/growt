@@ -37,6 +37,12 @@ private:
 
 public:
     using value_intern           = E;
+    class slot_config
+    {
+    public:
+        using slot_type          = E;
+        using atomic_slot_type   = E;
+    };
 
     using key_type               = typename value_intern::key_type;
     using mapped_type            = typename value_intern::mapped_type;
