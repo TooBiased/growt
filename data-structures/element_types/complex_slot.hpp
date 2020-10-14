@@ -3,27 +3,35 @@
 #include <atomic>
 #include <tuple>
 
+#include "utils/debug.hpp"
+namespace debug = utils_tm::debug_tm;
+
 #include "data-structures/returnelement.hpp"
+
+namespace growt
+{
+
+template <bool default_true>
+struct ptr_splitter
+{
+    bool     mark        : 1;
+    uint64_t fingerprint : 15;
+    uint64_t pointer     : 48;
+};
+
+template <>
+struct ptr_splitter<false>
+{
+    static constexpr bool mark = false;
+    uint64_t fingerprint : 16;
+    uint64_t pointer     : 48;
+};
 
 template <class Key, class Data, bool markable>
 class complex_slot
 {
 
-    template <bool default_true>
-    struct ptr_splitter
-    {
-        bool     mark        : 1;
-        uint64_t fingerprint : 15;
-        uint64_t pointer     : 48;
-    };
 
-    template <>
-    struct ptr_splitter<false>
-    {
-        static constexpr bool mark = false;
-        uint64_t fingerprint : 16;
-        uint64_t pointer     : 48;
-    };
 
     using ptr_split = ptr_splitter<markable>;
 
@@ -37,9 +45,9 @@ class complex_slot
     static_assert(std::atomic<ptr_union>::is_always_lock_free,
                   "complex slot atomic is not lock free");
 
-    static constexpr size_t fingerprint_mask = (markable) & (1ull<<15)-1
+    static constexpr size_t fingerprint_mask = (markable) ? (1ull<<15)-1
                                                           : (1ull<<16)-1;
-    inline static constexpr size_t fingerprint(size_t hash) const
+    inline static constexpr size_t fingerprint(size_t hash)
     {
         return hash & fingerprint_mask;
     }
@@ -80,11 +88,11 @@ public:
         inline bool is_empty()   const;
         inline bool is_deleted() const;
         inline bool is_marked()  const;
-        inline bool compare_key(const key_type & k, size_t hash) const;
+        inline bool compare_key(const key_type& k, size_t hash) const;
 
         inline operator value_type() const;
-        inline bool operator==(const complex_slot& r) const;
-        inline bool operator!=(const complex_slot& r) const;
+        inline bool operator==(const slot_type& r) const;
+        inline bool operator!=(const slot_type& r) const;
 
         inline void cleanup();
     };
@@ -167,15 +175,17 @@ complex_slot<K,D,m>::slot_type::slot_type(slot_type&& source)
     : _mfptr(source._mfptr) { }
 
 template <class K, class D, bool m>
-complex_slot<K,D,m>::slot_type::slot_type& operator=(const slot_type& source)
+typename complex_slot<K,D,m>::slot_type&
+complex_slot<K,D,m>::slot_type::operator=(const slot_type& source)
 {
-    _mptr = source._mptr;
+    _mfptr = source._mfptr;
 }
 
 template <class K, class D, bool m>
-complex_slot<K,D,m>::slot_type::slot_type& operator=(slot_type&& source);
+typename complex_slot<K,D,m>::slot_type&
+complex_slot<K,D,m>::slot_type::operator=(slot_type&& source)
 {
-    _mptr = source._mptr;
+    _mfptr = source._mfptr;
 }
 
 template <class K, class D, bool m>
@@ -226,7 +236,7 @@ complex_slot<K,D,m>::slot_type::is_marked() const
 
 template <class K, class D, bool m>
 bool
-complex_slot<K,D,m>::slot_type::compare_key(const key& k, size_t hash) const
+complex_slot<K,D,m>::slot_type::compare_key(const key_type& k, size_t hash) const
 {
     if (fingerprint(hash) != _mfptr.split.fingerprint) return false;
     auto ptr = static_cast<value_type*>(_mfptr.split.pointer);
@@ -318,7 +328,7 @@ complex_slot<K,D,m>::atomic_slot_type::atomic_mark  (slot_type& expected)
 }
 
 // *** functor style updates ***************************************************
-template<class F, class ...Types>
+template <class K, class D, bool m> template<class F, class ...Types>
 std::pair<typename complex_slot<K,D,m>::mapped_type, bool>
 complex_slot<K,D,m>::atomic_slot_type::atomic_update(complex_slot & expected,
                                            F f, Types&& ... args)
@@ -330,13 +340,15 @@ complex_slot<K,D,m>::atomic_slot_type::atomic_update(complex_slot & expected,
                         once.exchange(false));
 }
 
-template<class F, class ...Types>
+template <class K, class D, bool m> template<class F, class ...Types>
 std::pair<typename complex_slot<K,D,m>::mapped_type, bool>
-complex_slot<K,D,m>::atomic_slot_type::non_atomic_update(F f, Types&& ... args);
+complex_slot<K,D,m>::atomic_slot_type::non_atomic_update(F f, Types&& ... args)
 {
     if constexpr (! debug::debug_mode) return false;
     static std::atomic_bool once = true;
     if (once.load())
         debug::if_debug("non-atomic update is not implemented in complex types",
                         once.exchange(false));
+}
+
 }
