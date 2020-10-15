@@ -35,11 +35,11 @@ size_t blockwise_migrate(table_type source, table_type target)
 
     //get block + while block legal migrate and get new block
     size_t temp = source->_current_copy_block.fetch_add(migration_block_size);
-    while (temp < source->_capacity)
+    while (temp < source->capacity())
     {
         n += source->migrate(*target, temp,
                              std::min(uint(temp+migration_block_size),
-                                      uint(source->_capacity)));
+                                      uint(source->capacity())));
         temp = source->_current_copy_block.fetch_add(migration_block_size);
     }
     return n;
@@ -367,7 +367,7 @@ public:
     const_range_iterator range_cend() const { return bcend(); }
     size_t               capacity()   const
     {
-        size_t cap = cexecute([](hash_ptr_reference tab) { return tab->_capacity; });
+        size_t cap = cexecute([](hash_ptr_reference tab) { return tab->capacity(); });
         return cap;
     }
 

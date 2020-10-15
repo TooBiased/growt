@@ -267,18 +267,27 @@
 #endif //JUNCTION_LEAPFROG
 
 #ifdef UAGROWNEW
-#include "data-structures/element_types/complex_slot.hpp"
-#include "data-structures/base_linear.hpp"
-#include "data-structures/newstrategies/wstrat_user.hpp"
-#include "data-structures/newstrategies/estrat_async.hpp"
-#include "data-structures/migration_table.hpp"
-using HASHTYPE = growt::migration_table<
-                     growt::base_linear<
-                         growt::complex_slot<size_t, size_t, true>,
-                         HASHFCT,
-                         ALLOCATOR<>>,
-                     growt::wstrat_user,
-                     growt::estrat_async>;
+// #include "data-structures/element_types/complex_slot.hpp"
+// #include "data-structures/base_linear.hpp"
+// #include "data-structures/newstrategies/wstrat_user.hpp"
+// #include "data-structures/newstrategies/estrat_async.hpp"
+// #include "data-structures/migration_table.hpp"
+#include "data-structures/table_config.hpp"
+
+using HASHTYPE = typename growt::table_config<size_t,
+                                              size_t,
+                                              HASHFCT,
+                                              ALLOCATOR<>,
+                                              hash_mod::growable,
+                                              hash_mod::ref_integrity>::table_type;
+
+// using HASHTYPE = growt::<
+//                      growt::base_linear<
+//                          growt::complex_slot<size_t, size_t, true>,
+//                          HASHFCT,
+//                          ALLOCATOR<>>,
+//                      growt::wstrat_user,
+//                      growt::estrat_async>;
 
 #endif // UAGROWNEW
 
