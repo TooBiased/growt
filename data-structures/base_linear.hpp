@@ -25,6 +25,22 @@
 
 namespace growt {
 
+class table_config
+{
+    using key_type                 = int;
+    using value_type               = int;
+    using needs_deletions          = int;
+    using needs_atomic_updates     = int;
+    using needs_non_atomic_updates = int;
+    using needs_referential_integrity = int;
+    using needs_cleanup               = int;
+
+    using allocator_type              = int;
+    using hash_fct_type               = int;
+    using needs_growing               = int;
+};
+
+
 template<class E, class HashFct = utils_tm::hash_tm::default_hash,
          class A = std::allocator<typename E::atomic_slot_type>>
 class base_linear
@@ -198,6 +214,8 @@ private:
     // OTHER HELPER FUNCTIONS **************************************************
 
     void insert_unsafe(const slot_type& e);
+    void slot_cleanup () // called, either by the destructor, or by the destructor of the parenttable
+    { for (size_t i = 0; i<_capacity; ++i) _t[i].load().cleanup(); }
 
     // capacity is at least twice as large, as the inserted capacity
     static size_type compute_capacity(size_type desired_capacity)
@@ -271,6 +289,13 @@ base_linear<E,HashFct,A>::base_linear(size_type capacity_, size_type version_)
 template<class E, class HashFct, class A>
 base_linear<E,HashFct,A>::~base_linear()
 {
+    if constexpr (slot_config::needs_cleanup && !base_table)
+    {
+        for(size_t i = 0; i < _capacity; ++i)
+        {
+            auto curr = _t[i].load();
+        }
+    }
     if (_t) _allocator.deallocate(_t, _capacity);
 }
 
@@ -409,12 +434,10 @@ base_linear<E,HashFct,A>::insert_intern(const key_type& k,
         auto curr = _t[temp].load();
 
         if (curr.is_marked())
+        {
             return make_insert_ret(end(),
                                    ReturnCode::UNSUCCESS_INVALID);
-
-        else if (curr.compare_key(k, htemp))
-            return make_insert_ret(k, curr.get_mapped(), &_t[temp],
-                                   ReturnCode::UNSUCCESS_ALREADY_USED);
+        }
         else if (curr.is_empty())
         {
             if ( _t[temp].cas(curr, slot_type(k,d,htemp)) )
@@ -423,6 +446,11 @@ base_linear<E,HashFct,A>::insert_intern(const key_type& k,
 
             //somebody changed the current element! recheck it
             --i;
+        }
+        else if (curr.compare_key(k, htemp))
+        {
+            return make_insert_ret(k, curr.get_mapped(), &_t[temp],
+                                   ReturnCode::UNSUCCESS_ALREADY_USED);
         }
         else if (curr.is_deleted())
         {
@@ -448,6 +476,11 @@ base_linear<E,HashFct,A>::update_intern(const key_type& k, F f, Types&& ... args
             return make_insert_ret(end(),
                                    ReturnCode::UNSUCCESS_INVALID);
         }
+        else if (curr.is_empty())
+        {
+            return make_insert_ret(end(),
+                                   ReturnCode::UNSUCCESS_NOT_FOUND);
+        }
         else if (curr.compare_key(k, htemp))
         {
             mapped_type data;
@@ -458,11 +491,6 @@ base_linear<E,HashFct,A>::update_intern(const key_type& k, F f, Types&& ... args
                 return make_insert_ret(k,data, &_t[temp],
                                        ReturnCode::SUCCESS_UP);
             i--;
-        }
-        else if (curr.is_empty())
-        {
-            return make_insert_ret(end(),
-                                   ReturnCode::UNSUCCESS_NOT_FOUND);
         }
         else if (curr.is_deleted())
         {
@@ -488,6 +516,11 @@ base_linear<E,HashFct,A>::update_unsafe_intern(const key_type& k, F f, Types&& .
             return make_insert_ret(end(),
                                    ReturnCode::UNSUCCESS_INVALID);
         }
+        else if (curr.is_empty())
+        {
+            return make_insert_ret(end(),
+                                   ReturnCode::UNSUCCESS_NOT_FOUND);
+        }
         else if (curr.compare_key(k, htemp))
         {
             mapped_type data;
@@ -498,11 +531,6 @@ base_linear<E,HashFct,A>::update_unsafe_intern(const key_type& k, F f, Types&& .
                 return make_insert_ret(k,data, &_t[temp],
                                        ReturnCode::SUCCESS_UP);
             i--;
-        }
-        else if (curr.is_empty())
-        {
-            return make_insert_ret(end(),
-                                   ReturnCode::UNSUCCESS_NOT_FOUND);
         }
         else if (curr.is_deleted())
         {
@@ -529,6 +557,15 @@ base_linear<E,HashFct,A>::insert_or_update_intern(const key_type& k,
         {
             return make_insert_ret(end(), ReturnCode::UNSUCCESS_INVALID);
         }
+        else if (curr.is_empty())
+        {
+            if ( _t[temp].cas(curr, slot_type(k,d,htemp)) )
+                return make_insert_ret(k,d, &_t[temp],
+                                       ReturnCode::SUCCESS_IN);
+
+            //somebody changed the current element! recheck it
+            --i;
+        }
         else if (curr.compare_key(k, htemp))
         {
             mapped_type data;
@@ -539,15 +576,6 @@ base_linear<E,HashFct,A>::insert_or_update_intern(const key_type& k,
                 return make_insert_ret(k,data, &_t[temp],
                                        ReturnCode::SUCCESS_UP);
             i--;
-        }
-        else if (curr.is_empty())
-        {
-            if ( _t[temp].cas(curr, slot_type(k,d,htemp)) )
-                return make_insert_ret(k,d, &_t[temp],
-                                       ReturnCode::SUCCESS_IN);
-
-            //somebody changed the current element! recheck it
-            --i;
         }
         else if (curr.is_deleted())
         {
@@ -574,6 +602,14 @@ base_linear<E,HashFct,A>::insert_or_update_unsafe_intern(const key_type& k,
             return make_insert_ret(end(),
                                    ReturnCode::UNSUCCESS_INVALID);
         }
+        else if (curr.is_empty())
+        {
+            if ( _t[temp].cas(curr, slot_type(k,d,htemp)) )
+                return make_insert_ret(k,d, &_t[temp],
+                                       ReturnCode::SUCCESS_IN);
+            //somebody changed the current element! recheck it
+            --i;
+        }
         else if (curr.compare_key(k, htemp))
         {
             mapped_type data;
@@ -584,14 +620,6 @@ base_linear<E,HashFct,A>::insert_or_update_unsafe_intern(const key_type& k,
                 return make_insert_ret(k,data, &_t[temp],
                                        ReturnCode::SUCCESS_UP);
             i--;
-        }
-        else if (curr.is_empty())
-        {
-            if ( _t[temp].cas(curr, slot_type(k,d,htemp)) )
-                return make_insert_ret(k,d, &_t[temp],
-                                       ReturnCode::SUCCESS_IN);
-            //somebody changed the current element! recheck it
-            --i;
         }
         else if (curr.is_deleted())
         {
@@ -614,15 +642,15 @@ inline ReturnCode base_linear<E,HashFct,A>::erase_intern(const key_type& k)
         {
             return ReturnCode::UNSUCCESS_INVALID;
         }
+        else if (curr.is_empty())
+        {
+            return ReturnCode::UNSUCCESS_NOT_FOUND;
+        }
         else if (curr.compare_key(k, htemp))
         {
             if (_t[temp].atomic_delete(curr))
                 return ReturnCode::SUCCESS_DEL;
             i--;
-        }
-        else if (curr.is_empty())
-        {
-            return ReturnCode::UNSUCCESS_NOT_FOUND;
         }
         else if (curr.is_deleted())
         {
@@ -645,6 +673,10 @@ inline ReturnCode base_linear<E,HashFct,A>::erase_if_intern(const key_type& k, c
         {
             return ReturnCode::UNSUCCESS_INVALID;
         }
+        else if (curr.is_empty())
+        {
+            return ReturnCode::UNSUCCESS_NOT_FOUND;
+        }
         else if (curr.compare_key(k, htemp))
         {
             if (curr.get_mapped() != d) return ReturnCode::UNSUCCESS_NOT_FOUND;
@@ -652,10 +684,6 @@ inline ReturnCode base_linear<E,HashFct,A>::erase_if_intern(const key_type& k, c
             if (_t[temp].atomic_delete(curr))
                 return ReturnCode::SUCCESS_DEL;
             i--;
-        }
-        else if (curr.is_empty())
-        {
-            return ReturnCode::UNSUCCESS_NOT_FOUND;
         }
         else if (curr.is_deleted())
         {
@@ -680,10 +708,10 @@ base_linear<E,HashFct,A>::find(const key_type& k)
     for (size_type i = htemp; ; ++i)
     {
         auto curr = _t[i & _bitmask].load();
-        if (curr.compare_key(k, htemp))
-            return make_iterator(k, curr.get_mapped(), &_t[i & _bitmask]);
         if (curr.is_empty())
             return end();
+        if (curr.compare_key(k, htemp))
+            return make_iterator(k, curr.get_mapped(), &_t[i & _bitmask]);
     }
     return end();
 }
@@ -696,10 +724,10 @@ base_linear<E,HashFct,A>::find(const key_type& k) const
     for (size_type i = htemp; ; ++i)
     {
         auto curr = _t[i & _bitmask].load;
-        if (curr.compare_key(k, htemp))
-            return make_citerator(k, curr.get_mapped(), &_t[i & _bitmask]);
         if (curr.is_empty())
             return cend();
+        if (curr.compare_key(k, htemp))
+            return make_citerator(k, curr.get_mapped(), &_t[i & _bitmask]);
     }
     return cend();
 }
