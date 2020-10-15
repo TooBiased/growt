@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include <stdlib.h>
@@ -61,9 +62,9 @@ public:
         slot_type(value_type&& pair, size_t hash);
 
         slot_type(const slot_type& source) = default;
-        slot_type(slot_type&& source) = default;
+        slot_type(slot_type&& source) noexcept = default;
         slot_type& operator=(const slot_type& source) = default;
-        slot_type& operator=(slot_type&& source) = default;
+        slot_type& operator=(slot_type&& source) noexcept = default;
         slot_type(int128_t source);
         ~slot_type() = default;
 
@@ -74,6 +75,7 @@ public:
         inline bool is_deleted() const;
         inline bool is_marked()  const;
         inline bool compare_key(const key_type & k, size_t hash) const;
+        inline void cleanup() const { /* the simple version does not need cleanup */ }
 
         inline operator value_type() const;
         inline operator int128_t() const;
@@ -93,11 +95,12 @@ public:
     public:
         atomic_slot_type(const atomic_slot_type& source);
         atomic_slot_type& operator=(const atomic_slot_type& source);
+        atomic_slot_type(const slot_type& source);
         atomic_slot_type& operator=(const slot_type& source);
         ~atomic_slot_type() = default;
 
         slot_type load() const;
-        void      non_atomic_set(slot_type goal);
+        void      non_atomic_set(const slot_type& goal);
         bool cas(slot_type& expected, slot_type goal);
         bool atomic_delete(slot_type& expected);
         bool atomic_mark  (slot_type& expected);
@@ -109,9 +112,9 @@ public:
         std::pair<mapped_type, bool> non_atomic_update(F f, Types&& ... args);
     };
 
-    static slot_type   get_empty()
+    static constexpr slot_type   get_empty()
     { return slot_type(key_type(), mapped_type(), 0); }
-    static slot_type   get_deleted()
+    static constexpr slot_type   get_deleted()
     { return slot_type(delete_dummy, mapped_type(), 0); }
 };
 
@@ -242,6 +245,11 @@ public:
     }
 
     template <class K, class D, bool m, K dd>
+    simple_slot<K,D,m,dd>::atomic_slot_type::atomic_slot_type(const slot_type& source)
+        : _raw_data(source)
+    { }
+
+    template <class K, class D, bool m, K dd>
     typename simple_slot<K,D,m,dd>::atomic_slot_type&
     simple_slot<K,D,m,dd>::atomic_slot_type::operator=(const slot_type& source)
     {
@@ -265,7 +273,7 @@ public:
 
     template <class K, class D, bool m, K dd>
     void
-    simple_slot<K,D,m,dd>::atomic_slot_type::non_atomic_set(slot_type goal)
+    simple_slot<K,D,m,dd>::atomic_slot_type::non_atomic_set(const slot_type& goal)
     {
         _raw_data = goal;
     }

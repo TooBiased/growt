@@ -1,10 +1,23 @@
 * Tasks
 
+** TODO construct all tables with some kind of table config stuff
+   [2020-10-15 Do 01:23]
+   [[file:~/IMP/growt/data-structures/base_linear.hpp::using%20needs_referential_integrity%20=%20int;]]
+
+** TODO if slots need cleanup, do that in base table destructor but only if the element is not marked
+   [2020-10-15 Do 01:01]
+   [[file:~/IMP/growt/data-structures/base_linear.hpp::class%20A%20=%20std::allocator<typename%20E::atomic_slot_type>>]]
+   for non-marking tables, we could still do something in the
+   atomic_mark routine, that tells them not to cleanup (i.e. remove ptr?)
+
+** TODO use improved allocators with per thread free lists
+   [2020-10-14 Mi 19:08]
+   [[file:~/IMP/growt/data-structures/element_types/complex_slot.hpp::static%20value_type*%20allocate()]]
+
 ** TODO change update and delete capabilities
    [2020-10-08 Thu 13:14]
    [[file:~/IMP/growt/data-structures/element_types/complex_element.hpp::bool%20atomic_delete(const%20complex_element%20&%20expected);]]
-for now I removed update and delete from complex data types
-
+for now I removed update and delete from the new complex data types
 
 ** TODO we have to pass the hash value to the comparison for fingerprints
    [2020-10-08 Thu 13:13]

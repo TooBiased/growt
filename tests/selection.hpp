@@ -272,12 +272,13 @@
 #include "data-structures/newstrategies/wstrat_user.hpp"
 #include "data-structures/newstrategies/estrat_async.hpp"
 #include "data-structures/migration_table.hpp"
-using HASHTYPE = growt::migration_table<growt::base_linear<
-                                       growt::complex_slot<size_t, size_t, true>,
-                                       HASHFCT,
-                                       ALLOCATOR<>
-                                       >
-                                   , growt::wstrat_user, growt::estrat_async>;
+using HASHTYPE = growt::migration_table<
+                     growt::base_linear<
+                         growt::complex_slot<size_t, size_t, true>,
+                         HASHFCT,
+                         ALLOCATOR<>>,
+                     growt::wstrat_user,
+                     growt::estrat_async>;
 
 #endif // UAGROWNEW
 
