@@ -27,8 +27,6 @@
 
 #define TBB_PREVIEW_MEMORY_POOL 1
 #include "tbb/memory_pool.h"
-#include "tbb/tbb.h"
-//#include "numa.h"
 #include <iostream>
 
 #ifdef GROWT_USE_CONFIG

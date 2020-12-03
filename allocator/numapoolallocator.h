@@ -1,7 +1,7 @@
 #ifndef NUMAPOOLALLOCATOR_H
 #define NUMAPOOLALLOCATOR_H
 
-#include "utils/poolallocator.h"
+#include "allocator/poolallocator.h"
 #include "numa.h"
 
 namespace growt
