@@ -26,91 +26,80 @@
 namespace growt
 {
 
-template <bool CyclicMap, bool CyclicProb>
-class pow2_mapper
+
+template <class Slot,
+          class HashFct = utils_tm::hash_tm::default_hash,
+          class Alloc = std::allocator<typename Slot::atomic_slot_type>,
+          bool CyclicMap = false,
+          bool CyclicProb = true,
+          bool NeedsCleanup = true>
+class base_linear_config
 {
-private:
-    // capacity is at least twice as large, as the inserted capacity
-    static size_t compute_capacity(size_t desired_capacity)
-    {
-        auto temp = 16384u;
-        while (temp < desired_capacity) temp <<= 1;
-        return temp << 1;
-    }
-
-    static size_t compute_right_shift(size_t capacity)
-    {
-        size_t log_size = 0;
-        while (capacity >>= 1) log_size++;
-        return 64 - log_size;                    // HashFct::significant_digits
-    }
-
 public:
-    pow2_mapper() : capacity(0), bitmask(0), right_shift(0) { }
-    pow2_mapper(size_t capacity_, bool migrated_ = false)
-        : capacity(migrated_ ? capacity_ : compute_capacity(capacity_)),
-          bitmask(capacity-1),
-          right_shift(compute_right_shift(capacity))
+    using slot_config    = Slot;
+    using allocator_type = typename Alloc::template rebind<typename Slot::atomic_slot_type>::other;
+    using hash_fct_type  = HashFct;
+
+    // base table only needs cleanup if it wasnt growable (then elements are reused)
+    // and slot needs cleanup
+    static constexpr bool cleanup = NeedsCleanup && Slot::needs_cleanup;
+
+    class mapper_type
     {
-        if constexpr (!cyclic_probing) capacity += 256;
-    }
+    private:
+        // capacity is at least twice as large, as the inserted capacity
+        static size_t compute_capacity(size_t desired_capacity)
+        {
+            auto temp = 16384u;
+            while (temp < desired_capacity) temp <<= 1;
+            return temp << 1;
+        }
 
-    size_t capacity;
-    size_t bitmask;
-    size_t right_shift;
-    static constexpr bool cyclic_mapping = CyclicMap;
-    static constexpr bool cyclic_probing = CyclicProb;
+        static size_t compute_right_shift(size_t capacity)
+        {
+            size_t log_size = 0;
+            while (capacity >>= 1) log_size++;
+            return 64 - log_size;                    // HashFct::significant_digits
+        }
+    public:
+        mapper_type() : capacity(0), bitmask(0), right_shift(0) { }
+        mapper_type(size_t capacity_, bool migrated_ = false);
 
-    inline size_t map (size_t hashed) const
-    {
-        if constexpr (cyclic_mapping)
-            return hashed & bitmask;
-        else
-            return hashed >> right_shift;
-    }
+        size_t capacity;
+        size_t bitmask;
+        size_t right_shift;
+        static constexpr bool cyclic_mapping = CyclicMap;
+        static constexpr bool cyclic_probing = CyclicProb;
 
-    inline size_t remap(size_t hashed) const
-    {
-        if constexpr (cyclic_probing)
-            return hashed & bitmask;
-        else
-            return hashed;
-    }
-
-    inline pow2_mapper resize(size_t inserted, size_t deleted)
-    {
-        auto nsize = bitmask+1;
-        double fill_rate = double(inserted - deleted)/double(capacity);
-
-        if (fill_rate > 0.6/2.) nsize <<= 1;
-
-        return pow2_mapper(nsize, true);
-    }
-
+        inline size_t map (size_t hashed) const;
+        inline size_t remap(size_t hashed) const;
+        inline mapper_type resize(size_t inserted, size_t deleted);
+    };
 };
 
-
-template<class E, class HashFct = utils_tm::hash_tm::default_hash,
-         class A = std::allocator<typename E::atomic_slot_type>,
-         class M = pow2_mapper<true, false>>
+template<class Config>
 class base_linear
 {
 private:
-    using this_type          = base_linear<E,HashFct,A>;
-    using allocator_type     = typename A::template rebind<
-        typename E::atomic_slot_type>::other;
-    using mapper_type        = M;
+    using this_type          = base_linear<Config>;
+    using config_type        = Config;
+    using allocator_type     = typename Config::allocator_type;
+    using hash_fct_type      = typename Config::hash_fct_type;
+    using mapper_type        = typename Config::mapper_type;
 
     template <class> friend class migration_table_handle;
-
+    template <class> friend class estrat_async;
+    template <class> friend class estrat_sync;
+    template <class> friend class wstrat_user;
+    template <class> friend class wstrat_pool;
 public:
-    using slot_config            = E;
-    using slot_type              = typename E::slot_type;
-    using atomic_slot_type       = typename E::atomic_slot_type;
+    using slot_config            = typename Config::slot_config;
+    using slot_type              = typename slot_config::slot_type;
+    using atomic_slot_type       = typename slot_config::atomic_slot_type;
 
-    using key_type               = typename E::key_type;
-    using mapped_type            = typename E::mapped_type;
-    using value_type             = typename E::value_type;
+    using key_type               = typename slot_config::key_type;
+    using mapped_type            = typename slot_config::mapped_type;
+    using value_type             = typename slot_config::value_type;
     using iterator               = base_iterator<this_type, false>;
     using const_iterator         = base_iterator<this_type, true>;
     using size_type              = size_t;
@@ -159,10 +148,10 @@ public:
     iterator           find  (const key_type& k);
     const_iterator     find  (const key_type& k) const;
 
-    insert_return_type insert_or_assign(const key_type& k, const mapped_type& d)
+    inline insert_return_type insert_or_assign(const key_type& k, const mapped_type& d)
     { return insert_or_update(k, d, example::Overwrite(), d); }
 
-    mapped_reference operator[](const key_type& k)
+    inline mapped_reference operator[](const key_type& k)
     { return (*(insert(k, mapped_type()).first)).second; }
 
     template <class F, class ... Types>
@@ -187,11 +176,13 @@ public:
     size_type migrate(this_type& target, size_type s, size_type e);
 
 protected:
+    atomic_slot_type*  _t;
     mapper_type        _mapper;
     size_type          _version;
     std::atomic_size_t _current_copy_block;
-    HashFct            _hash;
+    hash_fct_type      _hash;
     allocator_type     _allocator;
+
 
     //size_type   _capacity;
     //size_type   _bitmask;
@@ -201,7 +192,6 @@ protected:
                                atomic_slot_type>::value,
                   "Wrong allocator type given to base_linear!");
 
-    atomic_slot_type* _t;
     inline size_type h    (const key_type & k) const { return _hash(k); }
     // inline size_type map  (const size_type & hashed) const
     // { return hashed >> _right_shift; }
@@ -265,7 +255,7 @@ private:
     // OTHER HELPER FUNCTIONS **************************************************
 
     void insert_unsafe(const slot_type& e);
-    void slot_cleanup () // called, either by the destructor, or by the destructor of the parenttable
+    inline void slot_cleanup () // called, either by the destructor, or by the destructor of the parenttable
     { for (size_t i = 0; i<_mapper.capacity; ++i) _t[i].load().cleanup(); }
 
 public:
@@ -275,9 +265,9 @@ public:
     /* size has to divide capacity */
     range_iterator       range (size_t rstart, size_t rend);
     const_range_iterator crange(size_t rstart, size_t rend);
-    range_iterator       range_end ()       { return  end(); }
-    const_range_iterator range_cend() const { return cend(); }
-    size_t               capacity()   const { return _mapper.capacity; }
+    inline range_iterator       range_end ()       { return  end(); }
+    inline const_range_iterator range_cend() const { return cend(); }
+    inline size_t               capacity()   const { return _mapper.capacity; }
 
 };
 
@@ -291,8 +281,8 @@ public:
 
 // CONSTRUCTORS/ASSIGNMENTS ****************************************************
 
-template<class E, class H, class A, class M>
-base_linear<E,H,A,M>::base_linear(size_type capacity_)
+template<class C>
+base_linear<C>::base_linear(size_type capacity_)
     : _mapper(capacity_),
       _version(0),
       _current_copy_block(0)
@@ -300,12 +290,12 @@ base_linear<E,H,A,M>::base_linear(size_type capacity_)
     _t = _allocator.allocate(_mapper.capacity);
     if ( !_t ) std::bad_alloc();
 
-    std::fill( _t ,_t + _mapper.capacity , E::get_empty() );
+    std::fill( _t ,_t + _mapper.capacity , slot_config::get_empty() );
 }
 
 /*should always be called with a capacity_=2^k  */
-template<class E, class H, class A, class M>
-base_linear<E,H,A,M>::base_linear(mapper_type mapper_, size_type version_)
+template<class C>
+base_linear<C>::base_linear(mapper_type mapper_, size_type version_)
     : _mapper(mapper_),
       _version(version_),
       _current_copy_block(0)
@@ -317,19 +307,18 @@ base_linear<E,H,A,M>::base_linear(mapper_type mapper_, size_type version_)
     // std::fill( _t ,_t + _mapper.capacity , value_intern::get_empty() );
 }
 
-template<class E, class H, class A, class M>
-base_linear<E,H,A,M>::~base_linear()
+template<class C>
+base_linear<C>::~base_linear()
 {
-    // if constexpr (slot_config::needs_cleanup && !base_table)
-    // {
-    //     slot_cleanup()
-    // }
+    if constexpr (config_type::cleanup)
+                     slot_cleanup();
+
     if (_t) _allocator.deallocate(_t, _mapper.capacity);
 }
 
 
-template<class E, class H, class A, class M>
-base_linear<E,H,A,M>::base_linear(base_linear&& rhs) noexcept
+template<class C>
+base_linear<C>::base_linear(base_linear&& rhs) noexcept
     : _mapper(rhs._mapper), _version(rhs._version),
       _current_copy_block(0), _t(nullptr)
 {
@@ -339,9 +328,9 @@ base_linear<E,H,A,M>::base_linear(base_linear&& rhs) noexcept
     std::swap(_t, rhs._t);
 }
 
-template<class E, class H, class A, class M>
-base_linear<E,H,A,M>&
-base_linear<E,H,A,M>::operator=(base_linear&& rhs) noexcept
+template<class C>
+base_linear<C>&
+base_linear<C>::operator=(base_linear&& rhs) noexcept
 {
     if (this == &rhs) return *this;
     this->~base_linear();
@@ -358,9 +347,9 @@ base_linear<E,H,A,M>::operator=(base_linear&& rhs) noexcept
 
 // ITERATOR FUNCTIONALITY ******************************************************
 
-template<class E, class H, class A, class M>
-inline typename base_linear<E,H,A,M>::iterator
-base_linear<E,H,A,M>::begin()
+template<class C>
+inline typename base_linear<C>::iterator
+base_linear<C>::begin()
 {
     for (size_t i = 0; i<_mapper.capacity; ++i)
     {
@@ -371,15 +360,15 @@ base_linear<E,H,A,M>::begin()
     return end();
 }
 
-template<class E, class H, class A, class M>
-inline typename base_linear<E,H,A,M>::iterator
-base_linear<E,H,A,M>::end()
+template<class C>
+inline typename base_linear<C>::iterator
+base_linear<C>::end()
 { return iterator(std::make_pair(key_type(), mapped_type()),nullptr,nullptr); }
 
 
-template<class E, class H, class A, class M>
-inline typename base_linear<E,H,A,M>::const_iterator
-base_linear<E,H,A,M>::cbegin() const
+template<class C>
+inline typename base_linear<C>::const_iterator
+base_linear<C>::cbegin() const
 {
     for (size_t i = 0; i<_mapper.capacity; ++i)
     {
@@ -390,9 +379,9 @@ base_linear<E,H,A,M>::cbegin() const
     return end();
 }
 
-template<class E, class H, class A, class M>
-inline typename base_linear<E,H,A,M>::const_iterator
-base_linear<E,H,A,M>::cend() const
+template<class C>
+inline typename base_linear<C>::const_iterator
+base_linear<C>::cend() const
 {
     return const_iterator(std::make_pair(key_type(),mapped_type()),
                           nullptr,nullptr);
@@ -401,9 +390,9 @@ base_linear<E,H,A,M>::cend() const
 
 // RANGE ITERATOR FUNCTIONALITY ************************************************
 
-template<class E, class H, class A, class M>
-inline typename base_linear<E,H,A,M>::range_iterator
-base_linear<E,H,A,M>::range(size_t rstart, size_t rend)
+template<class C>
+inline typename base_linear<C>::range_iterator
+base_linear<C>::range(size_t rstart, size_t rend)
 {
     auto temp_rend = std::min(rend, _mapper.capacity);
     for (size_t i = rstart; i < temp_rend; ++i)
@@ -417,9 +406,9 @@ base_linear<E,H,A,M>::range(size_t rstart, size_t rend)
     return range_end();
 }
 
-template<class E, class H, class A, class M>
-inline typename base_linear<E,H,A,M>::const_range_iterator
-base_linear<E,H,A,M>::crange(size_t rstart, size_t rend)
+template<class C>
+inline typename base_linear<C>::const_range_iterator
+base_linear<C>::crange(size_t rstart, size_t rend)
 {
     auto temp_rend = std::min(rend, _mapper.capacity);
     for (size_t i = rstart; i < temp_rend; ++i)
@@ -437,9 +426,9 @@ base_linear<E,H,A,M>::crange(size_t rstart, size_t rend)
 
 // MAIN HASH TABLE FUNCTIONALITY (INTERN) **************************************
 
-template<class E, class H, class A, class M>
-inline typename base_linear<E,H,A,M>::insert_return_intern
-base_linear<E,H,A,M>::insert_intern(const key_type& k,
+template<class C>
+inline typename base_linear<C>::insert_return_intern
+base_linear<C>::insert_intern(const key_type& k,
                                          const mapped_type& d)
 {
     size_type htemp = h(k);
@@ -477,9 +466,9 @@ base_linear<E,H,A,M>::insert_intern(const key_type& k,
 }
 
 
-template<class E, class H, class A, class M> template<class F, class ... Types>
-inline typename base_linear<E,H,A,M>::insert_return_intern
-base_linear<E,H,A,M>::update_intern(const key_type& k, F f, Types&& ... args)
+template<class C> template<class F, class ... Types>
+inline typename base_linear<C>::insert_return_intern
+base_linear<C>::update_intern(const key_type& k, F f, Types&& ... args)
 {
     size_type htemp = h(k);
 
@@ -517,9 +506,9 @@ base_linear<E,H,A,M>::update_intern(const key_type& k, F f, Types&& ... args)
                            ReturnCode::UNSUCCESS_NOT_FOUND);
 }
 
-template<class E, class H, class A, class M> template<class F, class ... Types>
-inline typename base_linear<E,H,A,M>::insert_return_intern
-base_linear<E,H,A,M>::update_unsafe_intern(const key_type& k, F f, Types&& ... args)
+template<class C> template<class F, class ... Types>
+inline typename base_linear<C>::insert_return_intern
+base_linear<C>::update_unsafe_intern(const key_type& k, F f, Types&& ... args)
 {
     size_type htemp = h(k);
 
@@ -557,9 +546,9 @@ base_linear<E,H,A,M>::update_unsafe_intern(const key_type& k, F f, Types&& ... a
 }
 
 
-template<class E, class H, class A, class M> template<class F, class ... Types>
-inline typename base_linear<E,H,A,M>::insert_return_intern
-base_linear<E,H,A,M>::insert_or_update_intern(const key_type& k,
+template<class C> template<class F, class ... Types>
+inline typename base_linear<C>::insert_return_intern
+base_linear<C>::insert_or_update_intern(const key_type& k,
                                                    const mapped_type& d,
                                                    F f, Types&& ... args)
 {
@@ -601,9 +590,9 @@ base_linear<E,H,A,M>::insert_or_update_intern(const key_type& k,
     return make_insert_ret(end(), ReturnCode::UNSUCCESS_FULL);
 }
 
-template<class E, class H, class A, class M> template<class F, class ... Types>
-inline typename base_linear<E,H,A,M>::insert_return_intern
-base_linear<E,H,A,M>::insert_or_update_unsafe_intern(const key_type& k,
+template<class C> template<class F, class ... Types>
+inline typename base_linear<C>::insert_return_intern
+base_linear<C>::insert_or_update_unsafe_intern(const key_type& k,
                                                           const mapped_type& d,
                                                           F f, Types&& ... args)
 {
@@ -646,8 +635,8 @@ base_linear<E,H,A,M>::insert_or_update_unsafe_intern(const key_type& k,
                            ReturnCode::UNSUCCESS_FULL);
 }
 
-template<class E, class H, class A, class M>
-inline ReturnCode base_linear<E,H,A,M>::erase_intern(const key_type& k)
+template<class C>
+inline ReturnCode base_linear<C>::erase_intern(const key_type& k)
 {
     size_type htemp = h(k);
     for (size_type i = _mapper.map(htemp); ; ++i) //i < htemp+MaDis
@@ -677,8 +666,8 @@ inline ReturnCode base_linear<E,H,A,M>::erase_intern(const key_type& k)
     return ReturnCode::UNSUCCESS_NOT_FOUND;
 }
 
-template<class E, class H, class A, class M>
-inline ReturnCode base_linear<E,H,A,M>::erase_if_intern(const key_type& k, const mapped_type& d)
+template<class C>
+inline ReturnCode base_linear<C>::erase_if_intern(const key_type& k, const mapped_type& d)
 {
     size_type htemp = h(k);
     for (size_type i = _mapper.map(htemp); ; ++i) //i < htemp+MaDis
@@ -716,9 +705,9 @@ inline ReturnCode base_linear<E,H,A,M>::erase_if_intern(const key_type& k, const
 
 // MAIN HASH TABLE FUNCTIONALITY (EXTERN) **************************************
 
-template<class E, class H, class A, class M>
-inline typename base_linear<E,H,A,M>::iterator
-base_linear<E,H,A,M>::find(const key_type& k)
+template<class C>
+inline typename base_linear<C>::iterator
+base_linear<C>::find(const key_type& k)
 {
     size_type htemp = h(k);
     for (size_type i = _mapper.map(htemp); ; ++i)
@@ -733,9 +722,9 @@ base_linear<E,H,A,M>::find(const key_type& k)
     return end();
 }
 
-template<class E, class H, class A, class M>
-inline typename base_linear<E,H,A,M>::const_iterator
-base_linear<E,H,A,M>::find(const key_type& k) const
+template<class C>
+inline typename base_linear<C>::const_iterator
+base_linear<C>::find(const key_type& k) const
 {
     size_type htemp = h(k);
     for (size_type i = _mapper.map(htemp); ; ++i)
@@ -750,49 +739,49 @@ base_linear<E,H,A,M>::find(const key_type& k) const
     return cend();
 }
 
-template<class E, class H, class A, class M>
-inline typename base_linear<E,H,A,M>::insert_return_type
-base_linear<E,H,A,M>::insert(const key_type& k, const mapped_type& d)
+template<class C>
+inline typename base_linear<C>::insert_return_type
+base_linear<C>::insert(const key_type& k, const mapped_type& d)
 {
     auto[it,rcode] = insert_intern(k,d);
     return std::make_pair(it, successful(rcode));
 }
 
-template<class E, class H, class A, class M>
-inline typename base_linear<E,H,A,M>::size_type
-base_linear<E,H,A,M>::erase(const key_type& k)
+template<class C>
+inline typename base_linear<C>::size_type
+base_linear<C>::erase(const key_type& k)
 {
     ReturnCode c = erase_intern(k);
     return (successful(c)) ? 1 : 0;
 }
 
-template<class E, class H, class A, class M>
-inline typename base_linear<E,H,A,M>::size_type
-base_linear<E,H,A,M>::erase_if(const key_type& k, const mapped_type& d)
+template<class C>
+inline typename base_linear<C>::size_type
+base_linear<C>::erase_if(const key_type& k, const mapped_type& d)
 {
     ReturnCode c = erase_if_intern(k,d);
     return (successful(c)) ? 1 : 0;
 }
 
-template<class E, class H, class A, class M> template <class F, class ... Types>
-inline typename base_linear<E,H,A,M>::insert_return_type
-base_linear<E,H,A,M>::update(const key_type& k, F f, Types&& ... args)
+template<class C> template <class F, class ... Types>
+inline typename base_linear<C>::insert_return_type
+base_linear<C>::update(const key_type& k, F f, Types&& ... args)
 {
     auto[it,rcode] = update_intern(k,f, std::forward<Types>(args)...);
     return std::make_pair(it, successful(rcode));
 }
 
-template<class E, class H, class A, class M> template <class F, class ... Types>
-inline typename base_linear<E,H,A,M>::insert_return_type
-base_linear<E,H,A,M>::update_unsafe(const key_type& k, F f, Types&& ... args)
+template<class C> template <class F, class ... Types>
+inline typename base_linear<C>::insert_return_type
+base_linear<C>::update_unsafe(const key_type& k, F f, Types&& ... args)
 {
     auto[it,rcode] = update_unsafe_intern(k,f, std::forward<Types>(args)...);
     return std::make_pair(it, successful(rcode));
 }
 
-template<class E, class H, class A, class M> template <class F, class ... Types>
-inline typename base_linear<E,H,A,M>::insert_return_type
-base_linear<E,H,A,M>::insert_or_update(const key_type& k,
+template<class C> template <class F, class ... Types>
+inline typename base_linear<C>::insert_return_type
+base_linear<C>::insert_or_update(const key_type& k,
                                             const mapped_type& d,
                                             F f, Types&& ... args)
 {
@@ -801,9 +790,9 @@ base_linear<E,H,A,M>::insert_or_update(const key_type& k,
     return std::make_pair(it, (rcode == ReturnCode::SUCCESS_IN));
 }
 
-template<class E, class H, class A, class M> template <class F, class ... Types>
-inline typename base_linear<E,H,A,M>::insert_return_type
-base_linear<E,H,A,M>::insert_or_update_unsafe(const key_type& k,
+template<class C> template <class F, class ... Types>
+inline typename base_linear<C>::insert_return_type
+base_linear<C>::insert_or_update_unsafe(const key_type& k,
                                                    const mapped_type& d,
                                                    F f, Types&& ... args)
 {
@@ -826,9 +815,9 @@ base_linear<E,H,A,M>::insert_or_update_unsafe(const key_type& k,
 // MIGRATION/GROWING STUFF *****************************************************
 
 // TRIVIAL MIGRATION (ASSUMES INITIALIZED TABLE)
-// template<class E, class H, class A, class M>
-// inline typename base_linear<E,H,A,M>::size_type
-// base_linear<E,H,A,M>::migrate(this_type& target, size_type s, size_type e)
+// template<class C>
+// inline typename base_linear<C>::size_type
+// base_linear<C>::migrate(this_type& target, size_type s, size_type e)
 // {
 //     size_type count = 0;
 //     for (size_t i = s; i < e; ++i)
@@ -844,13 +833,13 @@ base_linear<E,H,A,M>::insert_or_update_unsafe(const key_type& k,
 //     return count;
 // }
 
-template<class E, class H, class A, class M>
-inline typename base_linear<E,H,A,M>::size_type
-base_linear<E,H,A,M>::migrate(this_type& target, size_type s, size_type e)
+template<class C>
+inline typename base_linear<C>::size_type
+base_linear<C>::migrate(this_type& target, size_type s, size_type e)
 {
     size_type n = 0;
     auto i = s;
-    auto curr = E::get_empty();
+    auto curr = slot_config::get_empty();
 
     //HOW MUCH BIGGER IS THE TARGET TABLE
     auto shift = 0u;
@@ -869,7 +858,7 @@ base_linear<E,H,A,M>::migrate(this_type& target, size_type s, size_type e)
         ++i;
     }
 
-    std::fill(target._t+(i<<shift), target._t+(e<<shift), E::get_empty());
+    std::fill(target._t+(i<<shift), target._t+(e<<shift), slot_config::get_empty());
 
     //MIGRATE UNTIL THE END OF THE BLOCK
     for (; i<e; ++i)
@@ -899,8 +888,8 @@ base_linear<E,H,A,M>::migrate(this_type& target, size_type s, size_type e)
         auto pos  = _mapper.remap(i);
         auto t_pos= pos<<shift;
         for (size_type j = 0; j < 1ull<<shift; ++j)
-            target._t[t_pos+j].non_atomic_set(E::get_empty());
-        //target.t[t_pos] = E::get_empty();
+            target._t[t_pos+j].non_atomic_set(slot_config::get_empty());
+        //target.t[t_pos] = slot_config::get_empty();
 
         curr = _t[pos].load();
 
@@ -914,8 +903,8 @@ base_linear<E,H,A,M>::migrate(this_type& target, size_type s, size_type e)
     return n;
 }
 
-template<class E, class H, class A, class M>
-inline void base_linear<E,H,A,M>::insert_unsafe(const slot_type& e)
+template<class C>
+inline void base_linear<C>::insert_unsafe(const slot_type& e)
 {
     const key_type k = e.get_key();
 
@@ -933,5 +922,54 @@ inline void base_linear<E,H,A,M>::insert_unsafe(const slot_type& e)
     }
     throw std::bad_alloc();
 }
+
+
+
+
+
+// base_linear_config stuff
+template<class S, class H, class A, bool CM, bool CP, bool CU>
+base_linear_config<S,H,A,CM,CP,CU>::mapper_type::mapper_type(
+    size_t capacity_,
+    bool   migrated_)
+    : capacity(migrated_ ? capacity_ : compute_capacity(capacity_)),
+      bitmask(capacity-1),
+      right_shift(compute_right_shift(capacity))
+{
+    if constexpr (!cyclic_probing) capacity += 256;
+}
+
+template<class S, class H, class A, bool CM, bool CP, bool CU>
+size_t
+base_linear_config<S,H,A,CM,CP,CU>::mapper_type::map (size_t hashed) const
+{
+    if constexpr (cyclic_mapping)
+                     return hashed & bitmask;
+    else
+        return hashed >> right_shift;
+}
+
+template<class S, class H, class A, bool CM, bool CP, bool CU>
+size_t
+base_linear_config<S,H,A,CM,CP,CU>::mapper_type::remap(size_t hashed) const
+{
+    if constexpr (cyclic_probing)
+                     return hashed & bitmask;
+    else
+        return hashed;
+}
+
+template<class S, class H, class A, bool CM, bool CP, bool CU>
+typename base_linear_config<S,H,A,CM,CP,CU>::mapper_type
+base_linear_config<S,H,A,CM,CP,CU>::mapper_type::resize(size_t inserted, size_t deleted)
+{
+    auto nsize = bitmask+1;
+    double fill_rate = double(inserted - deleted)/double(capacity);
+
+    if (fill_rate > 0.6/2.) nsize <<= 1;
+
+    return mapper_type(nsize, true);
+}
+
 
 }

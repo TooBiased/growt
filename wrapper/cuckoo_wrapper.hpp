@@ -14,35 +14,38 @@
 #define CUCKOO_WRAPPER
 
 #include <libcuckoo/cuckoohash_map.hh>
+
+#incdlue "data-structures/hash_table_mods.hpp"
 #include "data-structures/returnelement.h"
 #include "wrapper/stupid_iterator.h"
 
 using namespace growt;
 
-template<class Hasher>
-class CuckooWrapper
+
+template<class Key, class Data, class Hasher, class Alloc>
+class cuckoo_wrapper
 {
 private:
-    using HashType = libcuckoo::cuckoohash_map<size_t, size_t, Hasher>;
+    using HashType = libcuckoo::cuckoohash_map<Key, Data, Hasher>;
 
     HashType hash;
     size_t capacity;
 
 public:
 
-    using key_type           = size_t;
-    using mapped_type        = size_t;
+    using key_type           = Key;
+    using mapped_type        = Data;
     using value_type         = typename std::pair<const key_type, mapped_type>;
     using iterator           = StupidIterator<key_type, mapped_type>;
     using insert_return_type = std::pair<iterator, bool>;
 
-    CuckooWrapper() = default;
-    CuckooWrapper(size_t capacity_) : hash(capacity_), capacity(capacity_) {}
-    CuckooWrapper(const CuckooWrapper&) = delete;
-    CuckooWrapper& operator=(const CuckooWrapper&) = delete;
+    cuckoo_wrapper() = default;
+    cuckoo_wrapper(size_t capacity_) : hash(capacity_), capacity(capacity_) {}
+    cuckoo_wrapper(const cuckoo_wrapper&) = delete;
+    cuckoo_wrapper& operator=(const cuckoo_wrapper&) = delete;
 
-    CuckooWrapper(CuckooWrapper&& rhs) : hash(rhs.capacity), capacity(rhs.capacity) {}
-    CuckooWrapper& operator=(CuckooWrapper&& rhs)
+    cuckoo_wrapper(cuckoo_wrapper&& rhs) : hash(rhs.capacity), capacity(rhs.capacity) {}
+    cuckoo_wrapper& operator=(cuckoo_wrapper&& rhs)
     {
         capacity = rhs.capacity;
 
@@ -52,63 +55,119 @@ public:
         return *this;
     }
 
+    using handle_type = cuckoo_wrapper&;
+    handle_type get_handle() { return *this; }
 
-    using Handle = CuckooWrapper&;
-    Handle get_handle() { return *this; }
+    inline iterator find(const key_type& k);
 
-
-    inline iterator find(const key_type& k)
-    {
-        size_t temp = 0;
-        hash.find(k,temp);
-        return iterator((temp) ? k : 0, temp);
-        //if (temp) return ReturnElement(k,temp);
-        //else      return ReturnElement::getEmpty();
-    }
-
-    inline insert_return_type insert(const key_type& k, const mapped_type& d)
-    {
-        bool res = hash.insert(k,d);
-        return std::make_pair(iterator(k,d), res);
-        // return (hash.insert(k,d)) ? ReturnCode::SUCCESS_IN :
-        //                             ReturnCode::UNSUCCESS_ALREADY_USED;
-    }
+    inline insert_return_type insert(const key_type& k, const mapped_type& d);
 
     template<class F, class ... Types>
-    inline insert_return_type update(const key_type& k, F f, Types&& ... args)
-    {
-        bool res = hash.update_fn(k, [k,&f,&args ...](mapped_type& d){ f(d, std::forward<Types>(args)...); });
-        return std::make_pair(iterator(k,mapped_type()), res);
-    }
-
+    inline insert_return_type update(const key_type& k,
+                                     F f, Types&& ... args);
     template<class F, class ... Types>
-    inline insert_return_type insert_or_update(const key_type& k, const mapped_type& d, F f, Types&& ... args)
-    {
-        // no differentiation between update and insert
-        // args1 = std::forward<Types>(args)...
-        hash.upsert(k, [k,&f, &args...](mapped_type& v){ f(v, std::forward<Types>(args)...); }, d);
-        return std::make_pair(iterator(k,d), true);
-    }
-
+    inline insert_return_type insert_or_update(const key_type& k,
+                                               const mapped_type& d,
+                                               F f, Types&& ... args);
     template<class F, class ... Types>
-    inline insert_return_type update_unsafe(const key_type& k, F f, Types&& ... args)
-    {
-        return update(k,f, std::forward<Types>(args)...);
-    }
-
+    inline insert_return_type update_unsafe(const key_type& k,
+                                            F f, Types&& ... args);
     template<class F, class ... Types>
-    inline insert_return_type insert_or_update_unsafe(const key_type& k, const mapped_type& d, F f, Types&& ... args)
-    {
-        return insert_or_update(k,d,f, std::forward<Types>(args)...);
-    }
-
-    inline size_t erase(const key_type& k)
-    {
-        return hash.erase(k);
-    }
-
-    inline iterator end() { return iterator(); }
+    inline insert_return_type insert_or_update_unsafe(const key_type& k,
+                                                      const mapped_type& d,
+                                                      F f, Types&& ... args);
+    inline size_t erase(const key_type& k);
+    inline iterator end();
 
 };
+
+template <class Key, class Data, class HashFct, class Allocator, hmod ... Mods>
+class cuckoo_config
+{
+public:
+    using key_type = Key;
+    using mapped_type = Data;
+    using hash_fct_type = HashFct;
+    using allocator_type = Allocator;
+
+    using mods = mod_aggregator<Mods ...>;
+
+    // Derived Types
+    using value_type = std::pair<const key_type, mapped_type>;
+
+    static constexpr is_viable = !(mods::template is<ref_integrity>());
+
+    static_assert(is_viable, "libcuckoo wrapper does not support the chosen flags");
+
+    using table_type = cuckoo_wrapper<key_type, mapped_type, hash_fct_type>;
+};
+
+
+
+
+template<class K, class D, class HF, class AL>
+typename cuckoo_wrapper<K,D,HF,AL>::iterator
+cuckoo_wrapper<K,D,HF,AL>::find(const key_type& k)
+{
+    size_t temp = 0;
+    hash.find(k,temp);
+    return iterator((temp) ? k : 0, temp);
+    //if (temp) return ReturnElement(k,temp);
+    //else      return ReturnElement::getEmpty();
+}
+
+template<class K, class D, class HF, class AL>
+typename cuckoo_wrapper<K,D,HF,AL>::insert_return_type
+cuckoo_wrapper<K,D,HF,AL>::insert(const key_type& k, const mapped_type& d)
+{
+    bool res = hash.insert(k,d);
+    return std::make_pair(iterator(k,d), res);
+    // return (hash.insert(k,d)) ? ReturnCode::SUCCESS_IN :
+    //                             ReturnCode::UNSUCCESS_ALREADY_USED;
+}
+
+template<class K, class D, class HF, class AL> template<class F, class ... Types>
+typename cuckoo_wrapper<K,D,HF,AL>::insert_return_type
+cuckoo_wrapper<K,D,HF,AL>::update(const key_type& k, F f, Types&& ... args)
+{
+    bool res = hash.update_fn(k, [k,&f,&args ...](mapped_type& d){ f(d, std::forward<Types>(args)...); });
+    return std::make_pair(iterator(k,mapped_type()), res);
+}
+
+template<class K, class D, class HF, class AL> template<class F, class ... Types>
+typename cuckoo_wrapper<K,D,HF,AL>::insert_return_type
+cuckoo_wrapper<K,D,HF,AL>::insert_or_update(const key_type& k, const mapped_type& d, F f, Types&& ... args)
+{
+    // no differentiation between update and insert
+    // args1 = std::forward<Types>(args)...
+    hash.upsert(k, [k,&f, &args...](mapped_type& v){ f(v, std::forward<Types>(args)...); }, d);
+    return std::make_pair(iterator(k,d), true);
+}
+
+template<class K, class D, class HF, class AL> template<class F, class ... Types>
+typename cuckoo_wrapper<K,D,HF,AL>::insert_return_type
+cuckoo_wrapper<K,D,HF,AL>::update_unsafe(const key_type& k, F f, Types&& ... args)
+{
+    return update(k,f, std::forward<Types>(args)...);
+}
+
+template<class K, class D, class HF, class AL> template<class F, class ... Types>
+typename cuckoo_wrapper<K,D,HF,AL>::insert_return_type
+cuckoo_wrapper<K,D,HF,AL>::insert_or_update_unsafe(const key_type& k,
+                                                const mapped_type& d,
+                                                F f, Types&& ... args)
+{
+    return insert_or_update(k,d,f, std::forward<Types>(args)...);
+}
+
+template<class K, class D, class HF, class AL>
+size_t
+cuckoo_wrapper<K,D,HF,AL>::erase(const key_type& k)
+{ return hash.erase(k); }
+
+template<class K, class D, class HF, class AL>
+typename cuckoo_wrapper<K,D,HF,AL>::iterator
+cuckoo_wrapper<K,D,HF,AL>::end()
+{ return iterator(); }
 
 #endif // CUCKOO_WRAPPER

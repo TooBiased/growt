@@ -64,6 +64,8 @@ public:
     static_assert(base_table_type::slot_config::allows_marking,
                   "Asynchroneous migration can only be chosen with markable_element!!!" );
 
+    static constexpr size_t migration_block_size = 4096;
+
     class local_data_type;
 
     // STORED AT THE GLOBAL OBJECT
@@ -79,7 +81,11 @@ public:
         }
         global_data_type(const global_data_type& source) = delete;
         global_data_type& operator=(const global_data_type& source) = delete;
-        ~global_data_type() = default;
+        ~global_data_type()
+        {
+            if constexpr (base_table_type::slot_config::needs_cleanup)
+                             _g_table_r->clean_slots();
+        }
 
     private:
         friend local_data_type;
@@ -149,9 +155,8 @@ public:
                 {
                     // first one to get here allocates new table
                     auto w_table = std::make_shared<base_table_type>(
-                       base_table_type::resize(_table->_capacity,
-                           _parent._elements.load(std::memory_order_acquire),
-                           _parent._dummies.load(std::memory_order_acquire)),
+                        _table->_mapper.resize(_parent._elements.load(std::memory_order_acquire),
+                                               _parent._dummies.load (std::memory_order_acquire)),
                        _table->_version+1);
 
                     _global._g_table_w = w_table;
@@ -224,7 +229,7 @@ public:
             }
 
             //global.g_count.fetch_add(
-            blockwise_migrate(curr, next);//,
+            blockwise_migrate(*curr, *next);//,
             //std::memory_order_acq_rel);
 
 
@@ -235,6 +240,24 @@ public:
         }
 
     private:
+
+        size_t blockwise_migrate(base_table_type& source,
+                                 base_table_type& target)
+        {
+            size_t n = 0;
+
+            //get block + while block legal migrate and get new block
+            size_t temp = source._current_copy_block.fetch_add(migration_block_size);
+            while (temp < source.capacity())
+            {
+                n += source.migrate(target, temp,
+                                    std::min(uint(temp+migration_block_size),
+                                             uint(source.capacity())));
+                temp = source._current_copy_block.fetch_add(migration_block_size);
+            }
+            return n;
+        }
+
         inline void load()
         {
             {

@@ -26,40 +26,6 @@
 
 namespace growt {
 
-static const size_t migration_block_size = 4096;
-
-template<class table_type>
-size_t blockwise_migrate(table_type source, table_type target)
-{
-    size_t n = 0;
-
-    //get block + while block legal migrate and get new block
-    size_t temp = source->_current_copy_block.fetch_add(migration_block_size);
-    while (temp < source->capacity())
-    {
-        n += source->migrate(*target, temp,
-                             std::min(uint(temp+migration_block_size),
-                                      uint(source->capacity())));
-        temp = source->_current_copy_block.fetch_add(migration_block_size);
-    }
-    return n;
-}
-
-template<size_t MxFill>
-size_t resize(size_t curr_size, size_t n_in, size_t n_del)
-{
-    auto nsize = curr_size;
-    double fill_rate = double(n_in - n_del)/double(curr_size);
-
-    if (fill_rate > double(MxFill)/200.) nsize <<= 1;
-
-    return nsize;
-}
-
-
-
-
-
 // FORWARD DECLARATION OF THE HANDLE CLASS
 template<class> class migration_table_handle;
 // AND THE STATIONARY DATA OBJECT (GLOBAL OBJECT ON HEAP)
@@ -112,6 +78,7 @@ private:
     // TYPEDEFS
     using parent_type     = Parent;
     using base_table_type = typename Parent::base_table_type;
+    using slot_config     = typename base_table_type::slot_config;
     using worker_strat    = typename Parent::worker_strat;
     using exclusion_strat = typename Parent::exclusion_strat;
 
@@ -129,10 +96,10 @@ public:
           _elements(0), _dummies(0), _grow_count(0)
     { }
 
-    migration_table_data(const migration_table_data& source) =delete;
-    migration_table_data& operator=(const migration_table_data& source) =delete;
-    migration_table_data(migration_table_data&&) =delete;
-    migration_table_data& operator=(migration_table_data&&) =delete;
+    migration_table_data(const migration_table_data& source) = delete;
+    migration_table_data& operator=(const migration_table_data& source) = delete;
+    migration_table_data(migration_table_data&&) = delete;
+    migration_table_data& operator=(migration_table_data&&) = delete;
     ~migration_table_data() = default;
 
     size_type element_count_approx() { return _elements.load()-_dummies.load(); }
@@ -820,7 +787,7 @@ inline void migration_table_handle<migration_table_data>::update_numbers()
     auto temp       = _mt_data._elements.fetch_add(_counts._inserted, std::memory_order_relaxed);
     temp           += _counts._inserted;
 
-    if (temp  > table->_capacity * _max_fill_factor)
+    if (temp  > table->capacity() * _max_fill_factor)
     {
         rls_table();
         grow();
