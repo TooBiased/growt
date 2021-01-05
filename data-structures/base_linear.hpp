@@ -85,7 +85,6 @@ private:
     using config_type        = Config;
     using allocator_type     = typename Config::allocator_type;
     using hash_fct_type      = typename Config::hash_fct_type;
-    using mapper_type        = typename Config::mapper_type;
 
     template <class> friend class migration_table_handle;
     template <class> friend class estrat_async;
@@ -93,6 +92,7 @@ private:
     template <class> friend class wstrat_user;
     template <class> friend class wstrat_pool;
 public:
+    using mapper_type        = typename Config::mapper_type;
     using slot_config            = typename Config::slot_config;
     using slot_type              = typename slot_config::slot_type;
     using atomic_slot_type       = typename slot_config::atomic_slot_type;
@@ -319,8 +319,9 @@ base_linear<C>::~base_linear()
 
 template<class C>
 base_linear<C>::base_linear(base_linear&& rhs) noexcept
-    : _mapper(rhs._mapper), _version(rhs._version),
-      _current_copy_block(0), _t(nullptr)
+    : _t(nullptr), _mapper(rhs._mapper),
+      _version(rhs._version),
+      _current_copy_block(0)
 {
     if (rhs._current_copy_block.load())
         std::invalid_argument("Cannot move a growing table!");

@@ -23,8 +23,8 @@
 #include <memory>
 
 #include "data-structures/hash_table_mods.hpp"
-#include "data-structures/returnelement.h"
-#include "wrapper/stupid_iterator.h"
+#include "data-structures/returnelement.hpp"
+#include "wrapper/stupid_iterator.hpp"
 
 using namespace growt;
 
@@ -148,11 +148,12 @@ public:
     // Derived Types
     using value_type = std::pair<const key_type, mapped_type>;
 
-    static constexpr is_viable = !mods::template is<ref_integrity>()
+    static constexpr bool is_viable = !mods::template is<hmod::ref_integrity>()
         && std::is_same<Key , size_t>::value
         && std::is_same<Data, size_t>::value;
 
-    static_assert(is_viable, "folly wrapper does not support the chosen flags");
+    static_assert(is_viable,
+                  "folly wrapper does not support data types and flags");
 
     using internal_table_type = JUNCTION_TYPE<turf::u64, turf::u64,
                                               junction::DefaultKeyTraits<turf::u64>,

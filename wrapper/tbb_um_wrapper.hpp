@@ -17,7 +17,7 @@
 #include <atomic>
 #include <memory>
 
-#include "data-structures/returnelement.h"
+#include "data-structures/returnelement.hpp"
 #include "data-structures/hash_table_mod.hpp"
 
 using namespace growt;
@@ -89,7 +89,7 @@ public:
     // Derived Types
     using value_type = std::pair<const key_type, mapped_type>;
 
-    static constexpr is_viable = ! mods::is<hmod::deletion>();
+    static constexpr bool is_viable = ! mods::is<hmod::deletion>();
 
     static_assert(is_viable, "tbb hm wrapper does not support the chosen flags");
 

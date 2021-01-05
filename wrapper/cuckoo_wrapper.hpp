@@ -15,9 +15,9 @@
 
 #include <libcuckoo/cuckoohash_map.hh>
 
-#incdlue "data-structures/hash_table_mods.hpp"
-#include "data-structures/returnelement.h"
-#include "wrapper/stupid_iterator.h"
+#include "data-structures/hash_table_mods.hpp"
+#include "data-structures/returnelement.hpp"
+#include "wrapper/stupid_iterator.hpp"
 
 using namespace growt;
 
@@ -95,11 +95,11 @@ public:
     // Derived Types
     using value_type = std::pair<const key_type, mapped_type>;
 
-    static constexpr is_viable = !(mods::template is<ref_integrity>());
+    static constexpr bool is_viable = !(mods::template is<hmod::ref_integrity>());
 
     static_assert(is_viable, "libcuckoo wrapper does not support the chosen flags");
 
-    using table_type = cuckoo_wrapper<key_type, mapped_type, hash_fct_type>;
+    using table_type = cuckoo_wrapper<key_type, mapped_type, hash_fct_type, allocator_type>;
 };
 
 

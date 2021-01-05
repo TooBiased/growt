@@ -9,8 +9,12 @@
  *
  * All rights reserved. Published under the BSD-2 license in the LICENSE file.
  ******************************************************************************/
+#include <random>
+#include <iostream>
 
-#include "tests/selection.hpp"
+#ifdef MALLOC_COUNT
+#include "malloc_count.h"
+#endif
 
 #include "utils/default_hash.hpp"
 #include "utils/thread_coordination.hpp"
@@ -20,12 +24,8 @@
 #define  DEBUG
 #include "utils/debug.hpp"
 
-#include <random>
-#include <iostream>
 
-#ifdef MALLOC_COUNT
-#include "malloc_count.h"
-#endif
+#include "tests/selection.hpp"
 
 /*
  * This Test is meant to test the tables performance on uniform random inputs.
@@ -41,7 +41,12 @@ namespace otm = utils_tm::out_tm;
 namespace ttm = utils_tm::thread_tm;
 namespace dtm = utils_tm::debug_tm;
 
-alignas(64) static HASHTYPE hash_table = HASHTYPE(0);
+using table_type = typename table_config<size_t,
+                                         size_t,
+                                         utils_tm::hash_tm::default_hash,
+                                         allocator_type>::table_type;
+
+alignas(64) static table_type hash_table = table_type(0);
 alignas(64) static uint64_t* keys;
 alignas(64) static std::atomic_size_t current_block;
 alignas(64) static std::atomic_size_t errors;
@@ -171,7 +176,7 @@ struct test_in_stages
         {
             // STAGE 0.1
             t.synchronized(
-                [cap] (bool m) { if (m) hash_table = HASHTYPE(cap); return 0; },
+                [cap] (bool m) { if (m) hash_table = table_type(cap); return 0; },
                 ThreadType::is_main);
 
             t.out << otm::width(5) << i
@@ -181,7 +186,7 @@ struct test_in_stages
 
             t.synchronize();
 
-            using handle_type = typename HASHTYPE::handle_type;
+            using handle_type = typename table_type::handle_type;
             handle_type hash = hash_table.get_handle();
 
 

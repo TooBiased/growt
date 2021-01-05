@@ -26,7 +26,7 @@ endif()
 option(GROWT_BUILD_TSX
   "(optional) builds tests using TSX optimized hash tables." OFF)
 
-option(GTOWT_BUILD_ALTERNATE_VARIANT
+option(GROWT_BUILD_OLD_VARIANTS
   "(optional) builds another variant of our synchroneously growing hash tables (usnGrow and psnGrow)." OFF)
 
 option(GROWT_BUILD_ALL_THIRD_PARTIES
@@ -307,10 +307,10 @@ add_dependencies( folklore
   ins_none_folklore mix_none_folklore con_none_folklore
   agg_none_folklore)
 
-add_custom_target( sequential )
-add_dependencies( sequential
-  ins_full_sequential mix_full_sequential con_full_sequential
-  agg_full_sequential)
+# add_custom_target( sequential )
+# add_dependencies( sequential
+#   ins_full_sequential mix_full_sequential con_full_sequential
+#   agg_full_sequential)
 
 add_custom_target( uagrow )
 add_dependencies( uagrow
@@ -334,26 +334,30 @@ add_dependencies( psgrow
 
 add_custom_target( ins )
 add_dependencies( ins
-  ins_full_sequential ins_none_folklore
+  # ins_full_sequential
+  ins_none_folklore
   ins_full_uaGrowT    ins_full_usGrowT
   ins_full_uaGrowT    ins_full_usGrowT)
 
 add_custom_target( agg )
 add_dependencies( agg
-  agg_full_sequential agg_none_folklore
+  # agg_full_sequential
+  agg_none_folklore
   agg_full_uaGrowT    agg_full_usGrowT
   agg_full_uaGrowT    agg_full_usGrowT)
 
 add_custom_target( mix )
 add_dependencies( mix
-  mix_full_sequential mix_none_folklore
+  # mix_full_sequential
+  mix_none_folklore
   mix_full_uaGrowT    mix_full_usGrowT
   mix_full_uaGrowT    mix_full_usGrowT)
 
 
 add_custom_target( con )
 add_dependencies( con
-  con_full_sequential con_none_folklore
+  # con_full_sequential
+  con_none_folklore
   con_full_uaGrowT    con_full_usGrowT
   con_full_uaGrowT    con_full_usGrowT)
 
@@ -363,17 +367,55 @@ add_dependencies( del
   del_full_uaGrowT    del_full_usGrowT
   del_full_uaGrowT    del_full_usGrowT)
 
-if (GTOWT_BUILD_ALTERNATE_VARIANT)
-  GrowTExecutable( USNGROW ins_test ins ins_full_usnGrowT )
-  GrowTExecutable( PSNGROW ins_test ins ins_full_psnGrowT )
-  GrowTExecutable( USNGROW mix_test mix mix_full_usnGrowT )
-  GrowTExecutable( PSNGROW mix_test mix mix_full_psnGrowT )
-  GrowTExecutable( USNGROW del_test del del_full_usnGrowT )
-  GrowTExecutable( PSNGROW del_test del del_full_psnGrowT )
-  GrowTExecutable( USNGROW con_test con con_full_usnGrowT )
-  GrowTExecutable( PSNGROW con_test con con_full_psnGrowT )
-  GrowTExecutable( USNGROW agg_test agg agg_full_usnGrowT )
-  GrowTExecutable( PSNGROW agg_test agg agg_full_psnGrowT )
+if (GROWT_BUILD_OLD_VARIANTS)
+  GrowTExecutable( FOLKLOREOLD ins_test ins ins_none_old_folklore )
+  GrowTExecutable( FOLKLOREOLD mix_test mix mix_none_old_folklore )
+  GrowTExecutable( FOLKLOREOLD con_test con con_none_old_folklore )
+  GrowTExecutable( FOLKLOREOLD agg_test agg agg_none_old_folklore )
+  GrowTExecutable( SEQUENTIALOLD ins_test seq ins_full_old_sequential )
+  GrowTExecutable( SEQUENTIALOLD mix_test seq mix_full_old_sequential )
+  GrowTExecutable( SEQUENTIALOLD con_test seq con_full_old_sequential )
+  GrowTExecutable( SEQUENTIALOLD agg_test seq agg_full_old_sequential )
+  GrowTExecutable( UAGROWOLD ins_test ins ins_full_old_uaGrowT )
+  GrowTExecutable( USGROWOLD ins_test ins ins_full_old_usGrowT )
+  GrowTExecutable( PAGROWOLD ins_test ins ins_full_old_paGrowT )
+  GrowTExecutable( PSGROWOLD ins_test ins ins_full_old_psGrowT )
+  GrowTExecutable( UAGROWOLD mix_test mix mix_full_old_uaGrowT )
+  GrowTExecutable( USGROWOLD mix_test mix mix_full_old_usGrowT )
+  GrowTExecutable( PAGROWOLD mix_test mix mix_full_old_paGrowT )
+  GrowTExecutable( PSGROWOLD mix_test mix mix_full_old_psGrowT )
+  GrowTExecutable( UAGROWOLD del_test del del_full_old_uaGrowT )
+  GrowTExecutable( USGROWOLD del_test del del_full_old_usGrowT )
+  GrowTExecutable( PAGROWOLD del_test del del_full_old_paGrowT )
+  GrowTExecutable( PSGROWOLD del_test del del_full_old_psGrowT )
+  GrowTExecutable( UAGROWOLD con_test con con_full_old_uaGrowT )
+  GrowTExecutable( USGROWOLD con_test con con_full_old_usGrowT )
+  GrowTExecutable( PAGROWOLD con_test con con_full_old_paGrowT )
+  GrowTExecutable( PSGROWOLD con_test con con_full_old_psGrowT )
+  GrowTExecutable( UAGROWOLD agg_test agg agg_full_old_uaGrowT )
+  GrowTExecutable( USGROWOLD agg_test agg agg_full_old_usGrowT )
+  GrowTExecutable( PAGROWOLD agg_test agg agg_full_old_paGrowT )
+  GrowTExecutable( PSGROWOLD agg_test agg agg_full_old_psGrowT )
+  GrowTExecutable( USNGROWOLD ins_test ins ins_full_old_usnGrowT )
+  GrowTExecutable( PSNGROWOLD ins_test ins ins_full_old_psnGrowT )
+  GrowTExecutable( USNGROWOLD mix_test mix mix_full_old_usnGrowT )
+  GrowTExecutable( PSNGROWOLD mix_test mix mix_full_old_psnGrowT )
+  GrowTExecutable( USNGROWOLD del_test del del_full_old_usnGrowT )
+  GrowTExecutable( PSNGROWOLD del_test del del_full_old_psnGrowT )
+  GrowTExecutable( USNGROWOLD con_test con con_full_old_usnGrowT )
+  GrowTExecutable( PSNGROWOLD con_test con con_full_old_psnGrowT )
+  GrowTExecutable( USNGROWOLD agg_test agg agg_full_old_usnGrowT )
+  GrowTExecutable( PSNGROWOLD agg_test agg agg_full_old_psnGrowT )
+  add_custom_target( old_ins )
+  add_dependencies( old_ins
+    ins_none_old_folklore
+    ins_full_old_sequential
+    ins_full_old_uaGrowT
+    ins_full_old_usGrowT
+    ins_full_old_paGrowT
+    ins_full_old_psGrowT
+    ins_full_old_usnGrowT
+    ins_full_old_psnGrowT )
 endif()
 
 if (GROWT_BUILD_TSX)
@@ -423,7 +465,8 @@ if (GROWT_BUILD_TBB)
     set_target_properties(${name} PROPERTIES COMPILE_FLAGS "${FLAGS}")
     target_compile_definitions(${name} PRIVATE
       -D ${variant}
-      -D ${GROWT_HASHFCT})
+      -D ${GROWT_HASHFCT}
+      -D ${GROWT_ALLOCATOR})
     target_link_libraries( ${name} ${TEST_DEP_LIBRARIES} ${TBB_LIBRARIES} )
   endfunction( TBBExecutable )
 
@@ -455,7 +498,8 @@ if (GROWT_BUILD_FOLLY)
     set_target_properties(${name} PROPERTIES COMPILE_FLAGS "-O2")
     target_compile_definitions(${name} PRIVATE
       -D ${variant}
-      -D ${GROWT_HASHFCT})
+      -D ${GROWT_HASHFCT}
+      -D ${GROWT_ALLOCATOR})
     target_link_libraries( ${name} ${TEST_DEP_LIBRARIES} folly libglog.so )
   endfunction( FollyExecutable )
 
@@ -477,7 +521,8 @@ if (GROWT_BUILD_CUCKOO)
     set_target_properties(${name} PROPERTIES COMPILE_FLAGS "${FLAGS}")
     target_compile_definitions(${name} PRIVATE
       -D ${variant}
-      -D ${GROWT_HASHFCT})
+      -D ${GROWT_HASHFCT}
+      -D ${GROWT_ALLOCATOR})
     target_link_libraries( ${name} ${TEST_DEP_LIBRARIES} ${CUCKOO_LIBRARIES} )
   endfunction( CuckooExecutable )
 
@@ -500,7 +545,8 @@ if (GROWT_BUILD_JUNCTION)
     set_target_properties(${name} PROPERTIES COMPILE_FLAGS "${FLAGS}")
     target_compile_definitions(${name} PRIVATE
       -D ${variant}
-      -D ${GROWT_HASHFCT})
+      -D ${GROWT_HASHFCT}
+      -D ${GROWT_ALLOCATOR})
     target_link_libraries( ${name} ${TEST_DEP_LIBRARIES} ${JUNCTION_ALL_LIBRARIES} )
   endfunction( JunctionExecutable )
 

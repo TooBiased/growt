@@ -17,9 +17,9 @@
 #include <atomic>
 #include <memory>
 
-#include "data-structures/returnelement.h"
+#include "data-structures/returnelement.hpp"
 #include "data-structures/hash_table_mods.hpp"
-#include "wrapper/stupid_iterator.h"
+#include "wrapper/stupid_iterator.hpp"
 
 using namespace growt;
 
@@ -100,7 +100,7 @@ public:
     // Derived Types
     using value_type = std::pair<const key_type, mapped_type>;
 
-    static constexpr is_viable = !(mods::template is<ref_integrity>());
+    static constexpr bool is_viable = !(mods::template is<hmod::ref_integrity>());
 
     static_assert(is_viable, "tbb hm wrapper does not support the chosen flags");
 

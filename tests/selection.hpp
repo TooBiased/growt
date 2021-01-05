@@ -11,272 +11,494 @@
  *
  * All rights reserved. Published under the BSD-2 license in the LICENSE file.
  ******************************************************************************/
-
-#ifndef SELECTION_H
-#define SELECTION_H
+#pragma once
 
 // THIS HEADER USES DEFINES TO SELECT THE CORRECT
 // HASHTABLE AT COMPILE TIME
 
+#include "data-structures/hash_table_mods.hpp"
+
 
 #ifdef ALIGNED
-#define ALLOCATOR growt::AlignedAllocator
 #include "allocator/alignedallocator.hpp"
+using allocator_type = growt::AlignedAllocator<>;
 #endif
 
 #ifdef POOL
-#define ALLOCATOR growt::PoolAllocator
 #include "allocator/poolallocator.hpp"
+using allocator_type = growt::PoolAllocator<>;
 #endif
 
 #ifdef NUMA_POOL
-#define ALLOCATOR growt::NUMAPoolAllocator
 #include "allocator/numapoolallocator.hpp"
+using allocator_type = growt::NUMAPoolAllocator<>;
 #endif
 
 #ifdef HTLB_POOL
-#define ALLOCATOR growt::HTLBPoolAllocator
 #include "allocator/poolallocator.hpp"
+using allocator_type = growt::HTLBPoolAllocator<>;
 #endif
 
 
 
 
+
+
+
+
+
+// !!! OUR IMPLEMENTATIONS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #ifdef SEQUENTIAL
-#include "data-structures/element_types/simple_element.hpp"
-#include "data-structures/seqcircular.hpp"
-#define HASHTYPE growt::seq_circular<growt::simple_element, HASHFCT, \
-                                    ALLOCATOR<> >
+#include "data-structures/seq_table_config.hpp"
+template <class Key, class Data, class HashFct, class Alloc,
+          hmod ... Mods>
+using table_config = growt::seq_table_config<Key, Data, HashFct, Alloc, Mods... >;
 #endif // SEQUENTIAL
 
 
 
+#if defined(FOLKLORE) ||                        \
+    defined(UAGROW)   ||                        \
+    defined(USGROW)   ||                        \
+    defined(PAGROW)   ||                        \
+    defined(PSGROW)
+#include "data-structures/table_config.hpp"
+#if defined(FOLKLORE)
+constexpr hmod dynamic = hmod::neutral;
+#else
+constexpr hmod dynamic = hmod::growable;
+#endif
+#if defined(PAGROW) || defined(PSGROW)
+constexpr hmod wstrat = hmod::pool;
+#else // UXGROW
+constexpr hmod wstrat = hmod::neutral;
+#endif
+#if defined(USGROW) || defined(PSGROW)
+constexpr hmod estrat = hmod::sync;
+#else // XSGROW
+constexpr hmod estrat = hmod::neutral;
+#endif
 
-#ifdef FOLKLORE
-#include "data-structures/element_types/simple_element.hpp"
-#include "data-structures/base_circular.hpp"
-#define HASHTYPE growt::base_circular<growt::simple_element, HASHFCT, \
-                                 ALLOCATOR<> >
-#endif // FOLKLORE
-
-#ifdef XFOLKLORE
-#include "data-structures/element_types/simple_element.hpp"
-#include "data-structures/tsx_circular.hpp"
-#define HASHTYPE growt::TSXCircular<growt::simple_element, HASHFCT, \
-                                    ALLOCATOR<> >
-#endif // XFOLKLORE
-
-
-
-
-#ifdef UAGROW
-#include "data-structures/element_types/markable_element.hpp"
-#include "data-structures/base_circular.hpp"
-#include "data-structures/strategy/wstrat_user.hpp"
-#include "data-structures/strategy/estrat_async.hpp"
-#include "data-structures/grow_table.hpp"
-//#include "data-structures/ancient_grow.hpp"
-#define HASHTYPE growt::grow_table<growt::base_circular<growt::markable_element, \
-                                                  HASHFCT, \
-                                                  ALLOCATOR<> >, \
-                                  growt::WStratUser, growt::EStratAsync>
-
-#endif // UAGROW
-
-#ifdef PAGROW
-#include "data-structures/element_types/markable_element.hpp"
-#include "data-structures/base_circular.hpp"
-#include "data-structures/strategy/wstrat_pool.hpp"
-#include "data-structures/strategy/estrat_async.hpp"
-#include "data-structures/grow_table.hpp"
-//#include "data-structures/ancient_grow.hpp"
-#define HASHTYPE growt::grow_table<growt::base_circular<growt::markable_element, \
-                                                  HASHFCT, \
-                                                  ALLOCATOR<> >, \
-                                  growt::WStratPool, growt::EStratAsync>
-#endif // PAGROW
-
-#ifdef USGROW
-#include "data-structures/element_types/simple_element.hpp"
-#include "data-structures/base_circular.hpp"
-#include "data-structures/strategy/wstrat_user.hpp"
-#include "data-structures/strategy/estrat_sync.hpp"
-#include "data-structures/grow_table.hpp"
-//#include "data-structures/ancient_grow.hpp"
-#define HASHTYPE growt::grow_table<growt::base_circular<growt::simple_element, \
-                                                  HASHFCT, \
-                                                  ALLOCATOR<> >, \
-                                  growt::WStratUser, growt::EStratSync>
-#endif // USGROW
-
-#ifdef PSGROW
-#include "data-structures/element_types/simple_element.hpp"
-#include "data-structures/base_circular.hpp"
-#include "data-structures/strategy/wstrat_pool.hpp"
-#include "data-structures/strategy/estrat_sync.hpp"
-#include "data-structures/grow_table.hpp"
-//#include "data-structures/ancient_grow.hpp"
-#define HASHTYPE growt::grow_table<growt::base_circular<growt::simple_element, \
-                                                  HASHFCT, \
-                                                  ALLOCATOR<> >, \
-                                  growt::WStratPool, growt::EStratSync>
-#endif // PSGROW
-
-#ifdef USNGROW
-#include "data-structures/element_types/simple_element.hpp"
-#include "data-structures/base_circular.hpp"
-#include "data-structures/strategy/wstrat_user.hpp"
-#include "data-structures/strategy/estrat_sync_alt.hpp"
-#include "data-structures/grow_table.hpp"
-//#include "data-structures/ancient_grow.hpp"
-#define HASHTYPE growt::grow_table<growt::base_circular<growt::simple_element, \
-                                                  HASHFCT, \
-                                                  ALLOCATOR<> >, \
-                                  growt::WStratUser, growt::EStratSyncNUMA>
-#endif // USNGROW
-
-#ifdef PSNGROW
-#include "data-structures/element_types/simple_element.hpp"
-#include "data-structures/base_circular.hpp"
-#include "data-structures/strategy/wstrat_pool.hpp"
-#include "data-structures/strategy/estrat_sync_alt.hpp"
-#include "data-structures/grow_table.hpp"
-//#include "data-structures/ancient_grow.hpp"
-#define HASHTYPE growt::grow_table<growt::base_circular<growt::simple_element, \
-                                                  HASHFCT, \
-                                                  ALLOCATOR<> >, \
-                                  growt::WStratPool, growt::EStratSyncNUMA>
-#endif // PSNGROW
+template <class Key, class Data, class HashFct, class Alloc,
+          hmod ... Mods>
+using table_config = typename growt::table_config<Key,
+                                                  Data,
+                                                  HashFct,
+                                                  Alloc,
+                                                  dynamic,
+                                                  estrat,
+                                                  wstrat,
+                                                  Mods ...>;
+#endif
 
 
 
+// !!! THIRD PARTY IMPLEMENTATIONS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#if defined(FOLLY)             ||               \
+    defined(CUCKOO)            ||               \
+    defined(TBBHM)             ||               \
+    defined(TBBUM)             ||               \
+    defined(JUNCTION_LINEAR)   ||               \
+    defined(JUNCTION_LEAPFROG) ||               \
+    defined(JUNCTION_GRAMPA)
 
-#ifdef UAXGROW
-#include "data-structures/element_types/markable_element.hpp"
-#include "data-structures/tsx_circular.hpp"
-#include "data-structures/strategy/wstrat_user.hpp"
-#include "data-structures/strategy/estrat_async.hpp"
-#include "data-structures/ancient_grow.hpp"
-#define HASHTYPE growt::grow_table<growt::TSXCircular<growt::markable_element, \
-                                                     HASHFCT, \
-                                                     ALLOCATOR<> >, \
-                                  growt::WStratUser, growt::EStratAsync>
-#endif // UAXGROW
-
-#ifdef PAXGROW
-#include "data-structures/element_types/markable_element.hpp"
-#include "data-structures/tsx_circular.hpp"
-#include "data-structures/strategy/wstrat_pool.hpp"
-#include "data-structures/strategy/estrat_async.hpp"
-#include "data-structures/ancient_grow.hpp"
-#define HASHTYPE growt::grow_table<growt::TSXCircular<growt::markable_element, \
-                                                     HASHFCT, \
-                                                     ALLOCATOR<> >, \
-                                  growt::WStratPool, growt::EStratAsync>
-#endif // PAXGROW
-
-#ifdef USXGROW
-#include "data-structures/element_types/simple_element.hpp"
-#include "data-structures/tsx_circular.hpp"
-#include "data-structures/strategy/wstrat_user.hpp"
-#include "data-structures/strategy/estrat_sync.hpp"
-#include "data-structures/ancient_grow.hpp"
-#define HASHTYPE growt::grow_table<growt::TSXCircular<growt::simple_element, \
-                                                     HASHFCT, \
-                                                     ALLOCATOR<> >, \
-                                  growt::WStratUser, growt::EStratSync>
-#endif // USXGROW
-
-#ifdef PSXGROW
-#include "data-structures/element_types/simple_element.hpp"
-#include "data-structures/tsx_circular.hpp"
-#include "data-structures/strategy/wstrat_pool.hpp"
-#include "data-structures/strategy/estrat_sync.hpp"
-#include "data-structures/ancient_grow.hpp"
-#define HASHTYPE growt::grow_table<growt::TSXCircular<growt::simple_element, \
-                                                     HASHFCT, \
-                                                     ALLOCATOR<> >, \
-                                  growt::WStratPool, growt::EStratSync>
-#endif // PSXGROW
-
-#ifdef USNXGROW
-#include "data-structures/element_types/simple_element.hpp"
-#include "data-structures/tsx_circular.hpp"
-#include "data-structures/strategy/wstrat_user.hpp"
-#include "data-structures/strategy/estrat_sync_alt.hpp"
-#include "data-structures/ancient_grow.hpp"
-#define HASHTYPE growt::grow_table<growt::TSXCircular<growt::simple_element, \
-                                                     HASHFCT, \
-                                                     ALLOCATOR<> >, \
-                                  growt::WStratUser, growt::EStratSyncNUMA>
-#endif // USNXGROW
-
-#ifdef PSNXGROW
-#include "data-structures/element_types/simple_element.hpp"
-#include "data-structures/tsx_circular.hpp"
-#include "data-structures/strategy/wstrat_pool.hpp"
-#include "data-structures/strategy/estrat_sync_alt.hpp"
-#include "data-structures/ancient_grow.hpp"
-#define HASHTYPE growt::grow_table<growt::TSXCircular<growt::simple_element, \
-                                                     HASHFCT, \
-                                                     ALLOCATOR<> >, \
-                                  growt::WStratPool, growt::EStratSyncNUMA>
-#endif // PSNXGROW
-
-
-
-#ifdef FOLLY
+#if defined(FOLLY)
 #include "wrapper/folly_wrapper.hpp"
-#define HASHTYPE FollyWrapper<HASHFCT>
-#endif // FOLLY
+#define CONFIG folly_config
+#endif
 
-#ifdef CUCKOO
+#if defined(CUCKOO)
 #include "wrapper/cuckoo_wrapper.hpp"
-#define HASHTYPE CuckooWrapper<HASHFCT>
-#endif // CUCKOO
+#define CONFIG cuckoo_config
+#endif
 
-#ifdef TBBHM
+#if defined(TBBHM)
 #include "wrapper/tbb_hm_wrapper.hpp"
-#define HASHTYPE TBBHMWrapper<HASHFCT>
-#endif //TBBHM
+#define CONFIG tbb_hm_config
+#endif
 
-#ifdef TBBUM
+#if defined(TBBUM)
 #include "wrapper/tbb_um_wrapper.hpp"
-#define HASHTYPE TBBUMWrapper<HASHFCT>
-#endif //TBBUM
+#define CONFIG tbb_um_config
+#endif
 
-#ifdef JUNCTION_LINEAR
+#if defined(JUNCTION_LINEAR)
 #define JUNCTION_TYPE junction::ConcurrentMap_Linear
 #include "wrapper/junction_wrapper.hpp"
-#define HASHTYPE JunctionWrapper
-//<junction::ConcurrentMap_Linear<turf::u64, turf::u64> >
-#endif //JUNCTION_LINEAR
+#define CONFIG junction_config
+#endif
 
-#ifdef JUNCTION_GRAMPA
-#define JUNCTION_TYPE junction::ConcurrentMap_Grampa
-#include "wrapper/junction_wrapper.hpp"
-#define HASHTYPE JunctionWrapper
-//<junction::ConcurrentMap_Linear<turf::u64, turf::u64> >
-#endif //JUNCTION_GRAMPA
-
-#ifdef JUNCTION_LEAPFROG
+#if defined(JUNCTION_LEAPFROG)
 #define JUNCTION_TYPE junction::ConcurrentMap_Leapfrog
 #include "wrapper/junction_wrapper.hpp"
-#define HASHTYPE JunctionWrapper
-//<junction::ConcurrentMap_Linear<turf::u64, turf::u64> >
-#endif //JUNCTION_LEAPFROG
+#define CONFIG junction_config
+#endif
 
-#ifdef UAGROWNEW
-#include "data-structures/table_config.hpp"
+#if defined(JUNCTION_GRAMPA)
+#define JUNCTION_TYPE junction::ConcurrentMap_Grampa
+#include "wrapper/junction_wrapper.hpp"
+#define CONFIG junction_config
+#endif
 
-using HASHTYPE = typename growt::table_config<size_t,
-                                              size_t,
-                                              HASHFCT,
-                                              ALLOCATOR<>,
-                                              growt::hmod::growable,
-                                              growt::hmod::circular_prob
-                                              >::table_type;
-#endif // UAGROWNEW
+template <class Key, class Data, class HashFct, class Alloc,
+          hmod ... Mods>
+using table_config = CONFIG<Key,
+                            Data,
+                            HashFct,
+                            Alloc,
+                            Mods ...>;
+#endif
 
 
-#endif // SELECTION
+// !!! ADAPTER FOR LEGACY IMPLEMENTATIONS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#if defined(FOLKLOREOLD)  ||                    \
+    defined(UAGROWOLD)    ||                    \
+    defined(USGROWOLD)    ||                    \
+    defined(PAGROWOLD)    ||                    \
+    defined(PSGROWOLD)    ||                    \
+    defined(USNGROWOLD)   ||                    \
+    defined(PSNGROWOLD)   ||                    \
+    defined(XFOLKLOREOLD) ||                    \
+    defined(UAXGROWOLD)   ||                    \
+    defined(USXGROWOLD)   ||                    \
+    defined(PAXGROWOLD)   ||                    \
+    defined(PSXGROWOLD)   ||                    \
+    defined(USNXGROWOLD)  ||                    \
+    defined(PSNXGROWOLD)
+#define OLD_ADAPTER
+#endif
+
+#ifdef OLD_ADAPTER
+template <template<class, class> class OldType, hmod ... PMods>
+class old_config_factory
+{
+public:
+    template <class Key, class Data, class HashFct, class Alloc,
+              hmod ... Mods>
+    class table_config
+    {
+    public:
+        using table_type = OldType<HashFct, Alloc>;
+
+    private:
+        static constexpr bool is_viable = std::is_same<Key , size_t>::value
+            && std::is_same<Data, size_t>::value;
+        static_assert(is_viable,
+                      "legacy table does not support data types");
+
+        using pmods = mod_aggregator<PMods...>;
+        static_assert(pmods::template all<Mods... >(),
+                      "legacy table does not support all hmods");
+    };
+};
+#endif
+
+
+
+// !!! LEGACY IMPLEMENTATIONS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#ifdef FOLKLOREOLD
+#include "data-structures/element_types/simple_element.hpp"
+#include "data-structures/base_circular.hpp"
+template <class HashFct, class Alloc>
+using old_table = growt::base_circular<growt::simple_element, HashFct, Alloc>;
+
+template<class K, class D, class HF, class AL, hmod ... M>
+using table_config = old_config_factory<old_table,
+                                        hmod::circular_map,
+                                        hmod::circular_prob
+                                        >::template table_config<K,D,HF,AL,M...>;
+#endif // FOLKLOREOLD
+
+#ifdef UAGROWOLD
+#include "data-structures/element_types/markable_element.hpp"
+#include "data-structures/base_circular.hpp"
+#include "data-structures/strategy/wstrat_user.hpp"
+#include "data-structures/strategy/estrat_async.hpp"
+#include "data-structures/grow_table.hpp"
+//#include "data-structures/ancient_grow.hpp"
+template <class HashFct, class Alloc>
+using old_table = growt::grow_table<growt::base_circular<growt::markable_element,
+                                                         HashFct,
+                                                         Alloc>,
+                                    growt::WStratUser, growt::EStratAsync>;
+
+template<class Key, class Data, class HashFct, class Alloc, hmod ... Mods>
+using table_config = old_config_factory<old_table,
+                                        hmod::growable,
+                                        hmod::deletion,
+                                        hmod::circular_map,
+                                        hmod::circular_prob
+                                        >::template table_config<Key, Data, HashFct, Alloc, Mods...>;
+#endif // UAGROWOLD
+
+#ifdef USGROWOLD
+#include "data-structures/element_types/simple_element.hpp"
+#include "data-structures/base_circular.hpp"
+#include "data-structures/strategy/wstrat_user.hpp"
+#include "data-structures/strategy/estrat_sync.hpp"
+#include "data-structures/grow_table.hpp"
+//#include "data-structures/ancient_grow.hpp"
+template <class HashFct, class Alloc>
+using old_table = growt::grow_table<growt::base_circular<growt::markable_element,
+                                                         HashFct,
+                                                         Alloc>,
+                                    growt::WStratUser, growt::EStratSync>;
+
+template<class K, class D, class HF, class AL, hmod ... M>
+using table_config = old_config_factory<old_table,
+                                        hmod::growable,
+                                        hmod::deletion,
+                                        hmod::sync,
+                                        hmod::circular_map,
+                                        hmod::circular_prob
+                                        >::template table_config<K,D,HF,AL,M...>;
+#endif // USGROWOLD
+
+#ifdef PAGROWOLD
+#include "data-structures/element_types/markable_element.hpp"
+#include "data-structures/base_circular.hpp"
+#include "data-structures/strategy/wstrat_pool.hpp"
+#include "data-structures/strategy/estrat_async.hpp"
+#include "data-structures/grow_table.hpp"
+//#include "data-structures/ancient_grow.hpp"
+template <class HashFct, class Alloc>
+using old_table = growt::grow_table<growt::base_circular<growt::markable_element,
+                                                         HashFct,
+                                                         Alloc>,
+                                    growt::WStratPool, growt::EStratAsync>;
+
+template<class K, class D, class HF, class AL, hmod ... M>
+using table_config = old_config_factory<old_table,
+                                        hmod::growable,
+                                        hmod::deletion,
+                                        hmod::pool,
+                                        hmod::circular_map,
+                                        hmod::circular_prob
+                                        >::template table_config<K,D,HF,AL,M...>;
+#endif // PAGROWOLD
+
+#ifdef PSGROWOLD
+#include "data-structures/element_types/simple_element.hpp"
+#include "data-structures/base_circular.hpp"
+#include "data-structures/strategy/wstrat_pool.hpp"
+#include "data-structures/strategy/estrat_sync.hpp"
+#include "data-structures/grow_table.hpp"
+//#include "data-structures/ancient_grow.hpp"
+template <class HashFct, class Alloc>
+using old_table = growt::grow_table<growt::base_circular<growt::simple_element,
+                                                         HashFct,
+                                                         Alloc>,
+                                    growt::WStratPool, growt::EStratSync>;
+
+template<class K, class D, class HF, class AL, hmod ... M>
+using table_config = old_config_factory<old_table,
+                                        hmod::growable,
+                                        hmod::deletion,
+                                        hmod::sync,
+                                        hmod::pool,
+                                        hmod::circular_map,
+                                        hmod::circular_prob
+                                        >::template table_config<K,D,HF,AL,M...>;
+#endif // PSGROWOLD
+
+#ifdef USNGROWOLD
+#include "data-structures/element_types/simple_element.hpp"
+#include "data-structures/base_circular.hpp"
+#include "data-structures/strategy/wstrat_user.hpp"
+#include "data-structures/strategy/estrat_sync_alt.hpp"
+#include "data-structures/grow_table.hpp"
+//#include "data-structures/ancient_grow.hpp"
+template <class HashFct, class Alloc>
+using old_table = growt::grow_table<growt::base_circular<growt::markable_element,
+                                                         HashFct,
+                                                         Alloc>,
+                                    growt::WStratUser, growt::EStratSyncNUMA>;
+
+template<class K, class D, class HF, class AL, hmod ... M>
+using table_config = old_config_factory<old_table,
+                                        hmod::growable,
+                                        hmod::deletion,
+                                        hmod::sync,
+                                        hmod::circular_map,
+                                        hmod::circular_prob
+                                        >::template table_config<K,D,HF,AL,M...>;
+#endif // USNGROWOLD
+
+#ifdef PSNGROWOLD
+#include "data-structures/element_types/simple_element.hpp"
+#include "data-structures/base_circular.hpp"
+#include "data-structures/strategy/wstrat_pool.hpp"
+#include "data-structures/strategy/estrat_sync_alt.hpp"
+#include "data-structures/grow_table.hpp"
+//#include "data-structures/ancient_grow.hpp"
+template <class HashFct, class Alloc>
+using old_table = growt::grow_table<growt::base_circular<growt::simple_element,
+                                                         HashFct,
+                                                         Alloc>,
+                                    growt::WStratPool, growt::EStratSyncNUMA>;
+
+template<class K, class D, class HF, class AL, hmod ... M>
+using table_config = old_config_factory<old_table,
+                                        hmod::growable,
+                                        hmod::deletion,
+                                        hmod::sync,
+                                        hmod::pool,
+                                        hmod::circular_map,
+                                        hmod::circular_prob
+                                        >::template table_config<K,D,HF,AL,M...>;
+#endif // PSNGROWOLD
+
+
+
+// !!! LEGACY TSX VARIANT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#ifdef XFOLKLOREOLD
+#include "data-structures/element_types/simple_element.hpp"
+#include "data-structures/tsx_circular.hpp"
+template <class HashFct, class Alloc>
+using old_table = growt::TSXCircular<growt::simple_element, HashFct, Alloc>;
+
+template<class K, class D, class HF, class AL, hmod ... M>
+using table_config = old_config_factory<old_table,
+                                        hmod::circular_map,
+                                        hmod::circular_prob
+                                        >::template table_config<K,D,HF,AL,M...>;
+#endif // XFOLKLORE
+
+#ifdef UAXGROWOLD
+#include "data-structures/element_types/markable_element.hpp"
+#include "data-structures/tsx_circular.hpp"
+#include "data-structures/strategy/wstrat_user.hpp"
+#include "data-structures/strategy/estrat_async.hpp"
+#include "data-structures/grow_table.hpp"
+//#include "data-structures/ancient_grow.hpp"
+template <class HashFct, class Alloc>
+using old_table = growt::grow_table<growt::TSXCircular<growt::markable_element,
+                                                       HashFct,
+                                                       Alloc>,
+                                    growt::WStratUser, growt::EStratAsync>;
+
+template<class K, class D, class HF, class AL, hmod ... M>
+using table_config = old_config_factory<old_table,
+                                        hmod::growable,
+                                        hmod::deletion,
+                                        hmod::circular_map,
+                                        hmod::circular_prob
+                                        >::template table_config<K,D,HF,AL,M...>;
+#endif // UAXGROWOLD
+
+#ifdef USXGROWOLD
+#include "data-structures/element_types/simple_element.hpp"
+#include "data-structures/tsx_circular.hpp"
+#include "data-structures/strategy/wstrat_user.hpp"
+#include "data-structures/strategy/estrat_sync.hpp"
+#include "data-structures/grow_table.hpp"
+//#include "data-structures/ancient_grow.hpp"
+template <class HashFct, class Alloc>
+using old_table = growt::grow_table<growt::TSXCircular<growt::markable_element,
+                                                       HashFct,
+                                                       Alloc>,
+                                    growt::WStratUser, growt::EStratSync>;
+
+template<class K, class D, class HF, class AL, hmod ... M>
+using table_config = old_config_factory<old_table,
+                                        hmod::growable,
+                                        hmod::deletion,
+                                        hmod::sync,
+                                        hmod::circular_map,
+                                        hmod::circular_prob
+                                        >::template table_config<K,D,HF,AL,M...>;
+#endif // USXGROWOLD
+
+#ifdef PAXGROWOLD
+#include "data-structures/element_types/markable_element.hpp"
+#include "data-structures/tsx_circular.hpp"
+#include "data-structures/strategy/wstrat_pool.hpp"
+#include "data-structures/strategy/estrat_async.hpp"
+#include "data-structures/grow_table.hpp"
+//#include "data-structures/ancient_grow.hpp"
+template <class HashFct, class Alloc>
+using old_table = growt::grow_table<growt::TSXCircular<growt::markable_element,
+                                                       HashFct,
+                                                       Alloc>,
+                                    growt::WStratPool, growt::EStratAsync>;
+
+template<class K, class D, class HF, class AL, hmod ... M>
+using table_config = old_config_factory<old_table,
+                                        hmod::growable,
+                                        hmod::deletion,
+                                        hmod::pool,
+                                        hmod::circular_map,
+                                        hmod::circular_prob
+                                        >::template table_config<K,D,HF,AL,M...>;
+#endif // PAXGROWOLD
+
+#ifdef PSXGROWOLD
+#include "data-structures/element_types/simple_element.hpp"
+#include "data-structures/tsx_circular.hpp"
+#include "data-structures/strategy/wstrat_pool.hpp"
+#include "data-structures/strategy/estrat_sync.hpp"
+#include "data-structures/grow_table.hpp"
+//#include "data-structures/ancient_grow.hpp"
+template <class HashFct, class Alloc>
+using old_table = growt::grow_table<growt::TSXCircular<growt::simple_element,
+                                                       HashFct,
+                                                       Alloc>,
+                                    growt::WStratPool, growt::EStratSync>;
+
+template<class K, class D, class HF, class AL, hmod ... M>
+using table_config = old_config_factory<old_table,
+                                        hmod::growable,
+                                        hmod::deletion,
+                                        hmod::sync,
+                                        hmod::pool,
+                                        hmod::circular_map,
+                                        hmod::circular_prob
+                                        >::template table_config<K,D,HF,AL,M...>;
+#endif // PSXGROWOLD
+
+#ifdef USNXGROWOLD
+#include "data-structures/element_types/simple_element.hpp"
+#include "data-structures/tsx_circular.hpp"
+#include "data-structures/strategy/wstrat_user.hpp"
+#include "data-structures/strategy/estrat_sync_alt.hpp"
+#include "data-structures/grow_table.hpp"
+//#include "data-structures/ancient_grow.hpp"
+template <class HashFct, class Alloc>
+using old_table = growt::grow_table<growt::TSXCircular<growt::markable_element,
+                                                       HashFct,
+                                                       Alloc>,
+                                    growt::WStratUser, growt::EStratSyncNUMA>;
+
+template<class K, class D, class HF, class AL, hmod ... M>
+using table_config = old_config_factory<old_table,
+                                        hmod::growable,
+                                        hmod::deletion,
+                                        hmod::sync,
+                                        hmod::circular_map,
+                                        hmod::circular_prob
+                                        >::template table_config<K,D,HF,AL,M...>;
+#endif // USNXGROWOLD
+
+#ifdef PSNXGROWOLD
+#include "data-structures/element_types/simple_element.hpp"
+#include "data-structures/tsx_circular.hpp"
+#include "data-structures/strategy/wstrat_pool.hpp"
+#include "data-structures/strategy/estrat_sync_alt.hpp"
+#include "data-structures/grow_table.hpp"
+//#include "data-structures/ancient_grow.hpp"
+template <class HashFct, class Alloc>
+using old_table = growt::grow_table<growt::TSXCircular<growt::simple_element,
+                                                       HashFct,
+                                                       Alloc>,
+                                    growt::WStratPool, growt::EStratSyncNUMA>;
+
+template<class K, class D, class HF, class AL, hmod ... M>
+using table_config = old_config_factory<old_table,
+                                        hmod::growable,
+                                        hmod::deletion,
+                                        hmod::sync,
+                                        hmod::pool,
+                                        hmod::circular_map,
+                                        hmod::circular_prob
+                                        >::template table_config<K,D,HF,AL,M...>;
+#endif // PSNXGROWOLD

@@ -4,6 +4,7 @@
 
 enum class hmod : size_t
 {
+neutral       = 0,
 growable      = 1,
 deletion      = 2,
 ref_integrity = 4,
@@ -18,7 +19,7 @@ class mod_aggregator
 {
 public:
     static constexpr size_t mod_descriptor =
-        ( static_cast<size_t>(Mods) | ... );
+        ( size_t(0) | ... | static_cast<size_t>(Mods) );
 
 public:
     template <hmod Ask>
@@ -26,5 +27,13 @@ public:
     {
         auto ask = static_cast<size_t>(Ask);
         return mod_descriptor & ask;
+    }
+
+    template <hmod ... Asks>
+    static constexpr bool all()
+    {
+        using ask_aggregator = mod_aggregator<Mods...>;
+        constexpr size_t ask_descriptor = ask_aggregator::mod_descriptor;
+        return (ask_descriptor & mod_descriptor) == ask_descriptor;
     }
 };

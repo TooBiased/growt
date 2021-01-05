@@ -6,7 +6,9 @@
 #include "data-structures/element_types/simple_slot.hpp"
 
 #include "data-structures/newstrategies/estrat_async.hpp"
+#include "data-structures/newstrategies/estrat_sync.hpp"
 #include "data-structures/newstrategies/wstrat_user.hpp"
+#include "data-structures/newstrategies/wstrat_pool.hpp"
 
 #include "data-structures/hash_table_mods.hpp"
 #include "data-structures/base_linear.hpp"
@@ -54,17 +56,23 @@ public:
                                                  mods::template is<hmod::circular_prob>(),
                                                  !mods::template is<hmod::growable>()>;
 
-
     using base_table_type = base_linear<base_table_config>;
 
     template <class P>
-    using workerstrat = wstrat_user<P>;
+    using workerstrat = typename std::conditional<!mods::template is<hmod::pool>(),
+                                                                     wstrat_user<P>,
+                                                                     wstrat_pool<P>
+                                                                     >::type;
     template <class P>
-    using exclstrat   = estrat_async<P>;
+    using exclstrat = typename std::conditional<!mods::template is<hmod::sync>(),
+                                                                     estrat_async<P>,
+                                                                     estrat_sync<P>
+                                                                     >::type;
 
     using table_type = typename std::conditional<
         !mods::template is<hmod::growable>(),
         base_table_type,
         migration_table<base_table_type,workerstrat,exclstrat>>::type;
 };
+
 }
