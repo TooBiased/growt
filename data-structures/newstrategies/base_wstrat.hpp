@@ -14,6 +14,7 @@
 
 #include <cstddef>
 #include <atomic>
+#include <string>
 
 namespace growt {
 
@@ -51,6 +52,11 @@ public:
         template<class ESLocal>
         inline void execute_migration(ESLocal &estrat, size_t);
     };
+
+    static std::string name()
+    {
+        return "w_base";
+    }
 };
 
 }

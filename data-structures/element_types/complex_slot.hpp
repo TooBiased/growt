@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <tuple>
+#include <string>
 
 #include "utils/debug.hpp"
 namespace debug = utils_tm::debug_tm;
@@ -17,6 +18,11 @@ struct ptr_splitter
     bool     mark        : 1;
     uint64_t fingerprint : 15;
     uint64_t pointer     : 48;
+
+    void set_mark ()
+    {
+        mark = true;
+    }
 };
 
 template <>
@@ -25,6 +31,9 @@ struct ptr_splitter<false>
     static constexpr bool mark = false;
     uint64_t fingerprint : 16;
     uint64_t pointer     : 48;
+
+    void set_mark ()
+    { }
 };
 
 template <class Key, class Data, bool markable>
@@ -90,7 +99,7 @@ public:
         inline bool is_deleted() const;
         inline bool is_marked()  const;
         inline bool compare_key(const key_type& k, size_t hash) const;
-        inline void cleanup()    const;
+        //inline void cleanup()    const;
 
         inline operator value_type() const;
         inline bool operator==(const slot_type& r) const;
@@ -142,7 +151,12 @@ public:
 
     static value_type* allocate()
     { return static_cast<value_type*>(malloc(sizeof(value_type)));}
-    static void        deallocate(value_type* ptr) { dealloc(ptr); }
+    static void        deallocate(value_type* ptr) { free(ptr); }
+
+    static std::string name()
+    {
+        return "complex_slot";
+    }
 };
 
 
@@ -263,16 +277,16 @@ complex_slot<K,D,m>::slot_type::compare_key(const key_type& k, size_t hash) cons
     return ptr->first == k;
 }
 
-template <class K, class D, bool m>
-void
-complex_slot<K,D,m>::slot_type::cleanup() const
-{
-    auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
-    if (ptr != nullptr)
-    {
-        deallocate(ptr);
-    }
-}
+// template <class K, class D, bool m>
+// void
+// complex_slot<K,D,m>::slot_type::cleanup() const
+// {
+//     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
+//     if (ptr != nullptr)
+//     {
+//         deallocate(ptr);
+//     }
+// }
 
 // *** operators ***************************************************************
 template <class K, class D, bool m>
@@ -333,12 +347,14 @@ template <class K, class D, bool m>
 void
 complex_slot<K,D,m>::slot_type::cleanup()
 {
-    auto ptr = reinterpret_cast<value_type*>(_mfptr.plit.pointer);
+    auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
     if (!ptr)
     {
         // debug::if_debug("cleanup on empty slot");
         return;
     }
+    ptr->first.~key_type();
+    ptr->second.~mapped_type();
     complex_slot::deallocate(ptr);
 }
 
@@ -415,7 +431,7 @@ complex_slot<K,D,m>::atomic_slot_type::atomic_mark  (slot_type& expected)
 {
     if constexpr (!m) return true;
     ptr_union pu = expected._mfptr;
-    pu.split.mark = true;
+    pu.split.set_mark();
     return _aptr.compare_exchange_strong(expected._mfptr.full,
                                          pu.full,
                                          std::memory_order_relaxed);

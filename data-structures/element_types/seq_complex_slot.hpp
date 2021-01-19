@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <tuple>
+#include <string>
 
 #include "utils/debug.hpp"
 namespace debug = utils_tm::debug_tm;
@@ -11,12 +12,10 @@ namespace debug = utils_tm::debug_tm;
 namespace growt
 {
 
-
-
 template <class Key, class Data>
 class seq_complex_slot
 {
-    class ptr_split
+    struct ptr_split
     {
         uint64_t fingerprint : 16;
         uint64_t pointer     : 48;
@@ -133,7 +132,12 @@ public:
 
     static value_type* allocate()
     { return static_cast<value_type*>(malloc(sizeof(value_type)));}
-    static void        deallocate(value_type* ptr) { dealloc(ptr); }
+    static void        deallocate(value_type* ptr) { free(ptr); }
+
+    static std::string name()
+    {
+        return "seq_complex_slot";
+    }
 };
 
 
@@ -323,7 +327,7 @@ template <class K, class D>
 void
 seq_complex_slot<K,D>::slot_type::cleanup()
 {
-    auto ptr = reinterpret_cast<value_type*>(_mfptr.plit.pointer);
+    auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
     if (!ptr)
     {
         // debug::if_debug("cleanup on empty slot");

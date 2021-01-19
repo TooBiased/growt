@@ -16,24 +16,25 @@
 #include <tbb/concurrent_unordered_map.h>
 #include <atomic>
 #include <memory>
+#include <string>
 
 #include "data-structures/returnelement.hpp"
-#include "data-structures/hash_table_mod.hpp"
+#include "data-structures/hash_table_mods.hpp"
 
 using namespace growt;
 
-template<class Key, class Data, class Hasher class Alloc>
+template<class Key, class Data, class Hasher, class Alloc>
 class tbb_um_wrapper
 {
 private:
-    using HashType = tbb::concurrent_unordered_map<size_t, size_t, Hasher>;
+    using HashType = tbb::concurrent_unordered_map<Key, Data, Hasher>;
 
     HashType hash;
 
 public:
 
-    using key_type           = size_t;
-    using mapped_type        = size_t;
+    using key_type           = Key;
+    using mapped_type        = Data;
     using value_type         = typename std::pair<const key_type, mapped_type>;
     using iterator           = typename HashType::iterator;
     using const_iterator     = typename HashType::const_iterator;
@@ -47,8 +48,8 @@ public:
     tbb_um_wrapper(tbb_um_wrapper&& rhs) = default;
     tbb_um_wrapper& operator=(tbb_um_wrapper&& rhs) = default;
 
-    using Handle = tbb_um_wrapper&;
-    Handle get_handle() { return *this; }
+    using handle_type = tbb_um_wrapper&;
+    handle_type get_handle() { return *this; }
 
 
     inline iterator find(const key_type& k);
@@ -89,12 +90,14 @@ public:
     // Derived Types
     using value_type = std::pair<const key_type, mapped_type>;
 
-    static constexpr bool is_viable = ! mods::is<hmod::deletion>();
+    static constexpr bool is_viable = ! (mods::template is<hmod::deletion>());
 
-    static_assert(is_viable, "tbb hm wrapper does not support the chosen flags");
+    static_assert(is_viable, "tbb um wrapper does not support the chosen flags");
 
-    using table_type = tbb_hm_wrapper<key_type, mapped_type,
+    using table_type = tbb_um_wrapper<key_type, mapped_type,
                                      hash_fct_type, allocator_type>;
+
+    static std::string name() { return "tbb_um"; }
 };
 
 

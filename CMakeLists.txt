@@ -260,26 +260,18 @@ function( GrowXExecutable variant cpp directory name )
   target_link_libraries(${name} ${TEST_DEP_LIBRARIES} ${ALLOC_LIB})
 endfunction( GrowXExecutable )
 
-GrowTExecutable( UAGROWNEW ins_test new ins_full_new )
-GrowTExecutable( UAGROWNEW mix_test new mix_full_new )
-GrowTExecutable( UAGROWNEW con_test new con_full_new )
-GrowTExecutable( UAGROWNEW agg_test new agg_full_new )
 
-add_custom_target( new )
-add_dependencies( new
-  ins_full_new mix_full_new con_full_new
-  agg_full_new)
+GrowTExecutable( FOLKLORE ins_test  ins  ins_none_folklore )
+GrowTExecutable( FOLKLORE mix_test  mix  mix_none_folklore )
+GrowTExecutable( FOLKLORE con_test  con  con_none_folklore )
+GrowTExecutable( FOLKLORE agg_test  agg  agg_none_folklore )
+GrowTExecutable( FOLKLORE text_test text text_none_folklore )
 
-
-GrowTExecutable( FOLKLORE ins_test ins ins_none_folklore )
-GrowTExecutable( FOLKLORE mix_test mix mix_none_folklore )
-GrowTExecutable( FOLKLORE con_test con con_none_folklore )
-GrowTExecutable( FOLKLORE agg_test agg agg_none_folklore )
-
-GrowTExecutable( SEQUENTIAL ins_test seq ins_full_sequential )
-GrowTExecutable( SEQUENTIAL mix_test seq mix_full_sequential )
-GrowTExecutable( SEQUENTIAL con_test seq con_full_sequential )
-GrowTExecutable( SEQUENTIAL agg_test seq agg_full_sequential )
+GrowTExecutable( SEQUENTIAL ins_test  seq  ins_full_sequential )
+GrowTExecutable( SEQUENTIAL mix_test  seq  mix_full_sequential )
+GrowTExecutable( SEQUENTIAL con_test  seq  con_full_sequential )
+GrowTExecutable( SEQUENTIAL agg_test  seq  agg_full_sequential )
+GrowTExecutable( SEQUENTIAL text_test text text_full_sequential )
 
 GrowTExecutable( UAGROW ins_test ins ins_full_uaGrowT )
 GrowTExecutable( USGROW ins_test ins ins_full_usGrowT )
@@ -301,11 +293,15 @@ GrowTExecutable( UAGROW agg_test agg agg_full_uaGrowT )
 GrowTExecutable( USGROW agg_test agg agg_full_usGrowT )
 GrowTExecutable( PAGROW agg_test agg agg_full_paGrowT )
 GrowTExecutable( PSGROW agg_test agg agg_full_psGrowT )
+GrowTExecutable( UAGROW text_test text text_full_uaGrowT )
+GrowTExecutable( USGROW text_test text text_full_usGrowT )
+GrowTExecutable( PAGROW text_test text text_full_paGrowT )
+GrowTExecutable( PSGROW text_test text text_full_psGrowT )
 
 add_custom_target( folklore )
 add_dependencies( folklore
   ins_none_folklore mix_none_folklore con_none_folklore
-  agg_none_folklore)
+  agg_none_folklore text_none_folklore)
 
 # add_custom_target( sequential )
 # add_dependencies( sequential
@@ -315,57 +311,63 @@ add_dependencies( folklore
 add_custom_target( uagrow )
 add_dependencies( uagrow
   ins_full_uaGrowT mix_full_uaGrowT con_full_uaGrowT
-  agg_full_uaGrowT del_full_uaGrowT)
+  agg_full_uaGrowT del_full_uaGrowT text_full_uaGrowT)
 
 add_custom_target( usgrow )
 add_dependencies( usgrow
   ins_full_usGrowT mix_full_usGrowT con_full_usGrowT
-  agg_full_usGrowT del_full_usGrowT)
+  agg_full_usGrowT del_full_usGrowT text_full_usGrowT)
 
 add_custom_target( pagrow )
 add_dependencies( pagrow
   ins_full_paGrowT mix_full_paGrowT con_full_paGrowT
-  agg_full_paGrowT del_full_paGrowT)
+  agg_full_paGrowT del_full_paGrowT text_full_paGrowT)
 
 add_custom_target( psgrow )
 add_dependencies( psgrow
   ins_full_psGrowT mix_full_psGrowT con_full_psGrowT
-  agg_full_psGrowT del_full_psGrowT)
+  agg_full_psGrowT del_full_psGrowT text_full_psGrowT)
 
 add_custom_target( ins )
 add_dependencies( ins
-  # ins_full_sequential
+  ins_full_sequential
   ins_none_folklore
   ins_full_uaGrowT    ins_full_usGrowT
   ins_full_uaGrowT    ins_full_usGrowT)
 
 add_custom_target( agg )
 add_dependencies( agg
-  # agg_full_sequential
+  agg_full_sequential
   agg_none_folklore
   agg_full_uaGrowT    agg_full_usGrowT
   agg_full_uaGrowT    agg_full_usGrowT)
 
 add_custom_target( mix )
 add_dependencies( mix
-  # mix_full_sequential
+  mix_full_sequential
   mix_none_folklore
   mix_full_uaGrowT    mix_full_usGrowT
   mix_full_uaGrowT    mix_full_usGrowT)
 
-
 add_custom_target( con )
 add_dependencies( con
-  # con_full_sequential
+  con_full_sequential
   con_none_folklore
   con_full_uaGrowT    con_full_usGrowT
   con_full_uaGrowT    con_full_usGrowT)
-
 
 add_custom_target( del )
 add_dependencies( del
   del_full_uaGrowT    del_full_usGrowT
   del_full_uaGrowT    del_full_usGrowT)
+
+add_custom_target( text )
+add_dependencies( text
+  text_full_sequential
+  text_none_folklore
+  text_full_uaGrowT    text_full_usGrowT
+  text_full_uaGrowT    text_full_usGrowT)
+
 
 if (GROWT_BUILD_OLD_VARIANTS)
   GrowTExecutable( FOLKLOREOLD ins_test ins ins_none_old_folklore )
@@ -479,6 +481,9 @@ if (GROWT_BUILD_TBB)
   TBBExecutable( TBBHM  agg_test agg agg_full_TBBhm )
   TBBExecutable( TBBUM  agg_test agg agg_full_TBBum )
 
+  TBBExecutable( TBBUM  text_test text text_full_TBBum )
+  TBBExecutable( TBBHM  text_test text text_full_TBBhm )
+
   add_custom_target( tbb )
   add_dependencies( tbb
     ins_full_TBBhm ins_full_TBBum
@@ -495,7 +500,7 @@ if (GROWT_BUILD_FOLLY)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${directory})
 
     add_executable(${name} tests/${cpp}.cpp  )
-    set_target_properties(${name} PROPERTIES COMPILE_FLAGS "-O2")
+    set_target_properties(${name} PROPERTIES COMPILE_FLAGS "${FLAGS}") #"-O2")
     target_compile_definitions(${name} PRIVATE
       -D ${variant}
       -D ${GROWT_HASHFCT}
@@ -508,8 +513,8 @@ if (GROWT_BUILD_FOLLY)
   FollyExecutable( FOLLY  con_test con con_semi_folly )
   FollyExecutable( FOLLY  agg_test agg agg_semi_folly )
 
-  add_custom_target( folly )
-  add_dependencies( folly
+  add_custom_target( follytrgt )
+  add_dependencies( follytrgt
     ins_semi_folly mix_semi_folly con_semi_folly
     agg_semi_folly)
 endif()
@@ -531,11 +536,12 @@ if (GROWT_BUILD_CUCKOO)
   CuckooExecutable( CUCKOO  con_test con con_full_cuckoo )
   CuckooExecutable( CUCKOO  agg_test agg agg_full_cuckoo )
   CuckooExecutable( CUCKOO  del_test del del_full_cuckoo )
+  CuckooExecutable( CUCKOO  text_test text text_full_cuckoo )
 
   add_custom_target( cuckoo )
   add_dependencies( cuckoo
     ins_full_cuckoo mix_full_cuckoo con_full_cuckoo
-    agg_full_cuckoo del_full_cuckoo)
+    agg_full_cuckoo del_full_cuckoo text_full_cuckoo)
 endif()
 
 if (GROWT_BUILD_JUNCTION)
@@ -550,24 +556,24 @@ if (GROWT_BUILD_JUNCTION)
     target_link_libraries( ${name} ${TEST_DEP_LIBRARIES} ${JUNCTION_ALL_LIBRARIES} )
   endfunction( JunctionExecutable )
 
-  JunctionExecutable( JUNCTION_LINEAR  ins_test ins ins_full_junction_linear )
-  JunctionExecutable( JUNCTION_LINEAR  mix_test mix mix_full_junction_linear )
-  JunctionExecutable( JUNCTION_LINEAR  con_test con con_full_junction_linear )
-  JunctionExecutable( JUNCTION_LINEAR  agg_test agg agg_full_junction_linear )
-  JunctionExecutable( JUNCTION_LINEAR  del_test del del_full_junction_linear )
-  JunctionExecutable( JUNCTION_GRAMPA  ins_test ins ins_full_junction_grampa )
-  JunctionExecutable( JUNCTION_GRAMPA  mix_test mix mix_full_junction_grampa )
-  JunctionExecutable( JUNCTION_GRAMPA  con_test con con_full_junction_grampa )
-  JunctionExecutable( JUNCTION_GRAMPA  agg_test agg agg_full_junction_grampa )
-  JunctionExecutable( JUNCTION_GRAMPA  del_test del del_full_junction_grampa )
+  JunctionExecutable( JUNCTION_LINEAR      ins_test ins ins_full_junction_linear )
+  JunctionExecutable( JUNCTION_LINEAR      mix_test mix mix_full_junction_linear )
+  JunctionExecutable( JUNCTION_LINEAR      con_test con con_full_junction_linear )
+  JunctionExecutable( JUNCTION_LINEAR      agg_test agg agg_full_junction_linear )
+  JunctionExecutable( JUNCTION_LINEAR      del_test del del_full_junction_linear )
+  JunctionExecutable( JUNCTION_GRAMPA      ins_test ins ins_full_junction_grampa )
+  JunctionExecutable( JUNCTION_GRAMPA      mix_test mix mix_full_junction_grampa )
+  JunctionExecutable( JUNCTION_GRAMPA      con_test con con_full_junction_grampa )
+  JunctionExecutable( JUNCTION_GRAMPA      agg_test agg agg_full_junction_grampa )
+  JunctionExecutable( JUNCTION_GRAMPA      del_test del del_full_junction_grampa )
   JunctionExecutable( JUNCTION_LEAPFROG    ins_test ins ins_full_junction_leap )
   JunctionExecutable( JUNCTION_LEAPFROG    mix_test mix mix_full_junction_leap )
   JunctionExecutable( JUNCTION_LEAPFROG    con_test con con_full_junction_leap )
   JunctionExecutable( JUNCTION_LEAPFROG    agg_test agg agg_full_junction_leap )
   JunctionExecutable( JUNCTION_LEAPFROG    del_test del del_full_junction_leap )
 
-  add_custom_target( junction )
-  add_dependencies( junction
+  add_custom_target( junctiontrgt )
+  add_dependencies( junctiontrgt
     ins_full_junction_linear ins_full_junction_grampa ins_full_junction_leap
     mix_full_junction_linear mix_full_junction_grampa mix_full_junction_leap
     con_full_junction_linear con_full_junction_grampa con_full_junction_leap

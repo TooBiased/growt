@@ -6,6 +6,7 @@
 #include <functional>
 #include <limits>
 #include <tuple>
+#include <string>
 
 #include <atomic>
 
@@ -116,6 +117,11 @@ public:
     { return slot_type(key_type(), mapped_type(), 0); }
     static constexpr slot_type   get_deleted()
     { return slot_type(delete_dummy, mapped_type(), 0); }
+
+    static std::string name()
+    {
+        return "simple_slot";
+    }
 };
 
 

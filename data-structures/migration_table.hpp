@@ -19,6 +19,9 @@
 
 #include <atomic>
 #include <memory>
+#include <string>
+#include <sstream>
+
 
 #include "data-structures/returnelement.hpp"
 #include "data-structures/grow_iterator.hpp"
@@ -42,6 +45,7 @@ private:
                                                       ExclusionStrat>;
     using migration_table_data_type = migration_table_data<this_type>;
     using base_table_type           = HashTable;
+    using slot_config               = typename base_table_type::slot_config;
     using worker_strat              = WorkerStrat<migration_table_data_type>;
     using exclusion_strat           = ExclusionStrat<migration_table_data_type>;
     friend migration_table_data_type;
@@ -64,6 +68,16 @@ public:
     ~migration_table() = default;
 
     handle_type get_handle() { return handle_type(*_mt_data); }
+
+    static std::string name()
+    {
+        std::stringstream name;
+        name << "migration_table<"
+             << slot_config::name() << ","
+             << worker_strat::name() << ","
+             << exclusion_strat::name() << ">";
+        return name.str();
+    }
 };
 
 

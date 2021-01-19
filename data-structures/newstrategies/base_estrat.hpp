@@ -15,6 +15,7 @@
 #include <atomic>
 #include <mutex>
 #include <memory>
+#include <string>
 
 namespace growt {
 
@@ -84,6 +85,11 @@ public:
         void help_grow();
         inline size_t migrate();
     };
+
+    static std::string name()
+    {
+        return "e_base";
+    }
 };
 
 }

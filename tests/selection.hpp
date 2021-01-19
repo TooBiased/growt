@@ -124,18 +124,21 @@ using table_config = typename growt::table_config<Key,
 
 #if defined(JUNCTION_LINEAR)
 #define JUNCTION_TYPE junction::ConcurrentMap_Linear
+#define JUNCTION_NAME "junction_linear"
 #include "wrapper/junction_wrapper.hpp"
 #define CONFIG junction_config
 #endif
 
 #if defined(JUNCTION_LEAPFROG)
 #define JUNCTION_TYPE junction::ConcurrentMap_Leapfrog
+#define JUNCTION_NAME "junction_leapfrog"
 #include "wrapper/junction_wrapper.hpp"
 #define CONFIG junction_config
 #endif
 
 #if defined(JUNCTION_GRAMPA)
 #define JUNCTION_TYPE junction::ConcurrentMap_Grampa
+#define JUNCTION_NAME "junction_grampa"
 #include "wrapper/junction_wrapper.hpp"
 #define CONFIG junction_config
 #endif
@@ -168,8 +171,10 @@ using table_config = CONFIG<Key,
 #define OLD_ADAPTER
 #endif
 
+#include <string>
+
 #ifdef OLD_ADAPTER
-template <template<class, class> class OldType, hmod ... PMods>
+template <template<class, class> class OldType, std::string Name, hmod ... PMods>
 class old_config_factory
 {
 public:
@@ -189,6 +194,8 @@ public:
         using pmods = mod_aggregator<PMods...>;
         static_assert(pmods::template all<Mods... >(),
                       "legacy table does not support all hmods");
+
+        static std::string name() { return Name; }
     };
 };
 #endif
@@ -204,6 +211,7 @@ using old_table = growt::base_circular<growt::simple_element, HashFct, Alloc>;
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
+                                        "old_base<simple>"
                                         hmod::circular_map,
                                         hmod::circular_prob
                                         >::template table_config<K,D,HF,AL,M...>;
@@ -224,6 +232,7 @@ using old_table = growt::grow_table<growt::base_circular<growt::markable_element
 
 template<class Key, class Data, class HashFct, class Alloc, hmod ... Mods>
 using table_config = old_config_factory<old_table,
+                                        "old_grow<markable, w_user, e_async>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::circular_map,
@@ -239,13 +248,14 @@ using table_config = old_config_factory<old_table,
 #include "data-structures/grow_table.hpp"
 //#include "data-structures/ancient_grow.hpp"
 template <class HashFct, class Alloc>
-using old_table = growt::grow_table<growt::base_circular<growt::markable_element,
+using old_table = growt::grow_table<growt::base_circular<growt::simple_element,
                                                          HashFct,
                                                          Alloc>,
                                     growt::WStratUser, growt::EStratSync>;
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
+                                        "old_grow<simple, w_user, e_sync>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::sync,
@@ -269,6 +279,7 @@ using old_table = growt::grow_table<growt::base_circular<growt::markable_element
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
+                                        "old_grow<markable, w_pool, e_async>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::pool,
@@ -292,6 +303,7 @@ using old_table = growt::grow_table<growt::base_circular<growt::simple_element,
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
+                                        "old_grow<markable, w_pool, e_sync>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::sync,
@@ -309,13 +321,14 @@ using table_config = old_config_factory<old_table,
 #include "data-structures/grow_table.hpp"
 //#include "data-structures/ancient_grow.hpp"
 template <class HashFct, class Alloc>
-using old_table = growt::grow_table<growt::base_circular<growt::markable_element,
+using old_table = growt::grow_table<growt::base_circular<growt::simple_element,
                                                          HashFct,
                                                          Alloc>,
                                     growt::WStratUser, growt::EStratSyncNUMA>;
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
+                                        "old_grow<simple, w_user, e_sync_numa>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::sync,
@@ -339,6 +352,7 @@ using old_table = growt::grow_table<growt::base_circular<growt::simple_element,
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
+                                        "old_grow<simple, w_pool, e_sync_numa>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::sync,
@@ -359,6 +373,7 @@ using old_table = growt::TSXCircular<growt::simple_element, HashFct, Alloc>;
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
+                                        "old_xbase<simple>",
                                         hmod::circular_map,
                                         hmod::circular_prob
                                         >::template table_config<K,D,HF,AL,M...>;
@@ -379,6 +394,7 @@ using old_table = growt::grow_table<growt::TSXCircular<growt::markable_element,
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
+                                        "old_xgrow<markable, w_user, e_async>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::circular_map,
@@ -394,13 +410,14 @@ using table_config = old_config_factory<old_table,
 #include "data-structures/grow_table.hpp"
 //#include "data-structures/ancient_grow.hpp"
 template <class HashFct, class Alloc>
-using old_table = growt::grow_table<growt::TSXCircular<growt::markable_element,
+using old_table = growt::grow_table<growt::TSXCircular<growt::simple_element,
                                                        HashFct,
                                                        Alloc>,
                                     growt::WStratUser, growt::EStratSync>;
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
+                                        "old_xgrow<simple, w_user, e_sync>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::sync,
@@ -424,6 +441,7 @@ using old_table = growt::grow_table<growt::TSXCircular<growt::markable_element,
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
+                                        "old_xgrow<markable, w_pool, e_async>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::pool,
@@ -447,6 +465,7 @@ using old_table = growt::grow_table<growt::TSXCircular<growt::simple_element,
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
+                                        "old_xgrow<simple, w_pool, e_async>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::sync,
@@ -464,13 +483,14 @@ using table_config = old_config_factory<old_table,
 #include "data-structures/grow_table.hpp"
 //#include "data-structures/ancient_grow.hpp"
 template <class HashFct, class Alloc>
-using old_table = growt::grow_table<growt::TSXCircular<growt::markable_element,
+using old_table = growt::grow_table<growt::TSXCircular<growt::simple_element,
                                                        HashFct,
                                                        Alloc>,
                                     growt::WStratUser, growt::EStratSyncNUMA>;
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
+                                        "old_xgrow<simple, w_user, e_sync_numa>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::sync,
@@ -494,6 +514,7 @@ using old_table = growt::grow_table<growt::TSXCircular<growt::simple_element,
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
+                                        "old_xgrow<simple, w_pool, e_sync_numa>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::sync,

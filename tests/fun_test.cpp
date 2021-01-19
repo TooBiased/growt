@@ -9,9 +9,7 @@
  *
  * All rights reserved. Published under the BSD-2 license in the LICENSE file.
  ******************************************************************************/
-
-#include "tests/selection.hpp"
-#include "data-structures/returnelement.hpp"
+#include <random>
 
 #include "utils/default_hash.hpp"
 #include "utils/thread_coordination.hpp"
@@ -19,9 +17,12 @@
 #include "utils/command_line_parser.hpp"
 #include "utils/output.hpp"
 
+#include "data-structures/returnelement.hpp"
+
 #include "example/update_fcts.hpp"
 
-#include <random>
+#include "tests/selection.hpp"
+
 
 /*
  * This Test is meant to test the functionality of each table
@@ -45,7 +46,11 @@ const static uint64_t range = (1ull << 62) -1;
 namespace otm = utils_tm::out_tm;
 namespace ttm = utils_tm::thread_tm;
 
-alignas(64) static HASHTYPE hash_table = HASHTYPE(0);
+using fun_config = table_config<size_t, size_t,
+                                utils_tm::hash_tm::default_hash,allocator_type>;
+using table_type = typename fun_config::table_type;
+
+alignas(64) static table_type hash_table = table_type(0);
 alignas(64) static uint64_t* keys;
 alignas(64) static std::atomic_size_t current_block;
 alignas(64) static std::atomic_size_t errors;
@@ -72,7 +77,7 @@ int set_up_hash(bool main, size_t n)
 {
     if (main)
     {
-        hash_table = HASHTYPE(n);
+        hash_table = table_type(n);
     }
 
     return 0;
@@ -233,7 +238,7 @@ struct test_in_stages
 
         utils_tm::pin_to_core(id);
 
-        using handle_type = HASHTYPE::handle_type;
+        using handle_type = table_type::handle_type;
 
         if (ThreadType::is_main)
         {
@@ -378,6 +383,8 @@ int main(int argn, char** argc)
     size_t n  = c.int_arg("-n", 1000000);
     size_t it = c.int_arg("-it", 2);
     if (! c.report()) return 1;
+
+    otm::out() << "# testing " << fun_config::name() << std::endl;
 
     ttm::start_threads<test_in_stages>(p, n, it);
 

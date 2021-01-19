@@ -10,8 +10,9 @@
  * All rights reserved. Published under the BSD-2 license in the LICENSE file.
  ******************************************************************************/
 
-#include "tests/selection.hpp"
-#include "data-structures/returnelement.hpp"
+
+#include <random>
+
 
 #include "utils/default_hash.hpp"
 #include "utils/zipf_keygen.hpp"
@@ -20,9 +21,11 @@
 #include "utils/command_line_parser.hpp"
 #include "utils/output.hpp"
 
+#include "data-structures/returnelement.hpp"
+
 #include "example/update_fcts.hpp"
 
-#include <random>
+#include "tests/selection.hpp"
 
 /*
  * This Test is meant to test the tables performance on uniform random inputs.
@@ -36,7 +39,10 @@
 namespace otm = utils_tm::out_tm;
 namespace ttm = utils_tm::thread_tm;
 
-alignas(64) static HASHTYPE hash_table = HASHTYPE(0);
+using con_config = table_config<size_t, size_t, utils_tm::hash_tm::default_hash,allocator_type>;
+using table_type = typename con_config::table_type;
+
+alignas(64) static table_type hash_table = table_type(0);
 alignas(64) static uint64_t* keys;
 alignas(64) static std::atomic_size_t current_block;
 alignas(64) static std::atomic_size_t errors;
@@ -150,7 +156,7 @@ struct test_in_stages {
 
         utils_tm::pin_to_core(t.id);
 
-        using handle_type = typename HASHTYPE::handle_type;
+        using handle_type = typename table_type::handle_type;
 
         if (ThreadType::is_main)
         {
@@ -167,7 +173,7 @@ struct test_in_stages {
         {
             // STAGE 0.1
             t.synchronized([cap](bool m)
-                           { if (m) hash_table = HASHTYPE(cap); return 0; },
+                           { if (m) hash_table = table_type(cap); return 0; },
                            ThreadType::is_main);
 
             t.out << otm::width(5) << i
@@ -260,6 +266,7 @@ int main(int argn, char** argc)
                << otm::width(12) << "t_updt_c"
                << otm::width(12) << "t_val_up"
                << otm::width(11) << "errors"
+               << " " << con_config::name()
                << std::endl;
 
     ttm::start_threads<test_in_stages>(p, n, cap, it, con);

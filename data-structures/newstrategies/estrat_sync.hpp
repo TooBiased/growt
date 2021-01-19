@@ -15,6 +15,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <limits>
+#include <string>
 
 /*******************************************************************************
  *
@@ -59,6 +60,8 @@ public:
     using worker_strat_local_data  = typename Parent::worker_strat::local_data_type;
     using hash_ptr       = std::atomic<base_table_type*>;
     using hash_ptr_reference    = base_table_type*;
+
+    static constexpr size_t migration_block_size = 4096;
 
 
     class local_data_type;
@@ -133,11 +136,18 @@ public:
         inline size_t migrate();
 
     private:
+        size_t blockwise_migrate(base_table_type& source,
+                                 base_table_type& target);
         template<bool ErrorMsg = true>
         inline bool change_stage(size_t& stage, size_t next);
         inline void wait_for_table_op();
         inline void wait_for_migration();
     };
+
+    static std::string name()
+    {
+        return "e_sync";
+    }
 };
 
 
@@ -260,9 +270,8 @@ estrat_sync<P>::local_data_type::grow()
 
     auto t_cur   = _global._g_table_r.load(std::memory_order_acquire);
     auto t_next  = new base_table_type(
-        base_table_type::resize(t_cur->_capacity,
-                                _parent._elements.load(std::memory_order_acquire),
-                                _parent._dummies.load(std::memory_order_acquire)),
+        t_cur->_mapper.resize(_parent._elements.load(std::memory_order_acquire),
+                              _parent._dummies.load(std::memory_order_acquire)),
         t_cur->_version+1);
 
     wait_for_table_op();
@@ -335,13 +344,34 @@ estrat_sync<P>::local_data_type::migrate()
         return next->_version;
     }
     //_parent.grow_count.fetch_add(
-    blockwise_migrate(curr, next);//);//,
+    blockwise_migrate(*curr, *next);//);//,
     //std::memory_order_release);
 
     // leave_migration();
     _flags.migrating.store(0, std::memory_order_release);
 
     return next->_version;
+}
+
+
+
+template <class P>
+size_t
+estrat_sync<P>::local_data_type::blockwise_migrate(base_table_type& source,
+                                                   base_table_type& target)
+{
+    size_t n = 0;
+
+    //get block + while block legal migrate and get new block
+    size_t temp = source._current_copy_block.fetch_add(migration_block_size);
+    while (temp < source.capacity())
+    {
+        n += source.migrate(target, temp,
+                            std::min(uint(temp+migration_block_size),
+                                     uint(source.capacity())));
+        temp = source._current_copy_block.fetch_add(migration_block_size);
+    }
+    return n;
 }
 
 template <class P> template<bool EM>

@@ -24,7 +24,6 @@
 #define  DEBUG
 #include "utils/debug.hpp"
 
-
 #include "tests/selection.hpp"
 
 /*
@@ -41,10 +40,14 @@ namespace otm = utils_tm::out_tm;
 namespace ttm = utils_tm::thread_tm;
 namespace dtm = utils_tm::debug_tm;
 
-using table_type = typename table_config<size_t,
-                                         size_t,
-                                         utils_tm::hash_tm::default_hash,
-                                         allocator_type>::table_type;
+using ins_config = table_config<size_t, size_t,
+                                utils_tm::hash_tm::default_hash,allocator_type>;
+using table_type = typename ins_config::table_type;
+
+// using table_type = typename table_config<size_t,
+//                                          size_t,
+//                                          utils_tm::hash_tm::default_hash,
+//                                          allocator_type>::table_type;
 
 alignas(64) static table_type hash_table = table_type(0);
 alignas(64) static uint64_t* keys;
@@ -88,11 +91,6 @@ int fill(Hash& hash, size_t end)
                 ++err;
 
             }
-
-            // if (bla.first == hash.end())
-            // {
-            //     dtm::if_debug("Warning: this was never in");
-            // }
 
             auto find = hash.find(key);
             if (find == hash.end())
@@ -273,6 +271,7 @@ int main(int argn, char** argc)
                << otm::width(12) << "t_find_-"
                << otm::width(12) << "t_find_+"
                << otm::width(9)  << "errors"
+               << " " << ins_config::name()
                << std::endl;
 
     ttm::start_threads<test_in_stages>(p, n, cap, it);

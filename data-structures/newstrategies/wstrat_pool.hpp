@@ -14,6 +14,7 @@
 
 #include <atomic>
 #include <thread>
+#include <string>
 #include "counting_wait.hpp"
 
 
@@ -102,6 +103,10 @@ public:
         inline void execute_migration(ESLocal&, size_t epoch);
     };
 
+    static std::string name()
+    {
+        return "w_pool";
+    }
 
 };
 

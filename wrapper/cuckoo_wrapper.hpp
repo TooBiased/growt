@@ -13,6 +13,8 @@
 #ifndef CUCKOO_WRAPPER
 #define CUCKOO_WRAPPER
 
+#include <string>
+
 #include <libcuckoo/cuckoohash_map.hh>
 
 #include "data-structures/hash_table_mods.hpp"
@@ -100,6 +102,8 @@ public:
     static_assert(is_viable, "libcuckoo wrapper does not support the chosen flags");
 
     using table_type = cuckoo_wrapper<key_type, mapped_type, hash_fct_type, allocator_type>;
+
+    static std::string name() { return "cuckoo"; }
 };
 
 

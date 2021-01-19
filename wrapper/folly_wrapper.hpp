@@ -14,10 +14,13 @@
 #define FOLLY_WRAPPER
 
 //#include "/home/maier/PHD/HashTables/Implementation/Competitors/folly/install_4.9.2/include/folly/AtomicHashMap.h"
+#include <string>
+#include <algorithm>
+
 #include "folly/AtomicHashMap.h"
+
 #include "data-structures/hash_table_mods.hpp"
 #include "data-structures/returnelement.hpp"
-#include <algorithm>
 
 using namespace growt;
 
@@ -64,8 +67,8 @@ public:
         return *this;
     }
 
-    using Handle = folly_wrapper&;
-    Handle get_handle() { return *this; }
+    using handle_type = folly_wrapper&;
+    handle_type get_handle() { return *this; }
 
     inline iterator find(const key_type& k);
 
@@ -119,6 +122,8 @@ public:
 
     using table_type = folly_wrapper<key_type, mapped_type,
                                      hash_fct_type, allocator_type>;
+
+    static std::string name() { return "folly"; }
 };
 
 

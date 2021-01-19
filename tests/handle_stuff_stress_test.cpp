@@ -11,7 +11,8 @@
  * All rights reserved. Published under the BSD-2 license in the LICENSE file.
  ******************************************************************************/
 
-#include "tests/selection.hpp"
+#include <random>
+#include <iostream>
 
 #include "utils/default_hash.hpp"
 #include "utils/thread_coordination.hpp"
@@ -19,15 +20,19 @@
 #include "utils/command_line_parser.hpp"
 #include "utils/output.hpp"
 
-#include <random>
-#include <iostream>
+#include "tests/selection.hpp"
 
 using handle_type = typename HASHTYPE::handle_type;
 const static uint64_t range = (1ull << 63) - 1;
 namespace otm = utils_tm::out_tm;
 namespace ttm = utils_tm::thread_tm;
 
-alignas(64) static HASHTYPE hash_table = HASHTYPE(0);
+using table_type = typename table_config<size_t,
+                                         size_t,
+                                         utils_tm::hash_tm::default_hash,
+                                         allocator_type>::table_type;
+
+alignas(64) static table_type hash_table = table_type(0);
 alignas(64) static std::atomic_size_t current;
 alignas(64) static std::atomic_size_t unfinished;
 
@@ -116,7 +121,7 @@ struct test
         }
 
         t.synchronized(
-            [] (bool m) { if (m) hash_table = HASHTYPE(10000000); return 0; },
+            [] (bool m) { if (m) hash_table = table_type(10000000); return 0; },
             ThreadType::is_main
             );
         t.synchronize();

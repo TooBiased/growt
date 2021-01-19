@@ -14,6 +14,7 @@
 #include <atomic>
 #include <mutex>
 #include <memory>
+#include <string>
 
 /*******************************************************************************
  *
@@ -82,8 +83,11 @@ public:
         global_data_type& operator=(const global_data_type& source) = delete;
         ~global_data_type()
         {
+            // base tables have slot cleanup disabled
+            // (otherwise slots would be removed during migration)
+            // we have to do this here
             if constexpr (base_table_type::slot_config::needs_cleanup)
-                             _g_table_r->clean_slots();
+                             _g_table_r->slot_cleanup();
         }
 
     private:
@@ -144,6 +148,11 @@ public:
         inline void load();
         inline void end_grow();
     };
+
+    static std::string name()
+    {
+        return "e_async";
+    }
 };
 
 

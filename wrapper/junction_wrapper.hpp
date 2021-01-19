@@ -66,7 +66,7 @@ template <class JunctionType>
 class junction_handle
 {
 private:
-    using internal_table_type = JunctionType
+    using internal_table_type = JunctionType;
     // JUNCTION_TYPE<turf::u64, turf::u64, junction::DefaultKeyTraits<turf::u64>, ValueTraits>;
 
     internal_table_type& hash;
@@ -92,7 +92,7 @@ public:
     junction_handle(junction_handle&& rhs) = default;
     junction_handle& operator=(junction_handle&& rhs);
 
-    inline iterator           find(const key_type& k)
+    inline iterator           find(const key_type& k);
     inline insert_return_type insert(const key_type& k, const mapped_type& d);
     template<class F, class ... Types>
     inline insert_return_type update(const key_type& k, F f, Types&& ... args);
@@ -156,11 +156,12 @@ public:
                   "folly wrapper does not support data types and flags");
 
     using internal_table_type = JUNCTION_TYPE<turf::u64, turf::u64,
-                                              junction::DefaultKeyTraits<turf::u64>,
-                                              ValueTraits>;
+                                                               junction::DefaultKeyTraits<turf::u64>,
+                                                               ValueTraits>;
 
-    using table_type = folly_wrapper<key_type, mapped_type,
-                                     hash_fct_type, allocator_type>;
+    using table_type = junction_wrapper<internal_table_type>;
+
+    static std::string name() { return JUNCTION_NAME; }
 };
 
 
@@ -183,7 +184,7 @@ junction_handle<JT>::~junction_handle()
 }
 
 template <class JT>
-typename junction_handle<JT>&
+junction_handle<JT>&
 junction_handle<JT>::operator=(junction_handle&& rhs)
 {
     if (&rhs == this) return *this;

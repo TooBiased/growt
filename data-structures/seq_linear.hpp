@@ -214,56 +214,16 @@ private:
     size_t _n_elem;
     size_t _thresh;
 
-    inline bool inc_n()
+    inline bool inc_n();
+    inline void grow();
+    void swap(seq_linear & o);
+    inline size_t migrate( seq_linear& target );
+public:
+    static std::string name()
     {
-        _n_elem += 1;
-        if (_n_elem > _thresh)
-        {
-            grow();
-            return true;
-        }
-        return false;
-    }
-
-    inline void grow()
-    {
-        auto new_mapper = _mapper.resize(_n_elem, 0);
-        this_type temp(new_mapper, _version+1);
-        migrate(temp);
-        swap(temp);
-    }
-
-
-    void swap(seq_linear & o)
-    {
-        std::swap(_t          , o._t);
-        std::swap(_mapper     , o._mapper);
-        std::swap(_version    , o._version);
-        std::swap(_thresh     , o._thresh);
-        std::swap(_hash       , o._hash);
-    }
-
-    inline size_t migrate( seq_linear& target )
-    {
-        std::fill( target._t ,target._t + target._mapper.capacity , slot_config::get_empty() );
-
-        auto count = 0u;
-
-        for (size_t i = 0; i < _mapper.capacity; ++i)
-        {
-            auto curr = _t[i].load();
-            if ( ! curr.is_empty() )
-            {
-                count++;
-                //target.insert( curr );
-                if (!target.insert(curr.get_key(), curr.get_mapped()).second)
-                {
-                    std::logic_error("Unsuccessful insert during sequential migration!");
-                }
-            }
-        }
-        return count;
-
+        std::stringstream name;
+        name << "seq_table<" << slot_config::name() << ">";
+        return name.str();
     }
 };
 
@@ -449,5 +409,63 @@ seq_linear<C>::erase(const key_type & k)
     }
 }
 
+
+template <class C>
+inline bool
+seq_linear<C>::inc_n()
+{
+    _n_elem += 1;
+    if (_n_elem > _thresh)
+    {
+        grow();
+        return true;
+    }
+    return false;
+}
+
+template <class C>
+inline void
+seq_linear<C>::grow()
+{
+    auto new_mapper = _mapper.resize(_n_elem, 0);
+    this_type temp(new_mapper, _version+1);
+    migrate(temp);
+    swap(temp);
+}
+
+template <class C>
+inline void
+seq_linear<C>::swap(seq_linear & o)
+{
+    std::swap(_t          , o._t);
+    std::swap(_mapper     , o._mapper);
+    std::swap(_version    , o._version);
+    std::swap(_thresh     , o._thresh);
+    std::swap(_hash       , o._hash);
+}
+
+template <class C>
+inline size_t
+seq_linear<C>::migrate( seq_linear& target )
+{
+    std::fill( target._t ,target._t + target._mapper.capacity , slot_config::get_empty() );
+
+    auto count = 0u;
+
+    for (size_t i = 0; i < _mapper.capacity; ++i)
+    {
+        auto curr = _t[i].load();
+        if ( ! curr.is_empty() )
+        {
+            count++;
+            //target.insert( curr );
+            if (!target.insert(curr.get_key(), curr.get_mapped()).second)
+            {
+                std::logic_error("Unsuccessful insert during sequential migration!");
+            }
+        }
+    }
+    return count;
+}
 
 }

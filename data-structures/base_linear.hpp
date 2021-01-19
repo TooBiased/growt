@@ -17,6 +17,8 @@
 #include <functional>
 #include <atomic>
 #include <stdexcept>
+#include <sstream>
+#include <string>
 
 #include "utils/default_hash.hpp"
 #include "data-structures/returnelement.hpp"
@@ -269,6 +271,12 @@ public:
     inline const_range_iterator range_cend() const { return cend(); }
     inline size_t               capacity()   const { return _mapper.capacity; }
 
+    static std::string name()
+    {
+        std::stringstream name;
+        name << "base_table<" << slot_config::name() << ">";
+        return name.str();
+    }
 };
 
 

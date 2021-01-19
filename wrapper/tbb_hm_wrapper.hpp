@@ -16,6 +16,7 @@
 #include <tbb/concurrent_hash_map.h>
 #include <atomic>
 #include <memory>
+#include <string>
 
 #include "data-structures/returnelement.hpp"
 #include "data-structures/hash_table_mods.hpp"
@@ -23,19 +24,20 @@
 
 using namespace growt;
 
-template<class Hasher>
-class HashCompareClass
+template<class Key, class Hasher>
+class hash_comparison
 {
 private:
+    using key_type = Key;
     Hasher fct;
 public:
 
-    inline bool equal(const size_t& k0, const size_t& k1) const
+    inline bool equal(const key_type& k0, const key_type& k1) const
     {
         return k0 == k1;
     }
 
-    inline size_t hash(const size_t& k) const
+    inline size_t hash(const key_type& k) const
     {
         return fct(k);
     }
@@ -46,10 +48,10 @@ template<class Key, class Data, class Hasher, class Allocator>
 class tbb_hm_wrapper
 {
 private:
-    using HashType = tbb::concurrent_hash_map<Key, Data, HashCompareClass<Hasher> >;
-    using Accessor = typename HashType::accessor;
+    using intern_table_type = tbb::concurrent_hash_map<Key, Data, hash_comparison<Key, Hasher> >;
+    using accessor_type = typename intern_table_type::accessor;
 
-    HashType hash;
+    intern_table_type hash;
 
 public:
 
@@ -67,8 +69,8 @@ public:
     tbb_hm_wrapper(tbb_hm_wrapper&& rhs) = default;
     tbb_hm_wrapper& operator=(tbb_hm_wrapper&& rhs) = default;
 
-    using Handle = tbb_hm_wrapper&;
-    Handle get_handle() { return *this; }
+    using handle_type = tbb_hm_wrapper&;
+    handle_type get_handle() { return *this; }
 
     inline iterator find(const key_type& k);
     inline insert_return_type insert(const key_type& k, const mapped_type& d);
@@ -106,6 +108,8 @@ public:
 
     using table_type = tbb_hm_wrapper<key_type, mapped_type,
                                      hash_fct_type, allocator_type>;
+
+    static std::string name() { return "tbb_hm"; }
 };
 
 
@@ -115,7 +119,7 @@ template<class K, class D, class HF, class AL>
 typename tbb_hm_wrapper<K,D,HF,AL>::iterator
 tbb_hm_wrapper<K,D,HF,AL>::find(const key_type& k)
 {
-    Accessor a;
+    accessor_type a;
     if (hash.find(a,k)) return iterator(k,a->second);
     return end();
     // if (hash.find(a, k))
@@ -128,7 +132,7 @@ template<class K, class D, class HF, class AL>
 typename tbb_hm_wrapper<K,D,HF,AL>::insert_return_type
 tbb_hm_wrapper<K,D,HF,AL>::insert(const key_type& k, const mapped_type& d)
 {
-    Accessor a;
+    accessor_type a;
     if(hash.insert(a,k))
     {
         a->second = d;
@@ -146,7 +150,7 @@ template<class K, class D, class HF, class AL> template<class F, class ... Types
 typename tbb_hm_wrapper<K,D,HF,AL>::insert_return_type
 tbb_hm_wrapper<K,D,HF,AL>::update(const key_type& k, F f, Types&& ... args)
 {
-    Accessor a;
+    accessor_type a;
     if (hash.find(a, k))
     {
         auto temp = f(a->second, std::forward<Types>(args)...);
@@ -159,7 +163,7 @@ template<class K, class D, class HF, class AL> template<class F, class ... Types
 typename tbb_hm_wrapper<K,D,HF,AL>::insert_return_type
 tbb_hm_wrapper<K,D,HF,AL>::insert_or_update(const key_type& k, const mapped_type& d, F f, Types&& ... args)
 {
-    Accessor a;
+    accessor_type a;
     if (hash.insert(a,k))
     {
         a->second = d;

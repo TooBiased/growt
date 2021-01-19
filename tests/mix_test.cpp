@@ -10,7 +10,7 @@
  * All rights reserved. Published under the BSD-2 license in the LICENSE file.
  ******************************************************************************/
 
-#include "tests/selection.hpp"
+#include <random>
 
 #include "utils/default_hash.hpp"
 #include "utils/thread_coordination.hpp"
@@ -18,7 +18,7 @@
 #include "utils/command_line_parser.hpp"
 #include "utils/output.hpp"
 
-#include <random>
+#include "tests/selection.hpp"
 
 /*
  * This Test is meant to test the tables performance on uniform random inputs.
@@ -34,7 +34,11 @@ const static uint64_t read_flag = (1ull << 63);
 namespace otm = utils_tm::out_tm;
 namespace ttm = utils_tm::thread_tm;
 
-alignas(64) static HASHTYPE  hash_table = HASHTYPE(0);
+using mix_config = table_config<size_t, size_t,
+                                utils_tm::hash_tm::default_hash,allocator_type>;
+using table_type = typename mix_config::table_type;
+
+alignas(64) static table_type  hash_table = table_type(0);
 alignas(64) static uint64_t* keys;
 alignas(64) static std::atomic_size_t current_block;
 alignas(64) static std::atomic_size_t errors;
@@ -159,7 +163,7 @@ struct test_in_stages
     {
         utils_tm::pin_to_core(t.id);
 
-        using handle_type = typename HASHTYPE::handle_type;
+        using handle_type = typename table_type::handle_type;
 
         if (ThreadType::is_main)
         {
@@ -184,7 +188,7 @@ struct test_in_stages
 
             // STAGE 0.011
             t.synchronized([cap](bool m)
-                           { if (m) hash_table = HASHTYPE(cap); return 0; },
+                           { if (m) hash_table = table_type(cap); return 0; },
                            ThreadType::is_main);
 
             t.out << otm::width(5)  << i
@@ -256,6 +260,7 @@ int main(int argn, char** argc)
                << otm::width(12) << "t_mix"
                << otm::width(9)  << "unfound"
                << otm::width(9)  << "errors"
+               << " " << mix_config::name()
                << std::endl;
 
 

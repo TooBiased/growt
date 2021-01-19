@@ -14,6 +14,7 @@
 
 #include <cstddef>
 #include <atomic>
+#include <string>
 
 /*******************************************************************************
  *
@@ -74,6 +75,11 @@ public:
             estrat.migrate();
         }
     };
+
+    static std::string name()
+    {
+        return "w_user";
+    }
 };
 
 }
