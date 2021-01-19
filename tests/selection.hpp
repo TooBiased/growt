@@ -174,7 +174,7 @@ using table_config = CONFIG<Key,
 #include <string>
 
 #ifdef OLD_ADAPTER
-template <template<class, class> class OldType, std::string Name, hmod ... PMods>
+template <template<class, class> class OldType, hmod ... PMods>
 class old_config_factory
 {
 public:
@@ -184,6 +184,7 @@ public:
     {
     public:
         using table_type = OldType<HashFct, Alloc>;
+        static std::string name() { return "old_table_adapter"; }
 
     private:
         static constexpr bool is_viable = std::is_same<Key , size_t>::value
@@ -195,7 +196,6 @@ public:
         static_assert(pmods::template all<Mods... >(),
                       "legacy table does not support all hmods");
 
-        static std::string name() { return Name; }
     };
 };
 #endif
@@ -211,10 +211,10 @@ using old_table = growt::base_circular<growt::simple_element, HashFct, Alloc>;
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
-                                        "old_base<simple>"
                                         hmod::circular_map,
                                         hmod::circular_prob
                                         >::template table_config<K,D,HF,AL,M...>;
+// table_config.tname = "old_base<simple>";
 #endif // FOLKLOREOLD
 
 #ifdef UAGROWOLD
@@ -232,12 +232,12 @@ using old_table = growt::grow_table<growt::base_circular<growt::markable_element
 
 template<class Key, class Data, class HashFct, class Alloc, hmod ... Mods>
 using table_config = old_config_factory<old_table,
-                                        "old_grow<markable, w_user, e_async>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::circular_map,
                                         hmod::circular_prob
                                         >::template table_config<Key, Data, HashFct, Alloc, Mods...>;
+// table_config.tname = "old_grow<markable, w_user, e_async>";
 #endif // UAGROWOLD
 
 #ifdef USGROWOLD
@@ -255,13 +255,13 @@ using old_table = growt::grow_table<growt::base_circular<growt::simple_element,
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
-                                        "old_grow<simple, w_user, e_sync>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::sync,
                                         hmod::circular_map,
                                         hmod::circular_prob
                                         >::template table_config<K,D,HF,AL,M...>;
+// table_config.tname = "old_grow<simple, w_user, e_sync>";
 #endif // USGROWOLD
 
 #ifdef PAGROWOLD
@@ -279,13 +279,13 @@ using old_table = growt::grow_table<growt::base_circular<growt::markable_element
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
-                                        "old_grow<markable, w_pool, e_async>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::pool,
                                         hmod::circular_map,
                                         hmod::circular_prob
                                         >::template table_config<K,D,HF,AL,M...>;
+// table_config.tname = "old_grow<markable, w_pool, e_async>";
 #endif // PAGROWOLD
 
 #ifdef PSGROWOLD
@@ -303,7 +303,6 @@ using old_table = growt::grow_table<growt::base_circular<growt::simple_element,
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
-                                        "old_grow<markable, w_pool, e_sync>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::sync,
@@ -311,6 +310,7 @@ using table_config = old_config_factory<old_table,
                                         hmod::circular_map,
                                         hmod::circular_prob
                                         >::template table_config<K,D,HF,AL,M...>;
+// table_config.tname = "old_grow<markable, w_pool, e_sync>";
 #endif // PSGROWOLD
 
 #ifdef USNGROWOLD
@@ -328,13 +328,13 @@ using old_table = growt::grow_table<growt::base_circular<growt::simple_element,
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
-                                        "old_grow<simple, w_user, e_sync_numa>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::sync,
                                         hmod::circular_map,
                                         hmod::circular_prob
                                         >::template table_config<K,D,HF,AL,M...>;
+// table_config.tname = "old_grow<simple, w_user, e_sync_numa>";
 #endif // USNGROWOLD
 
 #ifdef PSNGROWOLD
@@ -352,7 +352,6 @@ using old_table = growt::grow_table<growt::base_circular<growt::simple_element,
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
-                                        "old_grow<simple, w_pool, e_sync_numa>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::sync,
@@ -360,6 +359,7 @@ using table_config = old_config_factory<old_table,
                                         hmod::circular_map,
                                         hmod::circular_prob
                                         >::template table_config<K,D,HF,AL,M...>;
+// table_config.tname = "old_grow<simple, w_pool, e_sync_numa>";
 #endif // PSNGROWOLD
 
 
@@ -373,10 +373,10 @@ using old_table = growt::TSXCircular<growt::simple_element, HashFct, Alloc>;
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
-                                        "old_xbase<simple>",
                                         hmod::circular_map,
                                         hmod::circular_prob
                                         >::template table_config<K,D,HF,AL,M...>;
+// table_config.tname = "old_xbase<simple>";
 #endif // XFOLKLORE
 
 #ifdef UAXGROWOLD
@@ -400,6 +400,7 @@ using table_config = old_config_factory<old_table,
                                         hmod::circular_map,
                                         hmod::circular_prob
                                         >::template table_config<K,D,HF,AL,M...>;
+// table_config.tname = "old_base<simple>";
 #endif // UAXGROWOLD
 
 #ifdef USXGROWOLD
@@ -424,6 +425,7 @@ using table_config = old_config_factory<old_table,
                                         hmod::circular_map,
                                         hmod::circular_prob
                                         >::template table_config<K,D,HF,AL,M...>;
+// table_config.tname = "old_base<simple>";
 #endif // USXGROWOLD
 
 #ifdef PAXGROWOLD
@@ -441,13 +443,13 @@ using old_table = growt::grow_table<growt::TSXCircular<growt::markable_element,
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
-                                        "old_xgrow<markable, w_pool, e_async>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::pool,
                                         hmod::circular_map,
                                         hmod::circular_prob
                                         >::template table_config<K,D,HF,AL,M...>;
+// table_config.tname = "old_xgrow<markable, w_pool, e_async>";
 #endif // PAXGROWOLD
 
 #ifdef PSXGROWOLD
@@ -465,7 +467,6 @@ using old_table = growt::grow_table<growt::TSXCircular<growt::simple_element,
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
-                                        "old_xgrow<simple, w_pool, e_async>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::sync,
@@ -473,6 +474,7 @@ using table_config = old_config_factory<old_table,
                                         hmod::circular_map,
                                         hmod::circular_prob
                                         >::template table_config<K,D,HF,AL,M...>;
+// table_config.tname = "old_xgrow<simple, w_pool, e_async>";
 #endif // PSXGROWOLD
 
 #ifdef USNXGROWOLD
@@ -490,13 +492,13 @@ using old_table = growt::grow_table<growt::TSXCircular<growt::simple_element,
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
-                                        "old_xgrow<simple, w_user, e_sync_numa>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::sync,
                                         hmod::circular_map,
                                         hmod::circular_prob
                                         >::template table_config<K,D,HF,AL,M...>;
+// table_config.tname = "old_xgrow<simple, w_user, e_sync_numa>";
 #endif // USNXGROWOLD
 
 #ifdef PSNXGROWOLD
@@ -514,7 +516,6 @@ using old_table = growt::grow_table<growt::TSXCircular<growt::simple_element,
 
 template<class K, class D, class HF, class AL, hmod ... M>
 using table_config = old_config_factory<old_table,
-                                        "old_xgrow<simple, w_pool, e_sync_numa>",
                                         hmod::growable,
                                         hmod::deletion,
                                         hmod::sync,
@@ -522,4 +523,5 @@ using table_config = old_config_factory<old_table,
                                         hmod::circular_map,
                                         hmod::circular_prob
                                         >::template table_config<K,D,HF,AL,M...>;
+// table_config.tname = "old_xgrow<simple, w_pool, e_sync_numa>";
 #endif // PSNXGROWOLD
