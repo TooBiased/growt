@@ -69,7 +69,8 @@ int fill(Hash& hash, size_t n)
     ttm::execute_parallel(current_block, n,
         [&hash, &err](size_t i)
         {
-            if (! hash.insert(i+2, i+2).second) ++err;
+            auto temp = hash.insert(i+2, i+2);
+            if (! temp.second) ++err;
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);
@@ -110,8 +111,9 @@ int update_contended(Hash& hash, size_t n)
         [&hash, &err](size_t i)
         {
             auto key = keys[i];
+            auto temp = hash.update(key, growt::example::Overwrite(), i+2);
 
-            if (! hash.update(key, growt::example::Overwrite(), i+2).second) ++err;
+            if (! temp.second) ++err;
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);
@@ -266,7 +268,7 @@ int main(int argn, char** argc)
                << otm::width(12) << "t_updt_c"
                << otm::width(12) << "t_val_up"
                << otm::width(11) << "errors"
-               << " " << con_config::name()
+               << "    " << con_config::name()
                << std::endl;
 
     ttm::start_threads<test_in_stages>(p, n, cap, it, con);

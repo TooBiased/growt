@@ -411,7 +411,7 @@ if (GROWT_BUILD_OLD_VARIANTS)
   add_custom_target( old_ins )
   add_dependencies( old_ins
     ins_none_old_folklore
-    ins_full_old_sequential
+    #ins_full_old_sequential
     ins_full_old_uaGrowT
     ins_full_old_usGrowT
     ins_full_old_paGrowT

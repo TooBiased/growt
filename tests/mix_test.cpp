@@ -117,8 +117,7 @@ int prefill(Hash& hash, size_t pre)
         {
             auto key = keys[i];
             auto temp = hash.insert(key, i+2);
-            if (! temp.second)
-            { ++err; }
+            if (! temp.second) { ++err; }
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);
@@ -142,9 +141,11 @@ int mixed_test(Hash& hash, size_t end)
                 if      (data == hash.end()) { ++not_found; }
                 else if ((*data).second > i+2) { ++err; }
             }
-            else if (! hash.insert(key, i+2).second )
-            { ++err;}
-
+            else
+            {
+                auto temp = hash.insert(key, i+2);
+                if (! temp.second) { ++err;}
+            }
 
         });
 
@@ -260,7 +261,7 @@ int main(int argn, char** argc)
                << otm::width(12) << "t_mix"
                << otm::width(9)  << "unfound"
                << otm::width(9)  << "errors"
-               << " " << mix_config::name()
+               << "    " << mix_config::name()
                << std::endl;
 
 

@@ -249,7 +249,7 @@ int main(int argn, char** argc)
                << otm::width(9)  << "unsucc"
                << otm::width(9 ) << "remain"
                << otm::width(9)  << "errors"
-               << " " << del_config::name()
+               << "    " << del_config::name()
                << std::endl;
 
     ttm::start_threads<test_in_stages>(p, n, cap, it, ws);

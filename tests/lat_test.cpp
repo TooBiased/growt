@@ -51,8 +51,8 @@ int fill(Hash& hash, size_t end)
     ttm::execute_parallel(current_block, end,
         [&hash, &err](size_t i)
         {
-            if (! hash.insert(range & (i*9827345982374782ull),
-                                         i+2).second) ++err;
+            auto temp = hash.insert(range & (i*9827345982374782ull),i+2);
+            if (! temp.second) ++err;
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);
@@ -175,7 +175,7 @@ int main(int argn, char** argc)
                << otm::width(12) << "t_find_-"
                << otm::width(12) << "t_find_+"
                << otm::width(9)  << "errors"
-               << " " << lat_conig::name()
+               << "    " << lat_conig::name()
                << std::endl;
 
     ttm::start_threads<test_in_stages>(p, n, cap, it);

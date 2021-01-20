@@ -82,9 +82,9 @@ int fill(Hash& hash, size_t end)
         [&hash, &err](size_t i)
         {
             auto key = keys[i];
-            auto output = hash.insert(key, i+2).second;
+            auto output = hash.insert(key, i+2);
 
-            if (! output )
+            if (! output.second )
             {
                 // Insertion failed? Possibly already inserted.
                 dtm::if_debug("Warning: failed insertion");
@@ -92,11 +92,11 @@ int fill(Hash& hash, size_t end)
 
             }
 
-            auto find = hash.find(key);
-            if (find == hash.end())
-            {
-                dtm::if_debug("Warning: Already deleted");
-            }
+            // auto find = hash.find(key);
+            // if (find == hash.end())
+            // {
+            //     dtm::if_debug("Warning: Already deleted");
+            // }
         });
 
     errors.fetch_add(err, std::memory_order_relaxed);
@@ -140,7 +140,7 @@ int find_succ(Hash& hash, size_t end)
 
             auto data = hash.find(key);
 
-            if (data == hash.end()) // || (*data).second != i+2)
+            if (data == hash.end() || (*data).second != i+2)
             {
                 dtm::if_debug("Warning: can't find inserted key");
                 std::cout << i << std::endl;
@@ -270,8 +270,8 @@ int main(int argn, char** argc)
                << otm::width(12) << "t_ins"
                << otm::width(12) << "t_find_-"
                << otm::width(12) << "t_find_+"
-               << otm::width(9)  << "errors"
-               << " " << ins_config::name()
+               << otm::width(12)  << "errors"
+               << "    " << ins_config::name()
                << std::endl;
 
     ttm::start_threads<test_in_stages>(p, n, cap, it);

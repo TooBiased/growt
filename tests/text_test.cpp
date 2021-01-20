@@ -163,7 +163,7 @@ int main(int argn, char** argc)
                << otm::width(12) << "time"
                << otm::width(9)  << "words"
                << otm::width(9)  << "uniques"
-               << " " << text_config::name()
+               << "    " << text_config::name()
                << std::endl;
 
     ttm::start_threads<test_in_stages>(p, cap, it, in_file_name);

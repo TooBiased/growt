@@ -201,7 +201,7 @@ int main(int argn, char** argc)
                << otm::width(12) << "t_aggreg"
                << otm::width(12) << "t_val_ag"
                << otm::width(9)  << "errors"
-               << " " << agg_config::name()
+               << "    " << agg_config::name()
                << std::endl;
 
     ttm::start_threads<test_in_stages>(p, n, cap, it, con);
