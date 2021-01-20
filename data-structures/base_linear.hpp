@@ -70,8 +70,8 @@ public:
         size_t capacity;
         size_t bitmask;
         size_t right_shift;
-        static constexpr bool cyclic_mapping = CyclicMap;
-        static constexpr bool cyclic_probing = CyclicProb;
+        static constexpr bool cyclic_mapping = false;//CyclicMap;
+        static constexpr bool cyclic_probing = true;//CyclicProb;
 
         inline size_t map (size_t hashed) const;
         inline size_t remap(size_t hashed) const;
@@ -178,7 +178,7 @@ public:
     size_type migrate(this_type& target, size_type s, size_type e);
 
 protected:
-    atomic_slot_type*  _t;
+    atomic_slot_type*  _table;
     mapper_type        _mapper;
     size_type          _version;
     std::atomic_size_t _current_copy_block;
@@ -234,10 +234,10 @@ private:
     // HELPER FUNCTION FOR ITERATOR CREATION ***********************************
 
     inline iterator           make_iterator (const key_type& k, const mapped_type& d, atomic_slot_type* ptr)
-    { return iterator(std::make_pair(k,d), ptr, _t+_mapper.capacity); }
+    { return iterator(std::make_pair(k,d), ptr, _table+_mapper.capacity); }
 
     inline const_iterator     make_citerator (const key_type& k, const mapped_type& d, atomic_slot_type* ptr) const
-    { return const_iterator(std::make_pair(k,d), ptr, _t+_mapper.capacity); }
+    { return const_iterator(std::make_pair(k,d), ptr, _table+_mapper.capacity); }
 
     inline insert_return_type make_insert_ret(const key_type& k, const mapped_type& d, atomic_slot_type* ptr, bool succ)
     { return std::make_pair(make_iterator(k,d, ptr), succ); }
@@ -258,7 +258,7 @@ private:
 
     void insert_unsafe(const slot_type& e);
     inline void slot_cleanup () // called, either by the destructor, or by the destructor of the parenttable
-    { for (size_t i = 0; i<_mapper.capacity; ++i) _t[i].load().cleanup(); }
+    { for (size_t i = 0; i<_mapper.capacity; ++i) _table[i].load().cleanup(); }
 
 public:
     using range_iterator = iterator;
@@ -295,10 +295,12 @@ base_linear<C>::base_linear(size_type capacity_)
       _version(0),
       _current_copy_block(0)
 {
-    _t = _allocator.allocate(_mapper.capacity);
-    if ( !_t ) std::bad_alloc();
+    // _table = static_cast<atomic_slot_type*>(malloc(sizeof(atomic_slot_type)*_mapper.capacity+1000));
+    _table = _allocator.allocate(_mapper.capacity);
 
-    std::fill( _t ,_t + _mapper.capacity , slot_config::get_empty() );
+    if ( !_table ) std::bad_alloc();
+
+    std::fill( _table ,_table + _mapper.capacity , slot_config::get_empty() );
 }
 
 /*should always be called with a capacity_=2^k  */
@@ -308,33 +310,36 @@ base_linear<C>::base_linear(mapper_type mapper_, size_type version_)
       _version(version_),
       _current_copy_block(0)
 {
-    _t = _allocator.allocate(_mapper.capacity);
-    if ( !_t ) std::bad_alloc();
+    // _table = static_cast<atomic_slot_type*>(malloc(sizeof(atomic_slot_type)*_mapper.capacity+1000));
+    _table = _allocator.allocate(_mapper.capacity);
+
+    if ( !_table ) std::bad_alloc();
 
     /* The table is initialized in parallel, during the migration */
-    // std::fill( _t ,_t + _mapper.capacity , value_intern::get_empty() );
+    // std::fill( _table ,_table + _mapper.capacity , value_intern::get_empty() );
 }
 
 template<class C>
 base_linear<C>::~base_linear()
 {
+    // std::cout << "~base_linear" << std::endl;
     if constexpr (config_type::cleanup)
                      slot_cleanup();
 
-    if (_t) _allocator.deallocate(_t, _mapper.capacity);
+    if (_table) _allocator.deallocate(_table, _mapper.capacity);
 }
 
 
 template<class C>
 base_linear<C>::base_linear(base_linear&& rhs) noexcept
-    : _t(nullptr), _mapper(rhs._mapper),
+    : _table(nullptr), _mapper(rhs._mapper),
       _version(rhs._version),
       _current_copy_block(0)
 {
     if (rhs._current_copy_block.load())
         std::invalid_argument("Cannot move a growing table!");
     rhs._mapper = mapper_type();
-    std::swap(_t, rhs._t);
+    std::swap(_table, rhs._table);
 }
 
 template<class C>
@@ -362,9 +367,9 @@ base_linear<C>::begin()
 {
     for (size_t i = 0; i<_mapper.capacity; ++i)
     {
-        auto temp = _t[i].load();
+        auto temp = _table[i].load();
         if (!temp.is_empty() && !temp.is_deleted())
-            return make_iterator(temp.get_key(), temp.get_mapped(), &_t[i]);
+            return make_iterator(temp.get_key(), temp.get_mapped(), &_table[i]);
     }
     return end();
 }
@@ -381,9 +386,9 @@ base_linear<C>::cbegin() const
 {
     for (size_t i = 0; i<_mapper.capacity; ++i)
     {
-        auto temp = _t[i].load();
+        auto temp = _table[i].load();
         if (!temp.is_empty() && !temp.is_deleted())
-            return make_citerator(temp.get_key(), temp.get_mapped(), &_t[i]);
+            return make_citerator(temp.get_key(), temp.get_mapped(), &_table[i]);
     }
     return end();
 }
@@ -406,11 +411,11 @@ base_linear<C>::range(size_t rstart, size_t rend)
     auto temp_rend = std::min(rend, _mapper.capacity);
     for (size_t i = rstart; i < temp_rend; ++i)
     {
-        auto temp = _t[i].load();
+        auto temp = _table[i].load();
         if (!temp.is_empty() && !temp.is_deleted())
             return range_iterator(std::make_pair(temp.get_key(),
                                                  temp.get_mapped()),
-                                  &_t[i], &_t[temp_rend]);
+                                  &_table[i], &_table[temp_rend]);
     }
     return range_end();
 }
@@ -422,11 +427,11 @@ base_linear<C>::crange(size_t rstart, size_t rend)
     auto temp_rend = std::min(rend, _mapper.capacity);
     for (size_t i = rstart; i < temp_rend; ++i)
     {
-        auto temp = _t[i].load();
+        auto temp = _table[i].load();
         if (!temp.is_empty() && !temp.is_deleted())
             return const_range_iterator(std::make_pair(temp.get_key(),
                                                        temp.get_mapped()),
-                                  &_t[i], &_t[temp_rend]);
+                                  &_table[i], &_table[temp_rend]);
     }
     return range_cend();
 }
@@ -445,7 +450,7 @@ base_linear<C>::insert_intern(const key_type& k,
     for (size_type i = _mapper.map(htemp); ; ++i) //i < htemp+MaDis
     {
         size_type temp = _mapper.remap(i);
-        auto curr = _t[temp].load();
+        auto curr = _table[temp].load();
 
         if (curr.is_marked())
         {
@@ -454,8 +459,8 @@ base_linear<C>::insert_intern(const key_type& k,
         }
         else if (curr.is_empty())
         {
-            if ( _t[temp].cas(curr, slot_type(k,d,htemp)) )
-                return make_insert_ret(k,d, &_t[temp],
+            if ( _table[temp].cas(curr, slot_type(k,d,htemp)) )
+                return make_insert_ret(k,d, &_table[temp],
                                        ReturnCode::SUCCESS_IN);
 
             //somebody changed the current element! recheck it
@@ -463,7 +468,7 @@ base_linear<C>::insert_intern(const key_type& k,
         }
         else if (curr.compare_key(k, htemp))
         {
-            return make_insert_ret(k, curr.get_mapped(), &_t[temp],
+            return make_insert_ret(k, curr.get_mapped(), &_table[temp],
                                    ReturnCode::UNSUCCESS_ALREADY_USED);
         }
         else if (curr.is_deleted())
@@ -484,7 +489,7 @@ base_linear<C>::update_intern(const key_type& k, F f, Types&& ... args)
     for (size_type i = _mapper.map(htemp); ; ++i) //i < htemp+MaDis
     {
         size_type temp = _mapper.remap(i);
-        auto curr =_t[temp].load();
+        auto curr =_table[temp].load();
         if (curr.is_marked())
         {
             return make_insert_ret(end(),
@@ -499,10 +504,10 @@ base_linear<C>::update_intern(const key_type& k, F f, Types&& ... args)
         {
             mapped_type data;
             bool        succ;
-            std::tie(data, succ) = _t[temp].atomic_update(curr,f,
+            std::tie(data, succ) = _table[temp].atomic_update(curr,f,
                                                           std::forward<Types>(args)...);
             if (succ)
-                return make_insert_ret(k,data, &_t[temp],
+                return make_insert_ret(k,data, &_table[temp],
                                        ReturnCode::SUCCESS_UP);
             i--;
         }
@@ -524,7 +529,7 @@ base_linear<C>::update_unsafe_intern(const key_type& k, F f, Types&& ... args)
     for (size_type i = _mapper.map(htemp); ; ++i) //i < htemp+MaDis
     {
         size_type temp = _mapper.remap(i);
-        auto curr = _t[temp];
+        auto curr = _table[temp];
         if (curr.is_marked())
         {
             return make_insert_ret(end(),
@@ -539,10 +544,10 @@ base_linear<C>::update_unsafe_intern(const key_type& k, F f, Types&& ... args)
         {
             mapped_type data;
             bool        succ;
-            std::tie(data, succ) = _t[temp].non_atomic_update(f,
+            std::tie(data, succ) = _table[temp].non_atomic_update(f,
                                                             std::forward<Types>(args)...);
             if (succ)
-                return make_insert_ret(k,data, &_t[temp],
+                return make_insert_ret(k,data, &_table[temp],
                                        ReturnCode::SUCCESS_UP);
             i--;
         }
@@ -566,15 +571,15 @@ base_linear<C>::insert_or_update_intern(const key_type& k,
     for (size_type i = _mapper.map(htemp); ; ++i) //i < htemp+MaDis
     {
         size_type temp = _mapper.remap(i);
-        auto curr = _t[temp].load();
+        auto curr = _table[temp].load();
         if (curr.is_marked())
         {
             return make_insert_ret(end(), ReturnCode::UNSUCCESS_INVALID);
         }
         else if (curr.is_empty())
         {
-            if ( _t[temp].cas(curr, slot_type(k,d,htemp)) )
-                return make_insert_ret(k,d, &_t[temp],
+            if ( _table[temp].cas(curr, slot_type(k,d,htemp)) )
+                return make_insert_ret(k,d, &_table[temp],
                                        ReturnCode::SUCCESS_IN);
 
             //somebody changed the current element! recheck it
@@ -584,10 +589,10 @@ base_linear<C>::insert_or_update_intern(const key_type& k,
         {
             mapped_type data;
             bool        succ;
-            std::tie(data, succ) = _t[temp].atomic_update(curr, f,
+            std::tie(data, succ) = _table[temp].atomic_update(curr, f,
                                                           std::forward<Types>(args)...);
             if (succ)
-                return make_insert_ret(k,data, &_t[temp],
+                return make_insert_ret(k,data, &_table[temp],
                                        ReturnCode::SUCCESS_UP);
             i--;
         }
@@ -610,7 +615,7 @@ base_linear<C>::insert_or_update_unsafe_intern(const key_type& k,
     for (size_type i = _mapper.map(htemp); ; ++i) //i < htemp+MaDis
     {
         size_type temp = _mapper.remap(i);
-        auto curr = _t[temp].load();
+        auto curr = _table[temp].load();
         if (curr.is_marked())
         {
             return make_insert_ret(end(),
@@ -618,8 +623,8 @@ base_linear<C>::insert_or_update_unsafe_intern(const key_type& k,
         }
         else if (curr.is_empty())
         {
-            if ( _t[temp].cas(curr, slot_type(k,d,htemp)) )
-                return make_insert_ret(k,d, &_t[temp],
+            if ( _table[temp].cas(curr, slot_type(k,d,htemp)) )
+                return make_insert_ret(k,d, &_table[temp],
                                        ReturnCode::SUCCESS_IN);
             //somebody changed the current element! recheck it
             --i;
@@ -628,10 +633,10 @@ base_linear<C>::insert_or_update_unsafe_intern(const key_type& k,
         {
             mapped_type data;
             bool        succ;
-            std::tie(data, succ) = _t[temp].non_atomic_update(f,
+            std::tie(data, succ) = _table[temp].non_atomic_update(f,
                                                             std::forward<Types>(args)...);
             if (succ)
-                return make_insert_ret(k,data, &_t[temp],
+                return make_insert_ret(k,data, &_table[temp],
                                        ReturnCode::SUCCESS_UP);
             i--;
         }
@@ -651,7 +656,7 @@ inline ReturnCode base_linear<C>::erase_intern(const key_type& k)
     for (size_type i = _mapper.map(htemp); ; ++i) //i < htemp+MaDis
     {
         size_type temp = _mapper.remap(i);
-        auto curr = _t[temp].load();
+        auto curr = _table[temp].load();
         if (curr.is_marked())
         {
             return ReturnCode::UNSUCCESS_INVALID;
@@ -662,7 +667,7 @@ inline ReturnCode base_linear<C>::erase_intern(const key_type& k)
         }
         else if (curr.compare_key(k, htemp))
         {
-            if (_t[temp].atomic_delete(curr))
+            if (_table[temp].atomic_delete(curr))
                 return ReturnCode::SUCCESS_DEL;
             i--;
         }
@@ -682,7 +687,7 @@ inline ReturnCode base_linear<C>::erase_if_intern(const key_type& k, const mappe
     for (size_type i = _mapper.map(htemp); ; ++i) //i < htemp+MaDis
     {
         size_type temp = _mapper.remap(i);
-        auto curr = _t[temp].load();
+        auto curr = _table[temp].load();
         if (curr.is_marked())
         {
             return ReturnCode::UNSUCCESS_INVALID;
@@ -695,7 +700,7 @@ inline ReturnCode base_linear<C>::erase_if_intern(const key_type& k, const mappe
         {
             if (curr.get_mapped() != d) return ReturnCode::UNSUCCESS_NOT_FOUND;
 
-            if (_t[temp].atomic_delete(curr))
+            if (_table[temp].atomic_delete(curr))
                 return ReturnCode::SUCCESS_DEL;
             i--;
         }
@@ -722,11 +727,11 @@ base_linear<C>::find(const key_type& k)
     for (size_type i = _mapper.map(htemp); ; ++i)
     {
         auto temp = _mapper.remap(i);
-        auto curr = _t[temp].load();
+        auto curr = _table[temp].load();
         if (curr.is_empty())
             return end();
         if (curr.compare_key(k, htemp))
-            return make_iterator(k, curr.get_mapped(), &_t[temp]);
+            return make_iterator(k, curr.get_mapped(), &_table[temp]);
     }
     return end();
 }
@@ -739,11 +744,11 @@ base_linear<C>::find(const key_type& k) const
     for (size_type i = _mapper.map(htemp); ; ++i)
     {
         auto temp = _mapper.remap(i);
-        auto curr = _t[temp].load;
+        auto curr = _table[temp].load;
         if (curr.is_empty())
             return cend();
         if (curr.compare_key(k, htemp))
-            return make_citerator(k, curr.get_mapped(), &_t[temp]);
+            return make_citerator(k, curr.get_mapped(), &_table[temp]);
     }
     return cend();
 }
@@ -831,8 +836,8 @@ base_linear<C>::insert_or_update_unsafe(const key_type& k,
 //     size_type count = 0;
 //     for (size_t i = s; i < e; ++i)
 //     {
-//         auto curr = _t[i];
-//         while (! _t[i].atomic_mark(curr))
+//         auto curr = _table[i];
+//         while (! _table[i].atomic_mark(curr))
 //         { /* retry until we successfully mark the element */ }
 
 //         target.insert(curr.get_key(), curr.get_mapped());
@@ -858,22 +863,22 @@ base_linear<C>::migrate(this_type& target, size_type s, size_type e)
     //FINDS THE FIRST EMPTY BUCKET (START OF IMPLICIT BLOCK)
     while (i<e)
     {
-        curr = _t[i].load();           //no bitmask necessary (within one block)
+        curr = _table[i].load();           //no bitmask necessary (within one block)
         if (curr.is_empty())
         {
-            if (_t[i].atomic_mark(curr)) break;
+            if (_table[i].atomic_mark(curr)) break;
             else --i;
         }
         ++i;
     }
 
-    std::fill(target._t+(i<<shift), target._t+(e<<shift), slot_config::get_empty());
+    std::fill(target._table+(i<<shift), target._table+(e<<shift), slot_config::get_empty());
 
     //MIGRATE UNTIL THE END OF THE BLOCK
     for (; i<e; ++i)
     {
-        curr = _t[i].load();
-        if (! _t[i].atomic_mark(curr))
+        curr = _table[i].load();
+        if (! _table[i].atomic_mark(curr))
         {
             --i;
             continue;
@@ -897,18 +902,22 @@ base_linear<C>::migrate(this_type& target, size_type s, size_type e)
         auto pos  = _mapper.remap(i);
         auto t_pos= pos<<shift;
         for (size_type j = 0; j < 1ull<<shift; ++j)
-            target._t[t_pos+j].non_atomic_set(slot_config::get_empty());
+            target._table[t_pos+j].non_atomic_set(slot_config::get_empty());
         //target.t[t_pos] = slot_config::get_empty();
 
-        curr = _t[pos].load();
+        curr = _table[pos].load();
 
-        if (! _t[pos].atomic_mark(curr)) --i;
+        if (! _table[pos].atomic_mark(curr)) --i;
         if ( (b = ! curr.is_empty()) ) // this might be nicer as an else if, but this is faster
         {
-            if (!curr.is_deleted()) { target.insert_unsafe(curr); n++; }
+            if (!curr.is_deleted())
+            {
+                target.insert_unsafe(curr); n++;
+            }
         }
     }
 
+    // std::cout << "migrated one block" << std::endl;
     return n;
 }
 
@@ -921,11 +930,11 @@ inline void base_linear<C>::insert_unsafe(const slot_type& e)
     for (size_type i = _mapper.map(htemp); ; ++i)  // i < htemp + MaDis
     {
         size_type temp = _mapper.remap(i);
-        auto curr = _t[temp].load();
+        auto curr = _table[temp].load();
 
         if (curr.is_empty())
         {
-            _t[temp].non_atomic_set(e);
+            _table[temp].non_atomic_set(e);
             return;
         }
     }

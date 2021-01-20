@@ -145,7 +145,7 @@ protected:
     size_type   _right_shift;
     HashFct     _hash;
 
-    value_intern* _t;
+    value_intern* _table;
     size_type h(const key_type & k) const { return _hash(k) >> _right_shift; }
 
 private:
@@ -178,10 +178,10 @@ private:
 
     inline iterator           make_iterator (const key_type& k, const mapped_type& d,
                                             value_intern* ptr)
-    { return iterator(std::make_pair(k,d), ptr, _t+_capacity); }
+    { return iterator(std::make_pair(k,d), ptr, _table+_capacity); }
     inline const_iterator     make_citerator (const key_type& k, const mapped_type& d,
                                             value_intern* ptr) const
-    { return const_iterator(std::make_pair(k,d), ptr, _t+_capacity); }
+    { return const_iterator(std::make_pair(k,d), ptr, _table+_capacity); }
     inline insert_return_type make_insert_ret(const key_type& k, const mapped_type& d,
                                             value_intern* ptr, bool succ)
     { return std::make_pair(make_iterator(k,d, ptr), succ); }
@@ -248,10 +248,10 @@ base_circular<E,HashFct,A>::base_circular(size_type capacity_)
       _right_shift(compute_right_shift(_capacity))
 
 {
-    _t = _allocator.allocate(_capacity);
-    if ( !_t ) std::bad_alloc();
+    _table = _allocator.allocate(_capacity);
+    if ( !_table ) std::bad_alloc();
 
-    std::fill( _t ,_t + _capacity , value_intern::get_empty() );
+    std::fill( _table ,_table + _capacity , value_intern::get_empty() );
 }
 
 /*should always be called with a capacity_=2^k  */
@@ -263,17 +263,17 @@ base_circular<E,HashFct,A>::base_circular(size_type capacity_, size_type version
       _bitmask(_capacity-1),
       _right_shift(compute_right_shift(_capacity))
 {
-    _t = _allocator.allocate(_capacity);
-    if ( !_t ) std::bad_alloc();
+    _table = _allocator.allocate(_capacity);
+    if ( !_table ) std::bad_alloc();
 
     /* The table is initialized in parallel, during the migration */
-    // std::fill( _t ,_t + _capacity , value_intern::get_empty() );
+    // std::fill( _table ,_table + _capacity , value_intern::get_empty() );
 }
 
 template<class E, class HashFct, class A>
 base_circular<E,HashFct,A>::~base_circular()
 {
-    if (_t) _allocator.deallocate(_t, _capacity);
+    if (_table) _allocator.deallocate(_table, _capacity);
 }
 
 
@@ -281,14 +281,14 @@ template<class E, class HashFct, class A>
 base_circular<E,HashFct,A>::base_circular(base_circular&& rhs)
     : _capacity(rhs._capacity), _version(rhs._version),
       _current_copy_block(rhs._current_copy_block.load()),
-      _bitmask(rhs._bitmask), _right_shift(rhs._right_shift), _t(nullptr)
+      _bitmask(rhs._bitmask), _right_shift(rhs._right_shift), _table(nullptr)
 {
     if (_current_copy_block.load())
         std::invalid_argument("Cannot move a growing table!");
     rhs._capacity = 0;
     rhs._bitmask = 0;
     rhs._right_shift = HashFct::significant_digits;
-    std::swap(_t, rhs._t);
+    std::swap(_table, rhs._table);
 }
 
 template<class E, class HashFct, class A>
@@ -305,7 +305,7 @@ base_circular<E,HashFct,A>::operator=(base_circular&& rhs)
     rhs._capacity    = 0;
     rhs._bitmask = 0;
     rhs._right_shift = HashFct::significant_digits;
-    std::swap(_t, rhs._t);
+    std::swap(_table, rhs._table);
 
     return *this;
 }
@@ -325,9 +325,9 @@ base_circular<E,HashFct,A>::begin()
 {
     for (size_t i = 0; i<_capacity; ++i)
     {
-        auto temp = _t[i];
+        auto temp = _table[i];
         if (!temp.is_empty() && !temp.is_deleted())
-            return make_iterator(temp.get_key(), temp.get_data(), &_t[i]);
+            return make_iterator(temp.get_key(), temp.get_data(), &_table[i]);
     }
     return end();
 }
@@ -344,9 +344,9 @@ base_circular<E,HashFct,A>::cbegin() const
 {
     for (size_t i = 0; i<_capacity; ++i)
     {
-        auto temp = _t[i];
+        auto temp = _table[i];
         if (!temp.is_empty() && !temp.is_deleted())
-            return make_citerator(temp.get_key(), temp.get_data(), &_t[i]);
+            return make_citerator(temp.get_key(), temp.get_data(), &_table[i]);
     }
     return end();
 }
@@ -369,11 +369,11 @@ base_circular<E,HashFct,A>::range(size_t rstart, size_t rend)
     auto temp_rend = std::min(rend, _capacity);
     for (size_t i = rstart; i < temp_rend; ++i)
     {
-        auto temp = _t[i];
+        auto temp = _table[i];
         if (!temp.is_empty() && !temp.is_deleted())
             return range_iterator(std::make_pair(temp.get_key(),
                                                  temp.get_data()),
-                                  &_t[i], &_t[temp_rend]);
+                                  &_table[i], &_table[temp_rend]);
     }
     return range_end();
 }
@@ -385,11 +385,11 @@ base_circular<E,HashFct,A>::crange(size_t rstart, size_t rend)
     auto temp_rend = std::min(rend, _capacity);
     for (size_t i = rstart; i < temp_rend; ++i)
     {
-        auto temp = _t[i];
+        auto temp = _table[i];
         if (!temp.is_empty() && !temp.is_deleted())
             return const_range_iterator(std::make_pair(temp.get_key(),
                                                        temp.get_data()),
-                                  &_t[i], &_t[temp_rend]);
+                                  &_table[i], &_table[temp_rend]);
     }
     return range_cend();
 }
@@ -408,19 +408,19 @@ base_circular<E,HashFct,A>::insert_intern(const key_type& k,
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & _bitmask;
-        value_intern curr(_t[temp]);
+        value_intern curr(_table[temp]);
 
         if (curr.is_marked())
             return make_insert_ret(end(),
                                    ReturnCode::UNSUCCESS_INVALID);
 
         else if (curr.compare_key(k))
-            return make_insert_ret(k, curr.get_data(), &_t[temp],
+            return make_insert_ret(k, curr.get_data(), &_table[temp],
                                    ReturnCode::UNSUCCESS_ALREADY_USED);
         else if (curr.is_empty())
         {
-            if ( _t[temp].cas(curr, value_intern(k,d)) )
-                return make_insert_ret(k,d, &_t[temp],
+            if ( _table[temp].cas(curr, value_intern(k,d)) )
+                return make_insert_ret(k,d, &_table[temp],
                                        ReturnCode::SUCCESS_IN);
 
             //somebody changed the current element! recheck it
@@ -444,7 +444,7 @@ base_circular<E,HashFct,A>::update_intern(const key_type& k, F f, Types&& ... ar
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & _bitmask;
-        value_intern curr(_t[temp]);
+        value_intern curr(_table[temp]);
         if (curr.is_marked())
         {
             return make_insert_ret(end(),
@@ -454,10 +454,10 @@ base_circular<E,HashFct,A>::update_intern(const key_type& k, F f, Types&& ... ar
         {
             mapped_type data;
             bool        succ;
-            std::tie(data, succ) = _t[temp].atomic_update(curr,f,
+            std::tie(data, succ) = _table[temp].atomic_update(curr,f,
                                                           std::forward<Types>(args)...);
             if (succ)
-                return make_insert_ret(k,data, &_t[temp],
+                return make_insert_ret(k,data, &_table[temp],
                                        ReturnCode::SUCCESS_UP);
             i--;
         }
@@ -484,7 +484,7 @@ base_circular<E,HashFct,A>::update_unsafe_intern(const key_type& k, F f, Types&&
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & _bitmask;
-        value_intern curr(_t[temp]);
+        value_intern curr(_table[temp]);
         if (curr.is_marked())
         {
             return make_insert_ret(end(),
@@ -494,10 +494,10 @@ base_circular<E,HashFct,A>::update_unsafe_intern(const key_type& k, F f, Types&&
         {
             mapped_type data;
             bool        succ;
-            std::tie(data, succ) = _t[temp].non_atomic_update(f,
+            std::tie(data, succ) = _table[temp].non_atomic_update(f,
                                                             std::forward<Types>(args)...);
             if (succ)
-                return make_insert_ret(k,data, &_t[temp],
+                return make_insert_ret(k,data, &_table[temp],
                                        ReturnCode::SUCCESS_UP);
             i--;
         }
@@ -526,7 +526,7 @@ base_circular<E,HashFct,A>::insert_or_update_intern(const key_type& k,
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & _bitmask;
-        value_intern curr(_t[temp]);
+        value_intern curr(_table[temp]);
         if (curr.is_marked())
         {
             return make_insert_ret(end(), ReturnCode::UNSUCCESS_INVALID);
@@ -535,17 +535,17 @@ base_circular<E,HashFct,A>::insert_or_update_intern(const key_type& k,
         {
             mapped_type data;
             bool        succ;
-            std::tie(data, succ) = _t[temp].atomic_update(curr, f,
+            std::tie(data, succ) = _table[temp].atomic_update(curr, f,
                                                           std::forward<Types>(args)...);
             if (succ)
-                return make_insert_ret(k,data, &_t[temp],
+                return make_insert_ret(k,data, &_table[temp],
                                        ReturnCode::SUCCESS_UP);
             i--;
         }
         else if (curr.is_empty())
         {
-            if ( _t[temp].cas(curr, value_intern(k,d)) )
-                return make_insert_ret(k,d, &_t[temp],
+            if ( _table[temp].cas(curr, value_intern(k,d)) )
+                return make_insert_ret(k,d, &_table[temp],
                                        ReturnCode::SUCCESS_IN);
 
             //somebody changed the current element! recheck it
@@ -570,7 +570,7 @@ base_circular<E,HashFct,A>::insert_or_update_unsafe_intern(const key_type& k,
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & _bitmask;
-        value_intern curr(_t[temp]);
+        value_intern curr(_table[temp]);
         if (curr.is_marked())
         {
             return make_insert_ret(end(),
@@ -580,17 +580,17 @@ base_circular<E,HashFct,A>::insert_or_update_unsafe_intern(const key_type& k,
         {
             mapped_type data;
             bool        succ;
-            std::tie(data, succ) = _t[temp].non_atomic_update(f,
+            std::tie(data, succ) = _table[temp].non_atomic_update(f,
                                                             std::forward<Types>(args)...);
             if (succ)
-                return make_insert_ret(k,data, &_t[temp],
+                return make_insert_ret(k,data, &_table[temp],
                                        ReturnCode::SUCCESS_UP);
             i--;
         }
         else if (curr.is_empty())
         {
-            if ( _t[temp].cas(curr, value_intern(k,d)) )
-                return make_insert_ret(k,d, &_t[temp],
+            if ( _table[temp].cas(curr, value_intern(k,d)) )
+                return make_insert_ret(k,d, &_table[temp],
                                        ReturnCode::SUCCESS_IN);
             //somebody changed the current element! recheck it
             --i;
@@ -611,14 +611,14 @@ inline ReturnCode base_circular<E,HashFct,A>::erase_intern(const key_type& k)
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & _bitmask;
-        value_intern curr(_t[temp]);
+        value_intern curr(_table[temp]);
         if (curr.is_marked())
         {
             return ReturnCode::UNSUCCESS_INVALID;
         }
         else if (curr.compare_key(k))
         {
-            if (_t[temp].atomic_delete(curr))
+            if (_table[temp].atomic_delete(curr))
                 return ReturnCode::SUCCESS_DEL;
             i--;
         }
@@ -642,7 +642,7 @@ inline ReturnCode base_circular<E,HashFct,A>::erase_if_intern(const key_type& k,
     for (size_type i = htemp; ; ++i) //i < htemp+MaDis
     {
         size_type temp = i & _bitmask;
-        value_intern curr(_t[temp]);
+        value_intern curr(_table[temp]);
         if (curr.is_marked())
         {
             return ReturnCode::UNSUCCESS_INVALID;
@@ -651,7 +651,7 @@ inline ReturnCode base_circular<E,HashFct,A>::erase_if_intern(const key_type& k,
         {
             if (curr.get_data() != d) return ReturnCode::UNSUCCESS_NOT_FOUND;
 
-            if (_t[temp].atomic_delete(curr))
+            if (_table[temp].atomic_delete(curr))
                 return ReturnCode::SUCCESS_DEL;
             i--;
         }
@@ -681,9 +681,9 @@ base_circular<E,HashFct,A>::find(const key_type& k)
     size_type htemp = h(k);
     for (size_type i = htemp; ; ++i)
     {
-        value_intern curr(_t[i & _bitmask]);
+        value_intern curr(_table[i & _bitmask]);
         if (curr.compare_key(k))
-            return make_iterator(k, curr.get_data(), &_t[i & _bitmask]);
+            return make_iterator(k, curr.get_data(), &_table[i & _bitmask]);
         if (curr.is_empty())
             return end();
     }
@@ -697,9 +697,9 @@ base_circular<E,HashFct,A>::find(const key_type& k) const
     size_type htemp = h(k);
     for (size_type i = htemp; ; ++i)
     {
-        value_intern curr(_t[i & _bitmask]);
+        value_intern curr(_table[i & _bitmask]);
         if (curr.compare_key(k))
-            return make_citerator(k, curr.get_data(), &_t[i & _bitmask]);
+            return make_citerator(k, curr.get_data(), &_table[i & _bitmask]);
         if (curr.is_empty())
             return cend();
     }
@@ -789,8 +789,8 @@ base_circular<E,HashFct,A>::insert_or_update_unsafe(const key_type& k,
 //     size_type count = 0;
 //     for (size_t i = s; i < e; ++i)
 //     {
-//         auto curr = _t[i];
-//         while (! _t[i].atomic_mark(curr))
+//         auto curr = _table[i];
+//         while (! _table[i].atomic_mark(curr))
 //         { /* retry until we successfully mark the element */ }
 
 //         target.insert(curr.get_key(), curr.get_data());
@@ -816,22 +816,22 @@ base_circular<E,HashFct,A>::migrate(this_type& target, size_type s, size_type e)
     //FINDS THE FIRST EMPTY BUCKET (START OF IMPLICIT BLOCK)
     while (i<e)
     {
-        curr = _t[i];                    //no bitmask necessary (within one block)
+        curr = _table[i];                    //no bitmask necessary (within one block)
         if (curr.is_empty())
         {
-            if (_t[i].atomic_mark(curr)) break;
+            if (_table[i].atomic_mark(curr)) break;
             else --i;
         }
         ++i;
     }
 
-    std::fill(target._t+(i<<shift), target._t+(e<<shift), value_intern::get_empty());
+    std::fill(target._table+(i<<shift), target._table+(e<<shift), value_intern::get_empty());
 
     //MIGRATE UNTIL THE END OF THE BLOCK
     for (; i<e; ++i)
     {
-        curr = _t[i];
-        if (! _t[i].atomic_mark(curr))
+        curr = _table[i];
+        if (! _table[i].atomic_mark(curr))
         {
             --i;
             continue;
@@ -854,12 +854,12 @@ base_circular<E,HashFct,A>::migrate(this_type& target, size_type s, size_type e)
     {
         auto pos  = i&_bitmask;
         auto t_pos= pos<<shift;
-        for (size_type j = 0; j < 1ull<<shift; ++j) target._t[t_pos+j] = value_intern::get_empty();
+        for (size_type j = 0; j < 1ull<<shift; ++j) target._table[t_pos+j] = value_intern::get_empty();
         //target.t[t_pos] = E::get_empty();
 
-        curr = _t[pos];
+        curr = _table[pos];
 
-        if (! _t[pos].atomic_mark(curr)) --i;
+        if (! _table[pos].atomic_mark(curr)) --i;
         if ( (b = ! curr.is_empty()) ) // this might be nicer as an else if, but this is faster
         {
             if (!curr.is_deleted()) { target.insert_unsafe(curr); n++; }
@@ -878,10 +878,10 @@ inline void base_circular<E,HashFct,A>::insert_unsafe(const value_intern& e)
     for (size_type i = htemp; ; ++i)  // i < htemp + MaDis
     {
         size_type temp = i & _bitmask;
-        value_intern curr(_t[temp]);
+        value_intern curr(_table[temp]);
         if (curr.is_empty())
         {
-            _t[temp] = e;
+            _table[temp] = e;
             return;
         }
     }

@@ -177,7 +177,7 @@ public:
     bool
     simple_slot<K,D,m,dd>::slot_type::is_empty() const
     {
-        return key == 0;
+        return (key & bitmask) == 0;
     }
 
     template <class K, class D, bool m, K dd>

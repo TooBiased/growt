@@ -245,7 +245,8 @@ template <class K, class D, bool m>
 bool
 complex_slot<K,D,m>::slot_type::is_empty() const
 {
-    return _mfptr.full == 0;
+    if constexpr (!m) return _mfptr.full == 0;
+    return _mfptr.split.pointer == 0;
 }
 
 template <class K, class D, bool m>

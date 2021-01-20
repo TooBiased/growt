@@ -23,6 +23,10 @@ if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
   message(SEND_ERROR "In-source builds are not allowed.")
 endif()
 
+set(GROWT_BUILD_MODE RELEASE CACHE STRING
+  "the build mode of the current tests (controls optimizations and symbols)!")
+set_property(CACHE GROWT_BUILD_MODE PROPERTY STRINGS RELEASE DEBUG REL_W_SYMBOLS )
+
 option(GROWT_BUILD_TSX
   "(optional) builds tests using TSX optimized hash tables." OFF)
 
@@ -68,10 +72,22 @@ set (GROWT_MAX_FILL 0.6)
 
 set (OLD_FLAGS ${CMAKE_CXX_FLAGS})
 
-# set (CMAKE_CXX_FLAGS
-#   "${CMAKE_CXX_FLAGS} -std=c++1y -g -msse4.2 -mcx16 -Wall -Wextra -O3")
+set (FLAGS "-std=c++17 -msse4.2 -mcx16 -Wall -Wextra")
 
-set (FLAGS "-std=c++17 -g -msse4.2 -mcx16 -march=native -Wall -Wextra -O3")
+if (GROWT_BUILD_MODE STREQUAL DEBUG)
+set (FLAGS "${FLAGS} -g3 -ggdb -O0")
+endif()
+if (GROWT_BUILD_MODE STREQUAL RELEASE)
+set (FLAGS "${FLAGS} -march=native -O3")
+endif()
+if (GROWT_BUILD_MODE STREQUAL REL_W_SYMBOLS)
+set (FLAGS "${FLAGS} -g3 -ggdb -march=native -O3")
+endif()
+# if (GROWT_BUILD_MODE STREQUAL SANITIZE)
+# set (FLAGS "${FLAGS} -g -ggdb -march=native -O3 -fsanitize=address")
+# set (TEST_DEP_LIBRARIES -lasan ${TEST_DEP_LIBRARIES})
+# endif()
+
 
 include_directories(.)
 
