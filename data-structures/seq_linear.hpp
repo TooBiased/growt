@@ -155,7 +155,7 @@ public:
     using node_type            = void;
 
 private:
-    using base_type::_t;
+    using base_type::_table;
     // using base_type::_bitmask;
     using base_type::h;
     using base_type::_mapper;
@@ -234,8 +234,8 @@ seq_linear<C>::begin()
 {
     for (size_t i = 0; i < _mapper.capacity; ++i)
     {
-        auto curr = _t[i];
-        if (! curr.is_empty()) return make_it(&_t[i], curr.get_key());
+        auto curr = _table[i];
+        if (! curr.is_empty()) return make_it(&_table[i], curr.get_key());
     }
     return end();
 }
@@ -253,8 +253,8 @@ seq_linear<C>::cbegin() const
 {
     for (size_t i = 0; i < _mapper.capacity; ++i)
     {
-        auto curr = _t[i];
-        if (! curr.is_empty()) return make_cit(&_t[i], curr.get_key());
+        auto curr = _table[i];
+        if (! curr.is_empty()) return make_cit(&_table[i], curr.get_key());
     }
     return cend();
 }
@@ -274,8 +274,8 @@ seq_linear<C>::find(const key_type & k)
     for (size_type i = _mapper.map(htemp);;++i)  // i < htemp+MaDis
     {
         size_type temp = _mapper.remap(i);
-        auto curr = _t[temp].load();
-        if (curr.compare_key(k,htemp)) return make_it(&_t[temp], k);
+        auto curr = _table[temp].load();
+        if (curr.compare_key(k,htemp)) return make_it(&_table[temp], k);
         else if (curr.is_empty()) return end();
     }
 }
@@ -288,8 +288,8 @@ seq_linear<C>::find(const key_type & k) const
     for (size_type i = _mapper.map(htemp);;++i)
     {
         size_type temp = _mapper.remap(i);
-        auto curr = _t[temp].load();
-        if (curr.compare_key(k,htemp)) return make_cit(&_t[temp], k);
+        auto curr = _table[temp].load();
+        if (curr.compare_key(k,htemp)) return make_cit(&_table[temp], k);
         else if (curr.is_empty()) return cend();
     }
 }
@@ -302,15 +302,15 @@ seq_linear<C>::insert(const key_type& k, const mapped_type& d)
     for (size_type i = _mapper.map(htemp);;++i)
     {
         size_type temp = _mapper.remap(i);
-        auto curr = _t[temp].load();
+        auto curr = _table[temp].load();
 
         if (curr.compare_key(k,htemp))
-            return insert_return_type(make_it(&_t[temp], k), false); // already hashed
+            return insert_return_type(make_it(&_table[temp], k), false); // already hashed
         else if (curr.is_empty())
         {
             if (inc_n()) { _n_elem--; return insert(k,d); }
-            _t[temp].non_atomic_set(slot_type(k,d,htemp));
-            return insert_return_type(make_it(&_t[temp], k), true);
+            _table[temp].non_atomic_set(slot_type(k,d,htemp));
+            return insert_return_type(make_it(&_table[temp], k), true);
         }
         else if (curr.is_deleted())
         {
@@ -330,12 +330,12 @@ seq_linear<C>::update(const key_type& k, F f, Types&& ... args)
     for (size_type i = _mapper.map(htemp);;++i)
     {
         size_t temp = _mapper.remap(i);
-        slot_type curr = _t[temp].load();
+        slot_type curr = _table[temp].load();
         if (curr.compare_key(k,htemp))
         {
-            _t[temp].non_atomic_update(f, std::forward<Types>(args)...);
+            _table[temp].non_atomic_update(f, std::forward<Types>(args)...);
             // return ReturnCode::SUCCESS_UP;
-            return insert_return_type(make_it(&_t[temp], k), true);
+            return insert_return_type(make_it(&_table[temp], k), true);
         }
         else if (curr.is_empty())
         {
@@ -357,18 +357,18 @@ seq_linear<C>::insert_or_update(const key_type& k, const mapped_type& d, F f, Ty
     for (size_type i = _mapper.map(htemp);;++i)
     {
         size_type temp = _mapper.remap(i);
-        auto curr = _t[temp].load();
+        auto curr = _table[temp].load();
 
         if (curr.compare_key(k,htemp))
         {
-            _t[temp].non_atomic_update(f, std::forward<Types>(args) ...);
-            return insert_return_type(make_it(&_t[temp], k), false);
+            _table[temp].non_atomic_update(f, std::forward<Types>(args) ...);
+            return insert_return_type(make_it(&_table[temp], k), false);
         }
         else if (curr.is_empty())
         {
             if (inc_n()) { _n_elem--; return insert(k,d); }
-            _t[temp].non_atomic_set(slot_type(k,d,htemp));
-            return insert_return_type(make_it(&_t[temp], k), true);
+            _table[temp].non_atomic_set(slot_type(k,d,htemp));
+            return insert_return_type(make_it(&_table[temp], k), true);
         }
         else if (curr.is_deleted())
         {
@@ -387,22 +387,22 @@ seq_linear<C>::erase(const key_type & k)
     for (;;++i)
     {
         size_type temp = _mapper.remap(i);
-        auto curr = _t[temp].load();
+        auto curr = _table[temp].load();
         if (curr.compare_key(k,htemp)) break;
         else if (curr.is_empty()) return 0;
     }
     i &= _mapper.remap(i);
-    _t[i] = slot_config::get_empty();
+    _table[i] = slot_config::get_empty();
     for (size_type j = i+1;; ++j)
     {
         size_type temp = _mapper.remap(j);
-        slot_type curr = _t[temp].load();
+        slot_type curr = _table[temp].load();
         if (curr.is_empty())
             return 1;
         else if (h(curr.get_key()) <= i)
         {
-            _t[i] = curr;
-            _t[temp] = slot_config::get_empty();
+            _table[i] = curr;
+            _table[temp] = slot_config::get_empty();
             i = temp;
             j = temp;
         }
@@ -437,7 +437,7 @@ template <class C>
 inline void
 seq_linear<C>::swap(seq_linear & o)
 {
-    std::swap(_t          , o._t);
+    std::swap(_table          , o._table);
     std::swap(_mapper     , o._mapper);
     std::swap(_version    , o._version);
     std::swap(_thresh     , o._thresh);
@@ -448,13 +448,13 @@ template <class C>
 inline size_t
 seq_linear<C>::migrate( seq_linear& target )
 {
-    std::fill( target._t ,target._t + target._mapper.capacity , slot_config::get_empty() );
+    std::fill( target._table ,target._table + target._mapper.capacity , slot_config::get_empty() );
 
     auto count = 0u;
 
     for (size_t i = 0; i < _mapper.capacity; ++i)
     {
-        auto curr = _t[i].load();
+        auto curr = _table[i].load();
         if ( ! curr.is_empty() )
         {
             count++;
