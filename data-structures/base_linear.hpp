@@ -256,6 +256,8 @@ private:
 
     // OTHER HELPER FUNCTIONS **************************************************
 
+    void initialize(size_t start, size_t end, size_t log_grow_factor);
+    void initialize(size_t idx, size_t log_grow_factor);
     void insert_unsafe(const slot_type& e);
     inline void slot_cleanup () // called, either by the destructor, or by the destructor of the parenttable
     { for (size_t i = 0; i<_mapper.capacity; ++i) _table[i].load().cleanup(); }
@@ -872,7 +874,8 @@ base_linear<C>::migrate(this_type& target, size_type s, size_type e)
         ++i;
     }
 
-    std::fill(target._table+(i<<shift), target._table+(e<<shift), slot_config::get_empty());
+    //std::fill(target._table+(i<<shift), target._table+(e<<shift), slot_config::get_empty());
+    target.initialize(i, e, shift);
 
     //MIGRATE UNTIL THE END OF THE BLOCK
     for (; i<e; ++i)
@@ -900,10 +903,10 @@ base_linear<C>::migrate(this_type& target, size_type s, size_type e)
     for (; b; ++i)
     {
         auto pos  = _mapper.remap(i);
-        auto t_pos= pos<<shift;
-        for (size_type j = 0; j < 1ull<<shift; ++j)
-            target._table[t_pos+j].non_atomic_set(slot_config::get_empty());
-        //target.t[t_pos] = slot_config::get_empty();
+        // auto t_pos= pos<<shift;
+        // for (size_type j = 0; j < 1ull<<shift; ++j)
+        //     target._table[t_pos+j].non_atomic_set(slot_config::get_empty());
+        target.initialize(pos, shift);
 
         curr = _table[pos].load();
 
@@ -922,12 +925,51 @@ base_linear<C>::migrate(this_type& target, size_type s, size_type e)
 }
 
 template<class C>
+inline void base_linear<C>::initialize(size_t start, size_t end, size_t log_grow_factor)
+{
+    if constexpr (_mapper.cyclic_mapping)
+    {
+        auto temp = _mapper.capacity>>log_grow_factor;
+        size_t i = start;
+        size_t j = end;
+        for (; i < _mapper.capacity; i+=temp, j+=temp)
+        {
+            std::fill(_table+i, _table+j, slot_config::get_empty());
+        }
+
+    }
+    else
+    {
+        std::fill(_table+(start<<log_grow_factor),
+                  _table+(end  <<log_grow_factor), slot_config::get_empty());
+    }
+}
+
+template<class C>
+inline void base_linear<C>::initialize(size_t idx, size_t log_grow_factor)
+{
+    if constexpr (_mapper.cyclic_mapping)
+    {
+        auto temp = _mapper.capacity>>log_grow_factor;
+        for (size_t i = idx; i < _mapper.capacity; i+=temp)
+        {
+            _table[i].non_atomic_set(slot_config::get_empty());
+        }
+    }
+    else
+    {
+        std::fill(_table+( idx   <<log_grow_factor),
+                  _table+((idx+1)<<log_grow_factor), slot_config::get_empty());
+    }
+}
+
+template<class C>
 inline void base_linear<C>::insert_unsafe(const slot_type& e)
 {
     const key_type k = e.get_key();
 
     size_type htemp = h(k);
-    for (size_type i = _mapper.map(htemp); ; ++i)  // i < htemp + MaDis
+    for (size_type i = _mapper.map(htemp); ; ++i)
     {
         size_type temp = _mapper.remap(i);
         auto curr = _table[temp].load();
