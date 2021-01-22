@@ -277,11 +277,11 @@ estrat_async<P>::local_data_type::blockwise_migrate(base_table_type& source,
 
     //get block + while block legal migrate and get new block
     size_t temp = source._current_copy_block.fetch_add(migration_block_size);
-    while (temp < source.capacity())
+    while (temp < source._mapper.addressable_slots())
     {
         n += source.migrate(target, temp,
                             std::min(uint(temp+migration_block_size),
-                                     uint(source.capacity())));
+                                     uint(source._mapper.addressable_slots())));
         temp = source._current_copy_block.fetch_add(migration_block_size);
     }
     return n;

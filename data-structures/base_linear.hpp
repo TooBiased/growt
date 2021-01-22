@@ -19,6 +19,7 @@
 #include <stdexcept>
 #include <sstream>
 #include <string>
+#include <iostream>
 
 #include "utils/default_hash.hpp"
 #include "data-structures/returnelement.hpp"
@@ -63,19 +64,29 @@ public:
             while (capacity >>= 1) log_size++;
             return 64 - log_size;                    // HashFct::significant_digits
         }
+
+        size_t _probe_helper;
+        size_t _map_helper;
+        size_t _grow_helper;
+
     public:
-        mapper_type() : capacity(0), bitmask(0), right_shift(0) { }
-        mapper_type(size_t capacity_, bool migrated_ = false);
+        mapper_type() : _probe_helper(0), _map_helper(0) { }
+        mapper_type(size_t capacity, size_t prev_capacity = 0);
 
-        size_t capacity;
-        size_t bitmask;
-        size_t right_shift;
-        static constexpr bool cyclic_mapping = false;//CyclicMap;
-        static constexpr bool cyclic_probing = true;//CyclicProb;
+        //size_t capacity;
 
-        inline size_t map (size_t hashed) const;
-        inline size_t remap(size_t hashed) const;
-        inline mapper_type resize(size_t inserted, size_t deleted);
+        static constexpr bool cyclic_mapping = CyclicMap;
+        static constexpr bool cyclic_probing = CyclicProb;
+        static constexpr size_t lp_buffer = 1024;
+
+        size_t total_slots() const;
+        size_t addressable_slots() const;
+        size_t bitmask() const;
+        size_t grow_helper() const;
+
+        size_t map (size_t hashed) const;
+        size_t remap(size_t hashed) const;
+        mapper_type resize(size_t inserted, size_t deleted);
     };
 };
 
@@ -93,8 +104,10 @@ private:
     template <class> friend class estrat_sync;
     template <class> friend class wstrat_user;
     template <class> friend class wstrat_pool;
+
+    static constexpr bool _parallel_init = true;
 public:
-    using mapper_type        = typename Config::mapper_type;
+    using mapper_type            = typename Config::mapper_type;
     using slot_config            = typename Config::slot_config;
     using slot_type              = typename slot_config::slot_type;
     using atomic_slot_type       = typename slot_config::atomic_slot_type;
@@ -120,7 +133,7 @@ public:
     using handle_type            = this_type&;
 
 private:
-    using insert_return_intern = std::pair<iterator, ReturnCode>;
+    using insert_return_intern   = std::pair<iterator, ReturnCode>;
 
 public:
     base_linear(size_type size_ = 1<<18);
@@ -233,19 +246,29 @@ private:
 
     // HELPER FUNCTION FOR ITERATOR CREATION ***********************************
 
-    inline iterator           make_iterator (const key_type& k, const mapped_type& d, atomic_slot_type* ptr)
-    { return iterator(std::make_pair(k,d), ptr, _table+_mapper.capacity); }
+    inline iterator           make_iterator    (const key_type& k,
+                                                const mapped_type& d,
+                                                atomic_slot_type* ptr)
+    { return iterator(std::make_pair(k,d), ptr, _table+_mapper.total_slots()); }
 
-    inline const_iterator     make_citerator (const key_type& k, const mapped_type& d, atomic_slot_type* ptr) const
-    { return const_iterator(std::make_pair(k,d), ptr, _table+_mapper.capacity); }
+    inline const_iterator     make_citerator   (const key_type& k,
+                                                const mapped_type& d,
+                                                atomic_slot_type* ptr) const
+    { return const_iterator(std::make_pair(k,d), ptr, _table+_mapper.total_slots());}
 
-    inline insert_return_type make_insert_ret(const key_type& k, const mapped_type& d, atomic_slot_type* ptr, bool succ)
+    inline insert_return_type make_insert_ret  (const key_type& k,
+                                                const mapped_type& d,
+                                                atomic_slot_type* ptr,
+                                                bool succ)
     { return std::make_pair(make_iterator(k,d, ptr), succ); }
 
-    inline insert_return_type make_insert_ret(iterator it, bool succ)
+    inline insert_return_type make_insert_ret  (iterator it, bool succ)
     { return std::make_pair(it, succ); }
 
-    inline insert_return_intern make_insert_ret(const key_type& k, const mapped_type& d, atomic_slot_type* ptr, ReturnCode code)
+    inline insert_return_intern make_insert_ret(const key_type& k,
+                                                const mapped_type& d,
+                                                atomic_slot_type* ptr,
+                                                ReturnCode code)
     { return std::make_pair(make_iterator(k,d, ptr), code); }
 
     inline insert_return_intern make_insert_ret(iterator it, ReturnCode code)
@@ -256,11 +279,11 @@ private:
 
     // OTHER HELPER FUNCTIONS **************************************************
 
-    void initialize(size_t start, size_t end, size_t log_grow_factor);
-    void initialize(size_t idx, size_t log_grow_factor);
+    void initialize(size_t start, size_t end);
+    void initialize(size_t idx);
     void insert_unsafe(const slot_type& e);
     inline void slot_cleanup () // called, either by the destructor, or by the destructor of the parenttable
-    { for (size_t i = 0; i<_mapper.capacity; ++i) _table[i].load().cleanup(); }
+    { for (size_t i = 0; i<_mapper.total_slots(); ++i) _table[i].load().cleanup(); }
 
 public:
     using range_iterator = iterator;
@@ -271,7 +294,7 @@ public:
     const_range_iterator crange(size_t rstart, size_t rend);
     inline range_iterator       range_end ()       { return  end(); }
     inline const_range_iterator range_cend() const { return cend(); }
-    inline size_t               capacity()   const { return _mapper.capacity; }
+    inline size_t               capacity()   const { return _mapper.total_slots(); }
 
     static std::string name()
     {
@@ -298,11 +321,12 @@ base_linear<C>::base_linear(size_type capacity_)
       _current_copy_block(0)
 {
     // _table = static_cast<atomic_slot_type*>(malloc(sizeof(atomic_slot_type)*_mapper.capacity+1000));
-    _table = _allocator.allocate(_mapper.capacity);
+    auto nslots = _mapper.total_slots();
+    _table = _allocator.allocate(nslots);
 
     if ( !_table ) std::bad_alloc();
 
-    std::fill( _table ,_table + _mapper.capacity , slot_config::get_empty() );
+    std::fill( _table ,_table + nslots , slot_config::get_empty() );
 }
 
 /*should always be called with a capacity_=2^k  */
@@ -313,12 +337,21 @@ base_linear<C>::base_linear(mapper_type mapper_, size_type version_)
       _current_copy_block(0)
 {
     // _table = static_cast<atomic_slot_type*>(malloc(sizeof(atomic_slot_type)*_mapper.capacity+1000));
-    _table = _allocator.allocate(_mapper.capacity);
+    _table = _allocator.allocate(_mapper.total_slots());
 
     if ( !_table ) std::bad_alloc();
 
     /* The table is initialized in parallel, during the migration */
-    // std::fill( _table ,_table + _mapper.capacity , value_intern::get_empty() );
+    if constexpr (! _parallel_init)
+        std::fill( _table ,
+                   _table + _mapper.addressable_slots() ,
+                   slot_config::get_empty() );
+
+    if constexpr (! mapper_type::cyclic_mapping)
+        std::fill(_table + _mapper.addressable_slots(),
+                  _table + _mapper.total_slots(),
+                  slot_config::get_empty() );
+
 }
 
 template<class C>
@@ -328,7 +361,7 @@ base_linear<C>::~base_linear()
     if constexpr (config_type::cleanup)
                      slot_cleanup();
 
-    if (_table) _allocator.deallocate(_table, _mapper.capacity);
+    if (_table) _allocator.deallocate(_table, _mapper.total_slots());
 }
 
 
@@ -367,7 +400,7 @@ template<class C>
 inline typename base_linear<C>::iterator
 base_linear<C>::begin()
 {
-    for (size_t i = 0; i<_mapper.capacity; ++i)
+    for (size_t i = 0; i<_mapper.total_slots(); ++i)
     {
         auto temp = _table[i].load();
         if (!temp.is_empty() && !temp.is_deleted())
@@ -386,7 +419,7 @@ template<class C>
 inline typename base_linear<C>::const_iterator
 base_linear<C>::cbegin() const
 {
-    for (size_t i = 0; i<_mapper.capacity; ++i)
+    for (size_t i = 0; i<_mapper.total_slots(); ++i)
     {
         auto temp = _table[i].load();
         if (!temp.is_empty() && !temp.is_deleted())
@@ -410,7 +443,7 @@ template<class C>
 inline typename base_linear<C>::range_iterator
 base_linear<C>::range(size_t rstart, size_t rend)
 {
-    auto temp_rend = std::min(rend, _mapper.capacity);
+    auto temp_rend = std::min(rend, _mapper.total_slots());
     for (size_t i = rstart; i < temp_rend; ++i)
     {
         auto temp = _table[i].load();
@@ -426,7 +459,7 @@ template<class C>
 inline typename base_linear<C>::const_range_iterator
 base_linear<C>::crange(size_t rstart, size_t rend)
 {
-    auto temp_rend = std::min(rend, _mapper.capacity);
+    auto temp_rend = std::min(rend, _mapper.total_slots());
     for (size_t i = rstart; i < temp_rend; ++i)
     {
         auto temp = _table[i].load();
@@ -462,9 +495,17 @@ base_linear<C>::insert_intern(const key_type& k,
         else if (curr.is_empty())
         {
             if ( _table[temp].cas(curr, slot_type(k,d,htemp)) )
+            {
+                // if (d == 15926 || d == 82561)
+                //     std::cout << "inserting key " << k
+                //               << " hash "         << htemp
+                //               << " mapped "       << _mapper.map(htemp)
+                //               << " stored "       << temp
+                //               << " cap "          << capacity() << std::endl;
+
                 return make_insert_ret(k,d, &_table[temp],
                                        ReturnCode::SUCCESS_IN);
-
+            }
             //somebody changed the current element! recheck it
             --i;
         }
@@ -854,31 +895,30 @@ inline typename base_linear<C>::size_type
 base_linear<C>::migrate(this_type& target, size_type s, size_type e)
 {
     size_type n = 0;
-    auto i = s;
+    long long i = s;
     auto curr = slot_config::get_empty();
 
-    //HOW MUCH BIGGER IS THE TARGET TABLE
-    auto shift = 0u;
-    while (target._mapper.capacity > (_mapper.capacity << shift)) ++shift;
-
-
-    //FINDS THE FIRST EMPTY BUCKET (START OF IMPLICIT BLOCK)
-    while (i<e)
+    if (mapper_type::cyclic_probing || mapper_type::cyclic_mapping || s > 0)
     {
-        curr = _table[i].load();           //no bitmask necessary (within one block)
-        if (curr.is_empty())
+        //FINDS THE FIRST EMPTY BUCKET (START OF IMPLICIT BLOCK)
+        while (i<long(e))
         {
-            if (_table[i].atomic_mark(curr)) break;
-            else --i;
+            curr = _table[i].load();           //no bitmask necessary (within one block)
+            if (curr.is_empty())
+            {
+                if (_table[i].atomic_mark(curr)) break;
+                else --i;
+            }
+            ++i;
         }
-        ++i;
     }
 
+    //if (!s && i) std::cout << "bla" << std::endl;
     //std::fill(target._table+(i<<shift), target._table+(e<<shift), slot_config::get_empty());
-    target.initialize(i, e, shift);
+    target.initialize(i, e);
 
     //MIGRATE UNTIL THE END OF THE BLOCK
-    for (; i<e; ++i)
+    for (; i< long(e); ++i)
     {
         curr = _table[i].load();
         if (! _table[i].atomic_mark(curr))
@@ -890,6 +930,7 @@ base_linear<C>::migrate(this_type& target, size_type s, size_type e)
         {
             if (!curr.is_deleted())
             {
+                // if (curr.get_mapped() == 15926) std::cout << "moving first" << std::endl;
                 target.insert_unsafe(curr);
                 ++n;
             }
@@ -906,16 +947,46 @@ base_linear<C>::migrate(this_type& target, size_type s, size_type e)
         // auto t_pos= pos<<shift;
         // for (size_type j = 0; j < 1ull<<shift; ++j)
         //     target._table[t_pos+j].non_atomic_set(slot_config::get_empty());
-        target.initialize(pos, shift);
+        target.initialize(pos);
 
         curr = _table[pos].load();
 
         if (! _table[pos].atomic_mark(curr)) --i;
+
         if ( (b = ! curr.is_empty()) ) // this might be nicer as an else if, but this is faster
         {
             if (!curr.is_deleted())
             {
                 target.insert_unsafe(curr); n++;
+            }
+        }
+    }
+    if constexpr (!mapper_type::cyclic_probing && mapper_type::cyclic_mapping)
+    {
+        if (e == _mapper.addressable_slots())
+        {
+            i = 0;
+            b = true; // b indicates, if t[i-1] was non-empty
+
+            for (; b; ++i)
+            {
+                auto pos  = _mapper.remap(i);
+                // auto t_pos= pos<<shift;
+                // for (size_type j = 0; j < 1ull<<shift; ++j)
+                //     target._table[t_pos+j].non_atomic_set(slot_config::get_empty());
+                target.initialize(pos);
+
+                curr = _table[pos].load();
+
+                if (! _table[pos].atomic_mark(curr)) --i;
+
+                if ( (b = ! curr.is_empty()) ) // this might be nicer as an else if, but this is faster
+                {
+                    if (!curr.is_deleted())
+                    {
+                        target.insert_unsafe(curr); n++;
+                    }
+                }
             }
         }
     }
@@ -925,14 +996,14 @@ base_linear<C>::migrate(this_type& target, size_type s, size_type e)
 }
 
 template<class C>
-inline void base_linear<C>::initialize(size_t start, size_t end, size_t log_grow_factor)
+inline void base_linear<C>::initialize(size_t start, size_t end)
 {
+    if constexpr (! _parallel_init) return;
     if constexpr (_mapper.cyclic_mapping)
     {
-        auto temp = _mapper.capacity>>log_grow_factor;
-        size_t i = start;
-        size_t j = end;
-        for (; i < _mapper.capacity; i+=temp, j+=temp)
+        for (size_t i = start, j=end;
+             i <= _mapper.bitmask();
+             i+=_mapper.grow_helper(), j+=_mapper.grow_helper())
         {
             std::fill(_table+i, _table+j, slot_config::get_empty());
         }
@@ -940,26 +1011,29 @@ inline void base_linear<C>::initialize(size_t start, size_t end, size_t log_grow
     }
     else
     {
-        std::fill(_table+(start<<log_grow_factor),
-                  _table+(end  <<log_grow_factor), slot_config::get_empty());
+        std::fill(_table+(start<<_mapper.grow_helper()),
+                  _table+(end  <<_mapper.grow_helper()), slot_config::get_empty());
     }
 }
 
 template<class C>
-inline void base_linear<C>::initialize(size_t idx, size_t log_grow_factor)
+inline void base_linear<C>::initialize(size_t idx)
 {
+    if constexpr (! _parallel_init) return;
     if constexpr (_mapper.cyclic_mapping)
     {
-        auto temp = _mapper.capacity>>log_grow_factor;
-        for (size_t i = idx; i < _mapper.capacity; i+=temp)
+        for (size_t i = idx;
+             i <= _mapper.bitmask();
+             i+=_mapper.grow_helper())
         {
             _table[i].non_atomic_set(slot_config::get_empty());
         }
     }
     else
     {
-        std::fill(_table+( idx   <<log_grow_factor),
-                  _table+((idx+1)<<log_grow_factor), slot_config::get_empty());
+        std::fill(_table+( idx   <<_mapper.grow_helper()),
+                  _table+((idx+1)<<_mapper.grow_helper()),
+                  slot_config::get_empty());
     }
 }
 
@@ -990,45 +1064,94 @@ inline void base_linear<C>::insert_unsafe(const slot_type& e)
 // base_linear_config stuff
 template<class S, class H, class A, bool CM, bool CP, bool CU>
 base_linear_config<S,H,A,CM,CP,CU>::mapper_type::mapper_type(
-    size_t capacity_,
-    bool   migrated_)
-    : capacity(migrated_ ? capacity_ : compute_capacity(capacity_)),
-      bitmask(capacity-1),
-      right_shift(compute_right_shift(capacity))
+    size_t capacity,
+    size_t grow_helper)
 {
-    if constexpr (!cyclic_probing) capacity += 256;
+    auto tcapacity = (grow_helper) ? capacity : compute_capacity(capacity);
+
+    if constexpr (cyclic_probing)
+        _probe_helper = tcapacity -1;
+    else
+        _probe_helper = tcapacity+lp_buffer;
+
+    if constexpr (cyclic_mapping)
+        _map_helper = tcapacity-1;
+    else
+        _map_helper = compute_right_shift(tcapacity);
+
+    _grow_helper = grow_helper;
 }
 
 template<class S, class H, class A, bool CM, bool CP, bool CU>
-size_t
+inline size_t
+base_linear_config<S,H,A,CM,CP,CU>::mapper_type::total_slots() const
+{
+    if constexpr (cyclic_probing)
+        return _probe_helper + 1;
+    else
+        return _probe_helper;
+}
+
+template<class S, class H, class A, bool CM, bool CP, bool CU>
+inline size_t
+base_linear_config<S,H,A,CM,CP,CU>::mapper_type::addressable_slots() const
+{
+    if constexpr (cyclic_probing)
+        return _probe_helper + 1;
+    else
+        return _probe_helper-lp_buffer;
+}
+
+template<class S, class H, class A, bool CM, bool CP, bool CU>
+inline size_t
+base_linear_config<S,H,A,CM,CP,CU>::mapper_type::bitmask() const
+{
+    if constexpr      (cyclic_probing)
+        return _probe_helper;
+    else if constexpr (cyclic_mapping)
+        return _map_helper;
+    else
+        return _probe_helper-lp_buffer-1;
+}
+
+template<class S, class H, class A, bool CM, bool CP, bool CU>
+inline size_t
+base_linear_config<S,H,A,CM,CP,CU>::mapper_type::grow_helper() const
+{
+    return _grow_helper;
+}
+
+template<class S, class H, class A, bool CM, bool CP, bool CU>
+inline size_t
 base_linear_config<S,H,A,CM,CP,CU>::mapper_type::map (size_t hashed) const
 {
     if constexpr (cyclic_mapping)
-                     return hashed & bitmask;
+        return hashed &  _map_helper;
     else
-        return hashed >> right_shift;
+        return hashed >> _map_helper;
 }
 
 template<class S, class H, class A, bool CM, bool CP, bool CU>
-size_t
+inline size_t
 base_linear_config<S,H,A,CM,CP,CU>::mapper_type::remap(size_t hashed) const
 {
     if constexpr (cyclic_probing)
-                     return hashed & bitmask;
+        return hashed & _probe_helper;
     else
         return hashed;
 }
 
 template<class S, class H, class A, bool CM, bool CP, bool CU>
-typename base_linear_config<S,H,A,CM,CP,CU>::mapper_type
+inline typename base_linear_config<S,H,A,CM,CP,CU>::mapper_type
 base_linear_config<S,H,A,CM,CP,CU>::mapper_type::resize(size_t inserted, size_t deleted)
 {
-    auto nsize = bitmask+1;
-    double fill_rate = double(inserted - deleted)/double(capacity);
+    auto nsize = addressable_slots();
+    double fill_rate = double(inserted - deleted)/double(nsize);
 
     if (fill_rate > 0.6/2.) nsize <<= 1;
 
-    return mapper_type(nsize, true);
+    size_t temp = (cyclic_mapping) ? addressable_slots() : 1;
+    return mapper_type(nsize, temp);
 }
 
 
