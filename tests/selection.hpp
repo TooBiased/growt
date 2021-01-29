@@ -79,6 +79,18 @@ constexpr hmod estrat = hmod::sync;
 constexpr hmod estrat = hmod::neutral;
 #endif
 
+#if defined(CMAP)
+constexpr hmod cmap = hmod::circular_mapping;
+#else
+constexpr hmod cmap = hmod::neutral;
+#endif
+
+#if defined(CPROB)
+constexpr hmod cprob = hmod::circular_probing;
+#else
+constexpr hmod cprob = hmod::neutral;
+#endif
+
 template <class Key, class Data, class HashFct, class Alloc,
           hmod ... Mods>
 using table_config = typename growt::table_config<Key,
@@ -88,6 +100,8 @@ using table_config = typename growt::table_config<Key,
                                                   dynamic,
                                                   estrat,
                                                   wstrat,
+                                                  cmap,
+                                                  cprob,
                                                   Mods ...>;
 #endif
 

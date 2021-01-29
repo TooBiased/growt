@@ -16,6 +16,11 @@
 #include <memory>
 #include <string>
 
+#include "utils/output.hpp"
+namespace otm = utils_tm::out_tm;
+#include "utils/reclamation/counting_reclamation.hpp"
+namespace rtm = utils_tm::reclamation_tm;
+
 /*******************************************************************************
  *
  * This is a exclusion strategy for our growtable.
@@ -55,14 +60,31 @@ class estrat_async
 private:
     using this_type             = estrat_async<Parent>;
     using parent_type           = Parent;
+
 public:
     using base_table_type       = typename Parent::base_table_type;
-    using hash_ptr_reference    = std::shared_ptr<base_table_type>&;
-    using hash_ptr              = std::shared_ptr<base_table_type>;
+    using hash_ptr_reference    = base_table_type*;
+    using hash_ptr              = base_table_type*;
 
     static_assert(base_table_type::slot_config::allows_marking,
                   "Asynchroneous migration can only be chosen with a "
                   "markable element!!!" );
+private:
+    class _growable_table_type : public base_table_type
+    {
+    public:
+        _growable_table_type(size_t cap)
+            : base_table_type(cap), next_table(nullptr) { }
+        _growable_table_type(size_t elements, size_t deletions);
+        std::atomic<_growable_table_type*> next_table;
+    };
+
+    using  rec_manager_type   = rtm::counting_manager<_growable_table_type>;
+    using  rec_handle_type    = typename rec_manager::handle_type;
+    using  atomic_pointer_type= typename rec_manager::atomic_pointer_type;
+    using  pointer_type       = typename rec_manager::pointer_type;
+
+public:
 
     static constexpr size_t migration_block_size = 4096;
 
@@ -75,9 +97,11 @@ public:
     class global_data_type
     {
     public:
-        global_data_type(size_t size_) : _g_epoch_r(0), _g_epoch_w(0), _n_helper(0)
+        global_data_type(size_t capacity)
+            : _epoch(0), _table(nullptr), _n_helper(0), _rec_manager()
         {
-            _g_table_r = _g_table_w = std::make_shared<base_table_type>(size_);
+            auto temp = new rtm::counted_object<_grow_table_type>(capacity);
+            _table.store(temp, std::memory_order_relaxed);
         }
         global_data_type(const global_data_type& source) = delete;
         global_data_type& operator=(const global_data_type& source) = delete;
@@ -93,13 +117,10 @@ public:
     private:
         friend local_data_type;
 
-        std::atomic_size_t _g_epoch_r;
-        std::atomic_size_t _g_epoch_w;
-        hash_ptr _g_table_r;
-        hash_ptr _g_table_w;
-
-        std::mutex _grow_mutex;
+        std::atomic_size_t _epoch;
+        std::atomic_pointer_type _table;
         std::atomic_size_t _n_helper;
+        rec_manager_type   _rec_manager
     };
 
     // STORED AT EACH HANDLE
@@ -131,12 +152,13 @@ public:
         global_data_type&   _global;
         worker_strat_local& _worker_strat;
         size_t              _epoch;
-        std::shared_ptr<base_table_type> _table;
+        pointer_type        _table;
+        rec_handle_type     _rec_handle;
 
 
     public:
         inline hash_ptr_reference get_table();
-        inline void rls_table() {   }
+        inline void rls_table() { }
 
         void grow();
         void help_grow();
@@ -163,64 +185,31 @@ template <class P>
 typename estrat_async<P>::hash_ptr_reference
 estrat_async<P>::local_data_type::get_table()
 {
-    size_t t_epoch = _global._g_epoch_r.load(std::memory_order_acquire);
+    size_t t_epoch = _global._epoch.load(std::memory_order_acquire);
     if (t_epoch > _epoch)
     {
         load();
     }
-    return _table;
+    return static_cast<hash_ptr_reference>(_table);
 }
 
 template <class P>
 void
 estrat_async<P>::local_data_type::grow()
 {
-    { // should be atomic (therefore locked)
-        std::lock_guard<std::mutex> lock(_global._grow_mutex);
-        if (_global._g_table_w->_version == _table->_version)
-        {
-            // first one to get here allocates new table
-            auto w_table = std::make_shared<base_table_type>(
-                _table->_mapper.resize(_parent._elements.load(std::memory_order_acquire),
-                                       _parent._dummies.load (std::memory_order_acquire)),
-                _table->_version+1);
+    auto new_table = _rec_handle.create_pointer(
+        _table->_mapper.resize(_parent._elements.load(std::memory_order_acquire),
+                               _parent._dummies.load (std::memory_order_acquire)),
+        _table->_version+1);
 
-            _global._g_table_w = w_table;
-            _global._g_epoch_w.store(w_table->_version,
-                                     std::memory_order_release);
-        }
+    base_table_type* nu_ll = nullptr;
+    if (! _table->next_table.compare_exchange_strong(nu_ll, new_table))
+    {
+        // another thread triggered the growing
+        _rec_handle.delete_raw(new_table);
     }
 
     _worker_strat.execute_migration(*this, _epoch);
-
-    /*/ TEST STUFF =====================================================
-      static std::atomic_size_t already{0};
-      auto temp = already.fetch_add(1);
-      if (temp == 0)
-      {
-      while (global._n_helper.load(std::memory_order_acquire) > 1) ;
-      bool all_fine = true;
-      auto& target = *w_table;
-      for (size_t i = 0; i < target.size; ++i)
-      {
-      auto curr = target.t[i];
-      if (curr.isMarked())
-      {
-      std::cout << "Cell is marked " << i << std::endl;
-      all_fine = false;
-      }
-      if (curr.isNew())
-      {
-      std::cout << "Cell is new    " << i << std::endl;
-      all_fine = false;
-      }
-      }
-      while (!all_fine);
-      already.store(0, std::memory_order_release);
-      }
-
-      leave_migration();
-    //*/// =============================================================
 
     end_grow();
 }
@@ -241,37 +230,34 @@ estrat_async<P>::local_data_type::migrate()
     // enter_migration(): nhelper ++
     _global._n_helper.fetch_add(1, std::memory_order_acq_rel);
 
-    hash_ptr curr, next;
-    {
-        std::lock_guard<std::mutex> lock(_global._grow_mutex);
-        curr = _global._g_table_r;
-        next = _global._g_table_w;
-    }
+    // curr is protected (buffered counting pointer)
+    auto curr = _table;
+    // next is not actually protected properly (i.e. the next pointer of old
+    // tables could already be deleted) but this can only happen if the migration
+    // from curr is finished. If this is the case, next will never be accessed.
+    auto next = _rec_handle.protect(_table.next_table);
 
-    if (curr->_version >= next->_version)
-    {
-        // late to the party
-        // leave_migration(): nhelper --
-        _global._n_helper.fetch_sub(1, std::memory_order_release);
+    // sanity checks, remove once I am sure
+    if (next == nullptr)
+    { otm::out() << "in migrate, table has no next" << std::endl; }
+    if (next->version != curr->version + 1)
+    { otm::out() << "in migrate, next is not curr+1" << std::endl; }
 
-        return next->_version;
-    }
-
-    //global.g_count.fetch_add(
-    blockwise_migrate(*curr, *next);//,
-    //std::memory_order_acq_rel);
-
+//     //global.g_count.fetch_add(
+    blockwise_migrate(curr, next);//,
+//     //std::memory_order_acq_rel);
 
     // leave_migration(): nhelper --
     _global._n_helper.fetch_sub(1, std::memory_order_release);
 
+    _rec_handle.unprotect(next);
     return next->_version;
 }
 
 template <class P>
 size_t
-estrat_async<P>::local_data_type::blockwise_migrate(base_table_type& source,
-                                                    base_table_type& target)
+estrat_async<P>::local_data_type::blockwise_migrate(base_table_type* source,
+                                                    base_table_type* target)
 {
     size_t n = 0;
 
@@ -279,7 +265,7 @@ estrat_async<P>::local_data_type::blockwise_migrate(base_table_type& source,
     size_t temp = source._current_copy_block.fetch_add(migration_block_size);
     while (temp < source._mapper.addressable_slots())
     {
-        n += source.migrate(target, temp,
+        n += source.migrate(*target, temp,
                             std::min(uint(temp+migration_block_size),
                                      uint(source._mapper.addressable_slots())));
         temp = source._current_copy_block.fetch_add(migration_block_size);
@@ -291,11 +277,11 @@ template <class P>
 void
 estrat_async<P>::local_data_type::load()
 {
-    {
-        std::lock_guard<std::mutex> lock(_global._grow_mutex);
-        _epoch = _global._g_epoch_r.load(std::memory_order_acquire);
-        _table = _global._g_table_r;
-    }
+    _rec_handle.unprotect(_table);
+    _table = _rec_handle.protect(_global._table);
+    while (_table->version != _global.epoch.load(std::memory_order_relaxed))
+    { /* wait */ }
+    _epoch = _table->version;
 }
 
 template <class P>
@@ -305,24 +291,25 @@ estrat_async<P>::local_data_type::end_grow()
     //wait for other helpers
     while (_global._n_helper.load(std::memory_order_acquire)) { }
 
-    //CAS table into R-Position
+    auto curr = _table;
+    // next is unprotected here but we do not access it if we
+    auto next = curr->next_table.load();
+
+    if (_global._table.compare_exchange_strong(curr, next,
+                                               std::memory_order_acq_rel))
     {
-        std::lock_guard<std::mutex> lock(_global._grow_mutex);
-        if (_global._g_table_r->_version == _epoch)
-        {
-            _global._g_table_r = _global._g_table_w;
-            _global._g_epoch_r.store(_global._g_epoch_w.load(std::memory_order_acquire),
-                                     std::memory_order_release);
+        // now we are responsible for some stuff
 
-            //auto temp = global.g_count.load(std::memory_order_acquire);
-            //parent.elements.store(temp, std::memory_order_release);
-            //parent.dummies .store(   0, std::memory_order_release);
-            //global.g_count .store(   0, std::memory_order_release);
+        // updates to the number of elements can have minor race conditions but
+        // the overall number will be right
+        auto temp = _parent._dummies.exchange(0, std::memory_order_acq_rel);
+        _parent._elements.fetch_sub(temp, std::memory_order_release);
 
+        // before this, no further operations can be done
+        // thus next is safe because nothing could be inserted
+        _global._epoch.store(next->version, std::memory_order_release);
 
-            auto temp = _parent._dummies.exchange(0, std::memory_order_acq_rel);
-            _parent._elements.fetch_sub(temp, std::memory_order_release);
-        }
+        _rec_handle.safe_delete(_table);
     }
 
     load();
