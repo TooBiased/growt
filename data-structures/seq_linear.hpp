@@ -69,8 +69,8 @@ public:
     inline seq_iterator& operator++()
     {
         if (_tab._version != _ver) refresh();
-        while ( _ptr < _tab._t + _tab._mapper.capacity && _ptr->is_empty()) _ptr++;
-        if (_ptr == _tab._t+ _tab._mapper.capacity) { _ptr = nullptr; _key = key_type(); }
+        while ( _ptr < _tab._t + _tab._mapper.total_slots() && _ptr->is_empty()) _ptr++;
+        if (_ptr == _tab._t+ _tab._mapper.total_slots()) { _ptr = nullptr; _key = key_type(); }
         else { _key = _ptr->get_key(); }
         return *this;
     }
@@ -172,11 +172,11 @@ public:
 
     seq_linear(size_t size )
         : base_type(size),
-          _n_elem(0), _thresh(_mapper.capacity*_max_fill_factor) {}
+          _n_elem(0), _thresh(_mapper.total_slots()*_max_fill_factor) {}
 
     seq_linear(mapper_type mapper, size_t version)
         : base_type(mapper, version),
-          _n_elem(0), _thresh(_mapper.capacity*_max_fill_factor) {}
+          _n_elem(0), _thresh(_mapper.total_slots()*_max_fill_factor) {}
 
     // These are used for our tests, such that seq_linear behaves like grow_table
     using handle_type = this_type&;
@@ -232,7 +232,7 @@ template <class C>
 inline typename seq_linear<C>::iterator
 seq_linear<C>::begin()
 {
-    for (size_t i = 0; i < _mapper.capacity; ++i)
+    for (size_t i = 0; i < _mapper.total_slots(); ++i)
     {
         auto curr = _table[i];
         if (! curr.is_empty()) return make_it(&_table[i], curr.get_key());
@@ -251,7 +251,7 @@ template <class C>
 inline typename seq_linear<C>::const_iterator
 seq_linear<C>::cbegin() const
 {
-    for (size_t i = 0; i < _mapper.capacity; ++i)
+    for (size_t i = 0; i < _mapper.total_slots(); ++i)
     {
         auto curr = _table[i];
         if (! curr.is_empty()) return make_cit(&_table[i], curr.get_key());
@@ -448,11 +448,11 @@ template <class C>
 inline size_t
 seq_linear<C>::migrate( seq_linear& target )
 {
-    std::fill( target._table ,target._table + target._mapper.capacity , slot_config::get_empty() );
+    std::fill( target._table ,target._table + target._mapper.total_slots() , slot_config::get_empty() );
 
     auto count = 0u;
 
-    for (size_t i = 0; i < _mapper.capacity; ++i)
+    for (size_t i = 0; i < _mapper.total_slots(); ++i)
     {
         auto curr = _table[i].load();
         if ( ! curr.is_empty() )

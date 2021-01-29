@@ -299,7 +299,12 @@ public:
     static std::string name()
     {
         std::stringstream name;
-        name << "base_table<" << slot_config::name() << ">";
+        name << "base_table<";
+        if constexpr (mapper_type::cyclic_mapping) name << "cmap";
+        else name << "lmap";
+        if constexpr (mapper_type::cyclic_probing) name << "cprob";
+        else name << "lprob";
+        name << slot_config::name() << ">";
         return name.str();
     }
 };
