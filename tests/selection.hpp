@@ -80,13 +80,13 @@ constexpr hmod estrat = hmod::neutral;
 #endif
 
 #if defined(CMAP)
-constexpr hmod cmap = hmod::circular_mapping;
+constexpr hmod cmap = hmod::circular_map;
 #else
 constexpr hmod cmap = hmod::neutral;
 #endif
 
 #if defined(CPROB)
-constexpr hmod cprob = hmod::circular_probing;
+constexpr hmod cprob = hmod::circular_prob;
 #else
 constexpr hmod cprob = hmod::neutral;
 #endif
