@@ -195,8 +195,7 @@ struct test_in_stages {
 
                 auto duration = t.synchronized(fill<handle_type>, hash, n);
 
-                t.out << otm::width(12) << duration.second/1000000. << std::flush
-                      << otm::width(11)  << errors.load();
+                t.out << otm::width(12) << duration.second/1000000. << std::flush;
             }
 
             // STAGE3 n Cont Random Finds Successful
@@ -205,8 +204,7 @@ struct test_in_stages {
 
                 auto duration = t.synchronized(find_contended<handle_type>, hash, n);
 
-                t.out << otm::width(12) << duration.second/1000000. << std::flush
-                      << otm::width(11)  << errors.load();
+                t.out << otm::width(12) << duration.second/1000000. << std::flush;
             }
 
             // STAGE4 n Cont Random Updates
@@ -216,8 +214,7 @@ struct test_in_stages {
                 auto duration = t.synchronized(update_contended<handle_type>,
                                                hash, n);
 
-                t.out << otm::width(12) << duration.second/1000000. << std::flush
-                      << otm::width(11)  << errors.load();
+                t.out << otm::width(12) << duration.second/1000000. << std::flush;
             }
 
             // STAGE5 Validation of Hash Table Contents
@@ -264,11 +261,8 @@ int main(int argn, char** argc)
                << otm::width(11) << "cap"
                << otm::width(7)  << "con"
                << otm::width(12) << "t_ins_or"
-               << otm::width(11) << "errors"
                << otm::width(12) << "t_find_c"
-               << otm::width(11) << "errors"
                << otm::width(12) << "t_updt_c"
-               << otm::width(11) << "errors"
                << otm::width(12) << "t_val_up"
                << otm::width(11) << "errors"
                << "    " << con_config::name()

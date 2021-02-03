@@ -338,15 +338,15 @@ class _atomic_helper_type
 public:
     template <class F, class ...Types>
     inline static std::pair<typename SlotType::mapped_type,bool>
-    execute(typename SlotType::atomic_slot* that,
+    execute(typename SlotType::atomic_slot_type* that,
             typename SlotType::slot_type&,
             F f, Types ... args)
     {
         // UGLY (Same as non_atomic_update)
 
         auto temp = reinterpret_cast<typename SlotType::value_type*>(that);
-        auto result = f.atomic(that->second,std::forward<Types>(args)...);
-        return std::make_pair(temp,true);
+        auto result = f.atomic(temp->second,std::forward<Types>(args)...);
+        return std::make_pair(result,true);
     }
 };
 
@@ -357,7 +357,7 @@ class _atomic_helper_type<SlotType, false>
 public:
     template <class F, class ...Types>
     inline static std::pair<typename SlotType::mapped_type, bool>
-    execute(typename SlotType::atomic_slot* that,
+    execute(typename SlotType::atomic_slot_type* that,
             typename SlotType::slot_type& expected,
             F f, Types ... args)
     {
