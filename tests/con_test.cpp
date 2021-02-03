@@ -69,7 +69,7 @@ int fill(Hash& hash, size_t n)
     ttm::execute_parallel(current_block, n,
         [&hash, &err](size_t i)
         {
-            auto temp = hash.insert(i+2, i+2);
+            auto temp = hash.insert(i+1, i+1);
             if (! temp.second) ++err;
         });
 
@@ -88,9 +88,9 @@ int find_contended(Hash& hash, size_t n)
         {
             auto key = keys[i];
 
-            auto data = hash.find(key);
+            auto it = hash.find(key);
 
-            if (data == hash.end() || (*data).second != key)
+            if (it == hash.end() || (*it).second != key)
             {
                 ++err;
             }
@@ -111,7 +111,7 @@ int update_contended(Hash& hash, size_t n)
         [&hash, &err](size_t i)
         {
             auto key = keys[i];
-            auto temp = hash.update(key, growt::example::Overwrite(), i+2);
+            auto temp = hash.update(key, growt::example::Overwrite(), i+1);
 
             if (! temp.second) ++err;
         });
@@ -130,17 +130,17 @@ int val_update(Hash& hash, size_t n)
     ttm::execute_parallel(current_block, n,
         [&hash, &err, n](size_t i)
         {
-            auto data = hash.find(i+2);
-            if      (data == hash.end())
+            auto it = hash.find(i+1);
+            if      (it == hash.end())
             {   ++ err;   }
             else
             {
-                auto temp = (*data).second;
-                if (temp != i+2)
+                auto temp = (*it).second;
+                if (temp != i+1)
                 {
                     if (temp < 2   ||
                         temp > n+1 ||
-                        keys[temp-2] != i+2) ++err;
+                        keys[temp-1] != i+1) ++err;
                 }
             }
         });
@@ -182,13 +182,12 @@ struct test_in_stages {
                   << otm::width(5) << t.p
                   << otm::width(11) << n
                   << otm::width(11) << cap
-                  << otm::width(7) << con;
+                  << otm::width(7) << con << std::flush;
 
             // Needed for synchronization (main thread has finished set_up_hash)
             t.synchronize();
 
             handle_type hash = hash_table.get_handle();
-
 
             // STAGE2 n Insertions [2 .. n+1]
             {
@@ -196,7 +195,8 @@ struct test_in_stages {
 
                 auto duration = t.synchronized(fill<handle_type>, hash, n);
 
-                t.out << otm::width(12) << duration.second/1000000.;
+                t.out << otm::width(12) << duration.second/1000000. << std::flush
+                      << otm::width(11)  << errors.load();
             }
 
             // STAGE3 n Cont Random Finds Successful
@@ -205,7 +205,8 @@ struct test_in_stages {
 
                 auto duration = t.synchronized(find_contended<handle_type>, hash, n);
 
-                t.out << otm::width(12) << duration.second/1000000.;
+                t.out << otm::width(12) << duration.second/1000000. << std::flush
+                      << otm::width(11)  << errors.load();
             }
 
             // STAGE4 n Cont Random Updates
@@ -215,8 +216,8 @@ struct test_in_stages {
                 auto duration = t.synchronized(update_contended<handle_type>,
                                                hash, n);
 
-
-                t.out << otm::width(12) << duration.second/1000000.;
+                t.out << otm::width(12) << duration.second/1000000. << std::flush
+                      << otm::width(11)  << errors.load();
             }
 
             // STAGE5 Validation of Hash Table Contents
@@ -224,7 +225,6 @@ struct test_in_stages {
                 if (ThreadType::is_main) current_block.store(0);
 
                 auto duration = t.synchronized(val_update<handle_type>, hash, n);
-
 
                 t.out << otm::width(12) << duration.second/1000000.
                       << otm::width(11)  << errors.load();
@@ -264,8 +264,11 @@ int main(int argn, char** argc)
                << otm::width(11) << "cap"
                << otm::width(7)  << "con"
                << otm::width(12) << "t_ins_or"
+               << otm::width(11) << "errors"
                << otm::width(12) << "t_find_c"
+               << otm::width(11) << "errors"
                << otm::width(12) << "t_updt_c"
+               << otm::width(11) << "errors"
                << otm::width(12) << "t_val_up"
                << otm::width(11) << "errors"
                << "    " << con_config::name()

@@ -88,8 +88,8 @@ int validate_aggregate(Hash& hash, size_t n)
     ttm::execute_parallel(current_block, n,
         [&hash, &sum](size_t i)
         {
-            auto data = hash.find(i+2);
-            if (data != hash.end()) { sum += (*data).second; };
+            auto it = hash.find(i+1);
+            if (it != hash.end()) { sum += (*it).second; };
         });
 
     valsum.fetch_add(sum, std::memory_order_relaxed);

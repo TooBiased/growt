@@ -94,6 +94,8 @@ public:
 
         inline key_type    get_key() const;
         inline mapped_type get_mapped() const;
+        inline const value_type* get_pointer() const;
+        inline       value_type* get_pointer();
 
         inline bool is_empty()   const;
         inline bool is_deleted() const;
@@ -239,6 +241,29 @@ complex_slot<K,D,m>::slot_type::get_mapped() const
     return ptr->second;
 }
 
+template <class K, class D, bool m>
+const typename complex_slot<K,D,m>::value_type*
+complex_slot<K,D,m>::slot_type::get_pointer() const
+{
+    auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
+    if (!ptr)
+    {
+        debug::if_debug("getting pointer from an empty slot");
+    }
+    return ptr;
+}
+
+template <class K, class D, bool m>
+typename complex_slot<K,D,m>::value_type*
+complex_slot<K,D,m>::slot_type::get_pointer()
+{
+    auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
+    if (!ptr)
+    {
+        debug::if_debug("getting key from empty slot");
+    }
+    return ptr;
+}
 
 // *** state *******************************************************************
 template <class K, class D, bool m>

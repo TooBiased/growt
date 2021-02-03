@@ -1,6 +1,9 @@
 #ifndef  UPDATE_FCTS_H
 #define UPDATE_FCTS_H
 
+#include <cstdint>
+#include <type_traits>
+
 namespace growt{
 namespace example{
 
@@ -38,6 +41,7 @@ struct Overwrite
     // this will be detected automatically
     mapped_type atomic    (mapped_type& lhs, const mapped_type& rhs) const
     {
+
         lhs = rhs;
         return rhs;
     }

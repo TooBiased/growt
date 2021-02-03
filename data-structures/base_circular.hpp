@@ -454,8 +454,9 @@ base_circular<E,HashFct,A>::update_intern(const key_type& k, F f, Types&& ... ar
         {
             mapped_type data;
             bool        succ;
-            std::tie(data, succ) = _table[temp].atomic_update(curr,f,
-                                                          std::forward<Types>(args)...);
+            std::tie(data, succ) = _table[temp].atomic_update(
+                curr,f,
+                std::forward<Types>(args)...);
             if (succ)
                 return make_insert_ret(k,data, &_table[temp],
                                        ReturnCode::SUCCESS_UP);

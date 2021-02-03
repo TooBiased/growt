@@ -158,7 +158,11 @@ public:
     const_iterator begin()  const { return cbegin(); }
     const_iterator end()    const { return cend();   }
 
-    insert_return_type insert(const key_type& k, const mapped_type& d);
+    insert_return_type insert (const key_type& k, const mapped_type& d);
+    insert_return_type insert (const std::pair<const key_type, mapped_type>&);
+    // template <class ... Args>
+    // insert_return_type emplace(Args&& ... args);
+    insert_return_type emplace(key_type&& k, mapped_type&& d);
     size_type          erase (const key_type& k);
     iterator           find  (const key_type& k);
     const_iterator     find  (const key_type& k) const;
@@ -220,6 +224,9 @@ protected:
 
 private:
     insert_return_intern insert_intern(const key_type& k, const mapped_type& d);
+    insert_return_intern emplace_intern(key_type&& k, mapped_type&& d);
+    // template <class ... Args>
+    // insert_return_intern emplace_intern(Args&& ... args);
     ReturnCode           erase_intern (const key_type& k);
     ReturnCode           erase_if_intern (const key_type& k, const mapped_type& d);
 
@@ -483,7 +490,7 @@ base_linear<C>::crange(size_t rstart, size_t rend)
 template<class C>
 inline typename base_linear<C>::insert_return_intern
 base_linear<C>::insert_intern(const key_type& k,
-                                         const mapped_type& d)
+                              const mapped_type& d)
 {
     size_type htemp = h(k);
 
@@ -501,13 +508,6 @@ base_linear<C>::insert_intern(const key_type& k,
         {
             if ( _table[temp].cas(curr, slot_type(k,d,htemp)) )
             {
-                // if (d == 15926 || d == 82561)
-                //     std::cout << "inserting key " << k
-                //               << " hash "         << htemp
-                //               << " mapped "       << _mapper.map(htemp)
-                //               << " stored "       << temp
-                //               << " cap "          << capacity() << std::endl;
-
                 return make_insert_ret(k,d, &_table[temp],
                                        ReturnCode::SUCCESS_IN);
             }
@@ -526,6 +526,84 @@ base_linear<C>::insert_intern(const key_type& k,
     }
     return make_insert_ret(end(), ReturnCode::UNSUCCESS_FULL);
 }
+
+template<class C>
+inline typename base_linear<C>::insert_return_intern
+base_linear<C>::emplace_intern(key_type&& k, mapped_type&& d)
+{
+    size_type htemp = h(k);
+
+    for (size_type i = _mapper.map(htemp); ; ++i) //i < htemp+MaDis
+    {
+        size_type temp = _mapper.remap(i);
+        auto curr = _table[temp].load();
+
+        if (curr.is_marked())
+        {
+            return make_insert_ret(end(),
+                                   ReturnCode::UNSUCCESS_INVALID);
+        }
+        else if (curr.is_empty())
+        {
+            if ( _table[temp].cas(curr, slot_type(k,d,htemp)) )
+            {
+                return make_insert_ret(k,d, &_table[temp],
+                                       ReturnCode::SUCCESS_IN);
+            }
+            //somebody changed the current element! recheck it
+            --i;
+        }
+        else if (curr.compare_key(k, htemp))
+        {
+            return make_insert_ret(k, curr.get_mapped(), &_table[temp],
+                                   ReturnCode::UNSUCCESS_ALREADY_USED);
+        }
+        else if (curr.is_deleted())
+        {
+            //do something appropriate
+        }
+    }
+    return make_insert_ret(end(), ReturnCode::UNSUCCESS_FULL);
+}
+
+// template<class C> template <class ... Args>
+// inline typename base_linear<C>::insert_return_intern
+// base_linear<C>::emplace_intern(Args&& ... args)
+// {
+//     size_type htemp = h(k);
+
+//     for (size_type i = _mapper.map(htemp); ; ++i) //i < htemp+MaDis
+//     {
+//         size_type temp = _mapper.remap(i);
+//         auto curr = _table[temp].load();
+
+//         if (curr.is_marked())
+//         {
+//             return make_insert_ret(end(),
+//                                    ReturnCode::UNSUCCESS_INVALID);
+//         }
+//         else if (curr.is_empty())
+//         {
+//             if ( _table[temp].cas(curr, slot_type(k,d,htemp)) )
+//             {
+//                 return make_insert_ret(k,d, &_table[temp],
+//                                        ReturnCode::SUCCESS_IN);
+//             }
+//             //somebody changed the current element! recheck it
+//             --i;
+//         }
+//         else if (curr.compare_key(k, htemp))
+//         {
+//             return make_insert_ret(k, curr.get_mapped(), &_table[temp],
+//                                    ReturnCode::UNSUCCESS_ALREADY_USED);
+//         }
+//         else if (curr.is_deleted())
+//         {
+//             //do something appropriate
+//         }
+//     }
+//     return make_insert_ret(end(), ReturnCode::UNSUCCESS_FULL);
+// }
 
 
 template<class C> template<class F, class ... Types>
@@ -808,6 +886,23 @@ base_linear<C>::insert(const key_type& k, const mapped_type& d)
     auto[it,rcode] = insert_intern(k,d);
     return std::make_pair(it, successful(rcode));
 }
+
+
+template<class C>
+inline typename base_linear<C>::insert_return_type
+base_linear<C>::insert(const std::pair<const key_type, mapped_type>& e)
+{
+    auto[it,rcode] = insert_intern(e.first, e.second);
+    return std::make_pair(it, successful(rcode));
+}
+
+// template<class C> template <class ... Args>
+// inline typename base_linear<C>::insert_return_type
+// base_linear<C>::emplace(Args&& ... args)
+// {
+//     auto[it,rcode] = emplace_intern(std::forward<Args>(args)...);
+//     return std::make_pair(it, successful(rcode));
+// }
 
 template<class C>
 inline typename base_linear<C>::size_type
