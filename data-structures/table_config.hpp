@@ -67,8 +67,7 @@ public:
     //                                                      complex_slot,
     //                                                      simple_slot>::template templ<K,M,NM>;
 
-    using base_table_config = base_linear_config<typename slot_config<needs_complex_slot>::
-                                                 template templ<key_type, mapped_type, needs_marking>,
+    using base_table_config = base_linear_config<typename slot_config<needs_complex_slot>::template templ<key_type, mapped_type, needs_marking>,
                                                  HashFct,
                                                  Allocator,
                                                  mods::template  is<hmod::circular_map>(),
@@ -98,39 +97,6 @@ public:
 
     static std::string name()
     {
-        // std::stringstream name;
-        // // table type
-        // if constexpr (std::is_same<table_type,
-        //                            migration_table<base_table_type,
-        //                                            workerstrat,
-        //                                            exclstrat>>::value)
-        // {
-        //     name << "mig_table<";
-        // }
-        // if constexpr (std::is_same<table_type, base_table_type>::value)
-        // {
-        //     name << "base_table<";
-        // }
-        // // slot
-        // if constexpr (std::is_same<typename base_table_type::slot_config,
-        //               simple_slot<key_type, mapped_type, needs_marking>>::value)
-        // {
-        //     name << "simple";
-        // }
-        // if constexpr (std::is_same<typename base_table_type::slot_config,
-        //               complex_slot<key_type, mapped_type, needs_marking>>::value)
-        // {
-        //     name << "complex";
-        // }
-        // // worker strat
-        // if constexpr (needs_migration)
-        // {
-        //     name << ",";
-        //     if constexpr (std::is_same<typename base_table_type::)
-        //     {
-
-        //     }
-        // }
         return table_type::name();
     }
 };

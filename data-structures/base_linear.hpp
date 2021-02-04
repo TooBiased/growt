@@ -159,10 +159,9 @@ public:
     const_iterator end()    const { return cend();   }
 
     insert_return_type insert (const key_type& k, const mapped_type& d);
-    insert_return_type insert (const std::pair<const key_type, mapped_type>&);
-    // template <class ... Args>
-    // insert_return_type emplace(Args&& ... args);
-    insert_return_type emplace(key_type&& k, mapped_type&& d);
+    insert_return_type insert (const value_type& e);
+    template <class ... Args>
+    insert_return_type emplace(Args&& ... args);
     size_type          erase (const key_type& k);
     iterator           find  (const key_type& k);
     const_iterator     find  (const key_type& k) const;
@@ -189,6 +188,11 @@ public:
     template <class F, class ... Types>
     insert_return_type insert_or_update_unsafe
     (const key_type& k, const mapped_type& d, F f, Types&& ... args);
+
+
+    template <class F, class ... Types>
+    insert_return_type emplace_or_update_unsafe
+    (key_type&& k, mapped_type&& d, F f, Types&& ... args);
 
     size_type          erase_if(const key_type& k, const mapped_type& d);
 
@@ -223,10 +227,7 @@ protected:
     // }
 
 private:
-    insert_return_intern insert_intern(const key_type& k, const mapped_type& d);
-    insert_return_intern emplace_intern(key_type&& k, mapped_type&& d);
-    // template <class ... Args>
-    // insert_return_intern emplace_intern(Args&& ... args);
+    insert_return_intern insert_intern(const slot_type& slot, size_type hash);
     ReturnCode           erase_intern (const key_type& k);
     ReturnCode           erase_if_intern (const key_type& k, const mapped_type& d);
 
@@ -242,11 +243,11 @@ private:
 
     template <class F, class ... Types>
     insert_return_intern insert_or_update_intern
-    (const key_type& k, const mapped_type& d, F f, Types&& ... args);
+    (const slot_type& slot, size_type hash, F f, Types&& ... args);
 
     template <class F, class ... Types>
     insert_return_intern insert_or_update_unsafe_intern
-    (const key_type& k, const mapped_type& d, F f, Types&& ... args);
+    (const slot_type& slot, size_type hash, F f, Types&& ... args);
 
 
 
@@ -306,12 +307,11 @@ public:
     static std::string name()
     {
         std::stringstream name;
-        name << "base_table<";
-        if constexpr (mapper_type::cyclic_mapping) name << "cmap";
-        else name << "lmap";
-        if constexpr (mapper_type::cyclic_probing) name << "cprob";
-        else name << "lprob";
-        name << slot_config::name() << ">";
+        name << "base_table<" << slot_config::name() << ",";
+        if constexpr (mapper_type::cyclic_mapping) name << "cmap,";
+        else name << "lmap,";
+        if constexpr (mapper_type::cyclic_probing) name << "cprob>";
+        else name << "lprob>";
         return name.str();
     }
 };
@@ -489,12 +489,14 @@ base_linear<C>::crange(size_t rstart, size_t rend)
 
 template<class C>
 inline typename base_linear<C>::insert_return_intern
-base_linear<C>::insert_intern(const key_type& k,
-                              const mapped_type& d)
+base_linear<C>::insert_intern(const slot_type& slot, size_type hash)
 {
-    size_type htemp = h(k);
+    const key_type& key = slot.get_key_ref();
 
-    for (size_type i = _mapper.map(htemp); ; ++i) //i < htemp+MaDis
+    if (slot.is_marked())
+        std::cout << "inserting marked element" << std::endl;
+
+    for (size_type i = _mapper.map(hash); ; ++i) //i < htemp+MaDis
     {
         size_type temp = _mapper.remap(i);
         auto curr = _table[temp].load();
@@ -506,17 +508,17 @@ base_linear<C>::insert_intern(const key_type& k,
         }
         else if (curr.is_empty())
         {
-            if ( _table[temp].cas(curr, slot_type(k,d,htemp)) )
+            if ( _table[temp].cas(curr, slot) )
             {
-                return make_insert_ret(k,d, &_table[temp],
+                return make_insert_ret(key,slot.get_mapped(), &_table[temp],
                                        ReturnCode::SUCCESS_IN);
             }
             //somebody changed the current element! recheck it
             --i;
         }
-        else if (curr.compare_key(k, htemp))
+        else if (curr.compare_key(key, hash))
         {
-            return make_insert_ret(k, curr.get_mapped(), &_table[temp],
+            return make_insert_ret(key, curr.get_mapped(), &_table[temp],
                                    ReturnCode::UNSUCCESS_ALREADY_USED);
         }
         else if (curr.is_deleted())
@@ -526,85 +528,6 @@ base_linear<C>::insert_intern(const key_type& k,
     }
     return make_insert_ret(end(), ReturnCode::UNSUCCESS_FULL);
 }
-
-template<class C>
-inline typename base_linear<C>::insert_return_intern
-base_linear<C>::emplace_intern(key_type&& k, mapped_type&& d)
-{
-    size_type htemp = h(k);
-
-    for (size_type i = _mapper.map(htemp); ; ++i) //i < htemp+MaDis
-    {
-        size_type temp = _mapper.remap(i);
-        auto curr = _table[temp].load();
-
-        if (curr.is_marked())
-        {
-            return make_insert_ret(end(),
-                                   ReturnCode::UNSUCCESS_INVALID);
-        }
-        else if (curr.is_empty())
-        {
-            if ( _table[temp].cas(curr, slot_type(k,d,htemp)) )
-            {
-                return make_insert_ret(k,d, &_table[temp],
-                                       ReturnCode::SUCCESS_IN);
-            }
-            //somebody changed the current element! recheck it
-            --i;
-        }
-        else if (curr.compare_key(k, htemp))
-        {
-            return make_insert_ret(k, curr.get_mapped(), &_table[temp],
-                                   ReturnCode::UNSUCCESS_ALREADY_USED);
-        }
-        else if (curr.is_deleted())
-        {
-            //do something appropriate
-        }
-    }
-    return make_insert_ret(end(), ReturnCode::UNSUCCESS_FULL);
-}
-
-// template<class C> template <class ... Args>
-// inline typename base_linear<C>::insert_return_intern
-// base_linear<C>::emplace_intern(Args&& ... args)
-// {
-//     size_type htemp = h(k);
-
-//     for (size_type i = _mapper.map(htemp); ; ++i) //i < htemp+MaDis
-//     {
-//         size_type temp = _mapper.remap(i);
-//         auto curr = _table[temp].load();
-
-//         if (curr.is_marked())
-//         {
-//             return make_insert_ret(end(),
-//                                    ReturnCode::UNSUCCESS_INVALID);
-//         }
-//         else if (curr.is_empty())
-//         {
-//             if ( _table[temp].cas(curr, slot_type(k,d,htemp)) )
-//             {
-//                 return make_insert_ret(k,d, &_table[temp],
-//                                        ReturnCode::SUCCESS_IN);
-//             }
-//             //somebody changed the current element! recheck it
-//             --i;
-//         }
-//         else if (curr.compare_key(k, htemp))
-//         {
-//             return make_insert_ret(k, curr.get_mapped(), &_table[temp],
-//                                    ReturnCode::UNSUCCESS_ALREADY_USED);
-//         }
-//         else if (curr.is_deleted())
-//         {
-//             //do something appropriate
-//         }
-//     }
-//     return make_insert_ret(end(), ReturnCode::UNSUCCESS_FULL);
-// }
-
 
 template<class C> template<class F, class ... Types>
 inline typename base_linear<C>::insert_return_intern
@@ -688,13 +611,12 @@ base_linear<C>::update_unsafe_intern(const key_type& k, F f, Types&& ... args)
 
 template<class C> template<class F, class ... Types>
 inline typename base_linear<C>::insert_return_intern
-base_linear<C>::insert_or_update_intern(const key_type& k,
-                                                   const mapped_type& d,
-                                                   F f, Types&& ... args)
+base_linear<C>::insert_or_update_intern(const slot_type& slot, size_type hash,
+                                        F f, Types&& ... args)
 {
-    size_type htemp = h(k);
+    const key_type& key = slot.get_key_ref();
 
-    for (size_type i = _mapper.map(htemp); ; ++i) //i < htemp+MaDis
+    for (size_type i = _mapper.map(hash); ; ++i) //i < htemp+MaDis
     {
         size_type temp = _mapper.remap(i);
         auto curr = _table[temp].load();
@@ -704,21 +626,21 @@ base_linear<C>::insert_or_update_intern(const key_type& k,
         }
         else if (curr.is_empty())
         {
-            if ( _table[temp].cas(curr, slot_type(k,d,htemp)) )
-                return make_insert_ret(k,d, &_table[temp],
+            if ( _table[temp].cas(curr, slot) )
+                return make_insert_ret(key, slot.get_mapped(), &_table[temp],
                                        ReturnCode::SUCCESS_IN);
 
             //somebody changed the current element! recheck it
             --i;
         }
-        else if (curr.compare_key(k, htemp))
+        else if (curr.compare_key(key, hash))
         {
             mapped_type data;
             bool        succ;
             std::tie(data, succ) = _table[temp].atomic_update(curr, f,
                                                           std::forward<Types>(args)...);
             if (succ)
-                return make_insert_ret(k,data, &_table[temp],
+                return make_insert_ret(key,data, &_table[temp],
                                        ReturnCode::SUCCESS_UP);
             i--;
         }
@@ -732,13 +654,12 @@ base_linear<C>::insert_or_update_intern(const key_type& k,
 
 template<class C> template<class F, class ... Types>
 inline typename base_linear<C>::insert_return_intern
-base_linear<C>::insert_or_update_unsafe_intern(const key_type& k,
-                                                          const mapped_type& d,
-                                                          F f, Types&& ... args)
+base_linear<C>::insert_or_update_unsafe_intern(const slot_type& slot, size_type hash,
+                                               F f, Types&& ... args)
 {
-    size_type htemp = h(k);
+    const key_type& key = slot.get_key_ref();
 
-    for (size_type i = _mapper.map(htemp); ; ++i) //i < htemp+MaDis
+    for (size_type i = _mapper.map(hash); ; ++i) //i < hash+MaDis
     {
         size_type temp = _mapper.remap(i);
         auto curr = _table[temp].load();
@@ -749,20 +670,20 @@ base_linear<C>::insert_or_update_unsafe_intern(const key_type& k,
         }
         else if (curr.is_empty())
         {
-            if ( _table[temp].cas(curr, slot_type(k,d,htemp)) )
-                return make_insert_ret(k,d, &_table[temp],
+            if ( _table[temp].cas(curr, slot) )
+                return make_insert_ret(key,slot.get_mapped(), &_table[temp],
                                        ReturnCode::SUCCESS_IN);
             //somebody changed the current element! recheck it
             --i;
         }
-        else if (curr.compare_key(k, htemp))
+        else if (curr.compare_key(key, hash))
         {
             mapped_type data;
             bool        succ;
             std::tie(data, succ) = _table[temp].non_atomic_update(f,
                                                             std::forward<Types>(args)...);
             if (succ)
-                return make_insert_ret(k,data, &_table[temp],
+                return make_insert_ret(key,data, &_table[temp],
                                        ReturnCode::SUCCESS_UP);
             i--;
         }
@@ -883,26 +804,44 @@ template<class C>
 inline typename base_linear<C>::insert_return_type
 base_linear<C>::insert(const key_type& k, const mapped_type& d)
 {
-    auto[it,rcode] = insert_intern(k,d);
+    auto hash = h(k);
+    auto slot = slot_type(k,d,hash);
+    auto[it,rcode] = insert_intern(slot, hash);
+    if constexpr (slot_config::needs_cleanup)
+    {
+        if (! successful(rcode)) slot.cleanup();
+    }
     return std::make_pair(it, successful(rcode));
 }
 
 
 template<class C>
 inline typename base_linear<C>::insert_return_type
-base_linear<C>::insert(const std::pair<const key_type, mapped_type>& e)
+base_linear<C>::insert(const value_type& e)
 {
+    auto hash = h(e.first);
+    auto slot = slot_type(e, hash);
     auto[it,rcode] = insert_intern(e.first, e.second);
+    if constexpr (slot_type::needs_cleanup)
+    {
+        if (! successful(rcode)) slot.cleanup();
+    }
     return std::make_pair(it, successful(rcode));
 }
 
-// template<class C> template <class ... Args>
-// inline typename base_linear<C>::insert_return_type
-// base_linear<C>::emplace(Args&& ... args)
-// {
-//     auto[it,rcode] = emplace_intern(std::forward<Args>(args)...);
-//     return std::make_pair(it, successful(rcode));
-// }
+template<class C> template <class ... Args>
+inline typename base_linear<C>::insert_return_type
+base_linear<C>::emplace(Args&& ... args)
+{
+    auto slot = slot_type(std::forward<Args>(args)...);
+    auto hash = h(slot.get_key_ref());
+    auto[it,rcode] = insert_intern(slot, hash);
+    if constexpr (slot_type::needs_cleanup)
+    {
+        if (! successful(rcode)) slot.cleanup();
+    }
+    return std::make_pair(it, successful(rcode));
+}
 
 template<class C>
 inline typename base_linear<C>::size_type
@@ -939,26 +878,53 @@ base_linear<C>::update_unsafe(const key_type& k, F f, Types&& ... args)
 template<class C> template <class F, class ... Types>
 inline typename base_linear<C>::insert_return_type
 base_linear<C>::insert_or_update(const key_type& k,
-                                            const mapped_type& d,
-                                            F f, Types&& ... args)
+                                 const mapped_type& d,
+                                 F f, Types&& ... args)
 {
-    auto[it,rcode] = insert_or_update_intern(k,d,f,
+    auto hash = h(k);
+    auto slot = slot_type(k,d,hash);
+    auto[it,rcode] = insert_or_update_intern(slot,hash,f,
                                              std::forward<Types>(args)...);
+    if constexpr (slot_config::needs_cleanup)
+    {
+        if (! successful(rcode)) slot.cleanup();
+    }
     return std::make_pair(it, (rcode == ReturnCode::SUCCESS_IN));
 }
 
 template<class C> template <class F, class ... Types>
 inline typename base_linear<C>::insert_return_type
 base_linear<C>::insert_or_update_unsafe(const key_type& k,
-                                                   const mapped_type& d,
-                                                   F f, Types&& ... args)
+                                        const mapped_type& d,
+                                        F f, Types&& ... args)
 {
-    auto[it,rcode] = insert_or_update_unsafe_intern(k,d,f,
+    auto hash = h(k);
+    auto slot = slot_type(k,d,hash);
+    auto[it,rcode] = insert_or_update_unsafe_intern(slot,hash,f,
                                                     std::forward<Types>(args)...);
+    if constexpr (slot_type::needs_cleanup)
+    {
+        if (! successful(rcode)) slot.cleanup();
+    }
     return std::make_pair(it, (rcode == ReturnCode::SUCCESS_IN));
 }
 
-
+template<class C> template <class F, class ... Types>
+inline typename base_linear<C>::insert_return_type
+base_linear<C>::emplace_or_update_unsafe(key_type&& k,
+                                         mapped_type&& d,
+                                         F f, Types&& ... args)
+{
+    auto hash = h(k);
+    auto slot = slot_type(std::move(k),std::move(d),hash);
+    auto[it,rcode] = insert_or_update_unsafe_intern(slot,hash,f,
+                                                    std::forward<Types>(args)...);
+    if constexpr (slot_type::needs_cleanup)
+    {
+        if (! successful(rcode)) slot.cleanup();
+    }
+    return std::make_pair(it, (rcode == ReturnCode::SUCCESS_IN));
+}
 
 
 

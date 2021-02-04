@@ -283,13 +283,9 @@ public:
                                                                [[maybe_unused]]F f,
                                                                [[maybe_unused]]Types&& ... args)
     {
-        // TODO not implemented
-        if constexpr (! debug::debug_mode)
-                         return std::make_pair(mapped_type(), false);
-        static std::atomic_bool once = true;
-        if (once.load())
-            debug::if_debug("non-atomic update is not implemented in complex types",
-                            once.exchange(false));
+        return std::make_pair(
+            f(_pair.second, std::forward<Types>(args)...),
+            true);
     }
 
     template <class K, class D, K dd> template<class F, class ...Types>
@@ -297,12 +293,8 @@ public:
     seq_simple_slot<K,D,dd>::atomic_slot_type::non_atomic_update([[maybe_unused]]F f,
                                                                [[maybe_unused]]Types&& ... args)
     {
-        // TODO not implemented
-        if constexpr (! debug::debug_mode)
-                         return std::make_pair(mapped_type(), false);
-        static std::atomic_bool once = true;
-        if (once.load())
-            debug::if_debug("non-atomic update is not implemented in complex types",
-                            once.exchange(false));
+        return std::make_pair(
+            f(_pair.second, std::forward<Types>(args)...),
+            true);
     }
 }

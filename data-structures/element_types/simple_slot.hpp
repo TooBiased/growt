@@ -59,10 +59,12 @@ public:
 
         friend class atomic_slot_type;
     public:
-        slot_type(const key_type& k, const mapped_type& d, size_t hash);
-        slot_type(const value_type& pair, size_t hash);
-        slot_type(key_type&& k, mapped_type&& d, size_t hash);
-        slot_type(value_type&& pair, size_t hash);
+        slot_type(const key_type& k, const mapped_type& d, size_t hash = 0);
+        slot_type(const value_type& pair, size_t hash = 0);
+        slot_type(key_type&& k, mapped_type&& d, size_t hash = 0);
+        slot_type(value_type&& pair, size_t hash = 0);
+        // template <class ... Args>
+        // slot_type(Args&& ... args);
 
         slot_type(const slot_type& source) = default;
         slot_type(slot_type&& source) noexcept = default;
@@ -71,8 +73,10 @@ public:
         slot_type(int128_t source);
         ~slot_type() = default;
 
-        inline key_type    get_key() const;
-        inline mapped_type get_mapped() const;
+        inline key_type        get_key() const;
+        inline const key_type& get_key_ref() const;
+        inline mapped_type     get_mapped() const;
+        inline void set_fingerprint(size_t) const;
 
         inline bool is_empty()   const;
         inline bool is_deleted() const;
@@ -95,7 +99,8 @@ public:
     private:
         int128_t _raw_data;
 
-        template <class,bool> friend class _atomic_helper_type;
+        template <class,bool> friend
+        class _atomic_helper_type;
 
     public:
         atomic_slot_type(const atomic_slot_type& source);
@@ -152,6 +157,13 @@ public:
                                                 [[maybe_unused]]size_t hash)
         : key(pair.first), data(pair.second) { }
 
+    // template <class K, class D, bool m, K dd> template <class ... Args>
+    // simple_slot<K,D,m,dd>::slot_type::slot_type(Args&& ... args)
+    // {
+    //     using pair_type = std::pair<key_type, mapped_type>;
+    //     *reinterpret_cast<pair_type*>(this) = pair_type(std::forward<Args>(args)...);
+    // }
+
     template <class K, class D, bool m, K dd>
     simple_slot<K,D,m,dd>::slot_type::slot_type(int128_t source)
     {
@@ -169,12 +181,23 @@ public:
     }
 
     template <class K, class D, bool m, K dd>
+    const typename simple_slot<K,D,m,dd>::key_type&
+    simple_slot<K,D,m,dd>::slot_type::get_key_ref() const
+    {
+        return key;
+    }
+
+    template <class K, class D, bool m, K dd>
     typename simple_slot<K,D,m,dd>::mapped_type
     simple_slot<K,D,m,dd>::slot_type::get_mapped() const
     {
         return data;
     }
 
+    template <class K, class D, bool m, K dd>
+    void
+    simple_slot<K,D,m,dd>::slot_type::set_fingerprint(size_t) const
+    { }
 
 // *** state *******************************************************************
     template <class K, class D, bool m, K dd>
@@ -318,6 +341,8 @@ public:
 // *** SFINAE based helper for atomic updates **********************************
 // ***** (checks whether the update_functor has a *.atomic() function)
 
+namespace _simple_atomic_helper{
+
 // TESTS IF A GIVEN OBJECT HAS A FUNCTION NAMED atomic
 template <typename TFunctor>
 class _has_atomic_type
@@ -343,7 +368,6 @@ public:
             F f, Types ... args)
     {
         // UGLY (Same as non_atomic_update)
-
         auto temp = reinterpret_cast<typename SlotType::value_type*>(that);
         auto result = f.atomic(temp->second,std::forward<Types>(args)...);
         return std::make_pair(result,true);
@@ -376,6 +400,7 @@ public:
     }
 };
 
+}
 
 // *** functor style updates ***************************************************
     template <class K, class D, bool m, K dd> template<class F, class ...Types>
@@ -393,14 +418,15 @@ public:
         }
         else
         {
-            return _atomic_helper_type<simple_slot,
-                                       _has_atomic_type<F>::value>::execute
-                (this, expected, f, std::forward<Types>(args)...);
+            return _simple_atomic_helper::_atomic_helper_type<
+                simple_slot,
+                _simple_atomic_helper::_has_atomic_type<F>::value>
+                ::execute(this, expected, f, std::forward<Types>(args)...);
         }
 
         // static std::atomic_bool once = true;
         // if (once.load())
-        //     debug::if_debug("non-atomic update is not implemented in complex types",
+        //     debug::if_debug("non-atomic update is not implemented in simple types",
         //                     once.exchange(false));
         // return std::make_pair(mapped_type(), false);
     }
@@ -412,13 +438,13 @@ public:
     {
         // THIS COULD BE PRETTIER, BUT NON-ATOMIC-UPDATES ARE INHERENTLY UNSAFE
         auto this_pair_view = reinterpret_cast<std::pair<key_type, mapped_type>*>(this);
-        return std::make_pair(f(this_pair_view->second,
-                                std::forward<Types>(args)...),
-                                  true);
+        return std::make_pair(
+            f(this_pair_view->second, std::forward<Types>(args)...),
+            true);
 
         // static std::atomic_bool once = true;
         // if (once.load())
-        //     debug::if_debug("non-atomic update is not implemented in complex types",
+        //     debug::if_debug("non-atomic update is not implemented in simple types",
         //                     once.exchange(false));
         // return std::make_pair(mapped_type(), false);
 

@@ -73,7 +73,7 @@ public:
     {
         std::stringstream name;
         name << "migration_table<"
-             << slot_config::name() << ","
+             << base_table_type::name() << ","
              << worker_strat::name() << ","
              << exclusion_strat::name() << ">";
         return name.str();
@@ -145,8 +145,9 @@ private:
     friend migration_table_data;
 
 public:
-    using hash_ptr_reference       = typename exclusion_strat::hash_ptr_reference;
-    using slot_config       = typename base_table_type::slot_config;
+    using hash_ptr_reference = typename exclusion_strat::hash_ptr_reference;
+    using slot_config        = typename base_table_type::slot_config;
+    using slot_type          = typename slot_config::slot_type;
 
     using key_type           = typename base_table_type::key_type;
     using mapped_type        = typename base_table_type::mapped_type;
@@ -198,6 +199,9 @@ public:
     const_iterator end()    const { return cend(); }
 
     insert_return_type insert(const key_type& k, const mapped_type& d);
+    insert_return_type insert(const value_type& e);
+    template <class ... Args>
+    insert_return_type emplace(Args&& ... args);
     size_type          erase (const key_type& k);
     iterator           find  (const key_type& k);
     const_iterator     find  (const key_type& k) const;
@@ -222,8 +226,16 @@ public:
     (const key_type& k, const mapped_type& d, F f, Types&& ... args);
 
     template <class F, class ... Types>
+    insert_return_type emplace_or_update
+    (key_type&& k, mapped_type&& d, F f, Types&& ... args);
+
+    template <class F, class ... Types>
     insert_return_type insert_or_update_unsafe
     (const key_type& k, const mapped_type& d, F f, Types&& ... args);
+
+    template <class F, class ... Types>
+    insert_return_type emplace_or_update_unsafe
+    (key_type&& k, mapped_type&& d, F f, Types&& ... args);
 
     size_type          erase_if (const key_type& k, const mapped_type& d);
 
@@ -236,6 +248,15 @@ private:
     mutable typename exclusion_strat::local_data_type _local_exclusion;
 
 
+    inline insert_return_type insert_intern(slot_type& slot);
+    template <class F, class ... Types>
+    inline insert_return_type insert_or_update_intern (
+        slot_type& slot,
+        F f, Types&& ... args);
+    template <class F, class ... Types>
+    inline insert_return_type insert_or_update_unsafe_intern(
+        slot_type& slot,
+        F f, Types&& ... args);
     inline void         grow()      const { _local_exclusion.grow(); }
     inline void         help_grow() const { _local_exclusion.help_grow(); }
     inline void         rls_table() const { _local_exclusion.rls_table(); }
@@ -443,18 +464,63 @@ migration_table_handle<migration_table_data>::~migration_table_handle()
 
 template<class migration_table_data>
 inline typename migration_table_handle<migration_table_data>::insert_return_type
-migration_table_handle<migration_table_data>::insert(const key_type& k, const mapped_type& d)
+migration_table_handle<migration_table_data>::insert(const key_type& k, const mapped_type&d)
+{
+    auto slot = slot_type(k, d);
+    auto result = insert_intern(slot);
+    if constexpr (slot_config::needs_cleanup)
+    {
+        if (!result.second)
+            slot.cleanup();
+    }
+    return result;
+}
+
+template<class migration_table_data>
+inline typename migration_table_handle<migration_table_data>::insert_return_type
+migration_table_handle<migration_table_data>::insert(const value_type& e)
+{
+    auto slot = slot_type(e);
+    auto result = insert_intern(slot);
+    if constexpr (slot_config::needs_cleanup)
+    {
+        if (!result.second)
+            slot.cleanup();
+    }
+    return result;
+}
+
+template<class migration_table_data> template <class ... Args>
+inline typename migration_table_handle<migration_table_data>::insert_return_type
+migration_table_handle<migration_table_data>::emplace(Args&& ... args)
+{
+    auto slot = slot_type(std::forward<Args>(args)...);
+    auto result = insert_intern(slot);
+    if constexpr (slot_config::needs_cleanup)
+    {
+        if (!result.second)
+            slot.cleanup();
+    }
+    return result;
+}
+
+template<class migration_table_data>
+inline typename migration_table_handle<migration_table_data>::insert_return_type
+migration_table_handle<migration_table_data>::insert_intern(slot_type& slot)
 {
     int v = -1;
     base_table_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
-    std::tie (v, result) = execute([](hash_ptr_reference t, const key_type& k, const mapped_type& d)
-                                     ->std::pair<int,base_table_insert_return_type>
-                                   {
-                                       std::pair<int,base_table_insert_return_type> result =
-                                           std::make_pair(t->_version,
-                                                          t->insert_intern(k,d));
-                                       return result;
-                                   }, k,d);
+    std::tie (v, result) = execute(
+        [](hash_ptr_reference t, slot_type& slot)
+        ->std::pair<int,base_table_insert_return_type>
+        {
+            auto hash = t->h(slot.get_key_ref());
+            slot.set_fingerprint(hash);
+            std::pair<int,base_table_insert_return_type> result =
+                std::make_pair(t->_version,
+                               t->insert_intern(slot, hash));
+            return result;
+        }, slot);
 
     switch(result.second)
     {
@@ -468,11 +534,11 @@ migration_table_handle<migration_table_data>::insert(const key_type& k, const ma
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow();
-        return insert(k,d);
+        return insert_intern(slot);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
         help_grow();
-        return insert(k,d);
+        return insert_intern(slot);
     default:
         return make_insert_ret(bend(), v, false);
     }
@@ -555,23 +621,57 @@ migration_table_handle<migration_table_data>::update_unsafe(const key_type& k, F
     }
 }
 
+template<class migration_table_data> template <class F, class ... Types>
+inline typename migration_table_handle<migration_table_data>::insert_return_type
+migration_table_handle<migration_table_data>::insert_or_update(
+    const key_type& k, const mapped_type& d, F f, Types&& ... args)
+{
+    auto slot = slot_type(k,d);
+    auto result = insert_or_update_intern(slot,f,std::forward<Types>(args)...);
+    if constexpr (slot_config::needs_cleanup)
+    {
+        if (!result.second)
+            slot.cleanup();
+    }
+    return result;
+}
 
 template<class migration_table_data> template <class F, class ... Types>
 inline typename migration_table_handle<migration_table_data>::insert_return_type
-migration_table_handle<migration_table_data>::insert_or_update(const key_type& k, const mapped_type& d, F f, Types&& ... args)
+migration_table_handle<migration_table_data>::emplace_or_update(
+    key_type&& k, mapped_type&& d, F f, Types&& ... args)
+{
+    auto slot = slot_type(std::move(k),std::move(d));
+    auto result = insert_or_update_intern(slot,f,std::forward<Types>(args)...);
+    if constexpr (slot_config::needs_cleanup)
+    {
+        if (!result.second)
+            slot.cleanup();
+    }
+    return result;
+}
+
+template<class migration_table_data> template <class F, class ... Types>
+inline typename migration_table_handle<migration_table_data>::insert_return_type
+migration_table_handle<migration_table_data>::insert_or_update_intern(
+    slot_type& slot, F f, Types&& ... args)
 {
     int v = -1;
     base_table_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
 
     std::tie (v, result) = execute(
-        [](hash_ptr_reference t, const key_type& k, const mapped_type& d, F f, Types&& ... args)
+        [](hash_ptr_reference t, slot_type& slot, F f, Types&& ... args)
         ->std::pair<int,base_table_insert_return_type>
         {
+            auto hash = t->h(slot.get_key_ref());
+            slot.set_fingerprint(hash);
             std::pair<int,base_table_insert_return_type> result =
-                std::make_pair(t->_version,
-                               t->insert_or_update_intern(k,d,f,std::forward<Types>(args)...));
+                std::make_pair(
+                    t->_version,
+                    t->insert_or_update_intern(slot,hash,
+                                               f,std::forward<Types>(args)...));
             return result;
-        },k,d,f,std::forward<Types>(args)...);
+        },slot,f,std::forward<Types>(args)...);
 
     switch(result.second)
     {
@@ -585,11 +685,11 @@ migration_table_handle<migration_table_data>::insert_or_update(const key_type& k
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow();
-        return insert_or_update(k,d,f, std::forward<Types>(args)...);
+        return insert_or_update_intern(slot,f, std::forward<Types>(args)...);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
         help_grow();
-        return insert_or_update(k,d,f, std::forward<Types>(args)...);
+        return insert_or_update_intern(slot,f, std::forward<Types>(args)...);
     default:
         return make_insert_ret(bend(), v, false);
     }
@@ -597,20 +697,58 @@ migration_table_handle<migration_table_data>::insert_or_update(const key_type& k
 
 template<class migration_table_data> template <class F, class ... Types>
 inline typename migration_table_handle<migration_table_data>::insert_return_type
-migration_table_handle<migration_table_data>::insert_or_update_unsafe(const key_type& k, const mapped_type& d, F f, Types&& ... args)
+migration_table_handle<migration_table_data>::insert_or_update_unsafe(
+    const key_type& k, const mapped_type& d, F f, Types&& ... args)
+{
+    auto slot = slot_type(k,d);
+    auto result = insert_or_update_unsafe_intern(
+        slot,
+        f,std::forward<Types>(args)...);
+    if constexpr (slot_config::needs_cleanup)
+    {
+        if (!result.second)
+            slot.cleanup();
+    }
+    return result;
+}
+
+template<class migration_table_data> template <class F, class ... Types>
+inline typename migration_table_handle<migration_table_data>::insert_return_type
+migration_table_handle<migration_table_data>::emplace_or_update_unsafe(
+    key_type&& k, mapped_type&& d, F f, Types&& ... args)
+{
+    auto slot = slot_type(std::move(k),std::move(d));
+    auto result = insert_or_update_unsafe_intern(
+        slot,
+        f,std::forward<Types>(args)...);
+    if constexpr (slot_config::needs_cleanup)
+    {
+        if (!result.second)
+            slot.cleanup();
+    }
+    return result;
+}
+
+template<class migration_table_data> template <class F, class ... Types>
+inline typename migration_table_handle<migration_table_data>::insert_return_type
+migration_table_handle<migration_table_data>::insert_or_update_unsafe_intern(
+    slot_type& slot, F f, Types&& ... args)
 {
     int v = -1;
     base_table_insert_return_type result = std::make_pair(bend(), ReturnCode::ERROR);
 
     std::tie (v, result) = execute(
-        [](hash_ptr_reference t, const key_type& k, const mapped_type& d, F f, Types&& ... args)
+        [](hash_ptr_reference t, slot_type& slot, F f, Types&& ... args)
         ->std::pair<int,base_table_insert_return_type>
         {
+            auto hash = t->h(slot.get_key_ref());
+            slot.set_fingerprint(hash);
             std::pair<int,base_table_insert_return_type> result =
                 std::make_pair(t->_version,
-                               t->insert_or_update_unsafe_intern(k,d,f,std::forward<Types>(args)...));
+                               t->insert_or_update_unsafe_intern(
+                                   slot,hash,f,std::forward<Types>(args)...));
             return result;
-        },k,d,f,std::forward<Types>(args)...);
+        },slot,f,std::forward<Types>(args)...);
 
     switch(result.second)
     {
@@ -624,11 +762,11 @@ migration_table_handle<migration_table_data>::insert_or_update_unsafe(const key_
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow();
-        return insert_or_update_unsafe(k,d,f, std::forward<Types>(args)...);
+        return insert_or_update_unsafe_intern(slot,f, std::forward<Types>(args)...);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
         help_grow();
-        return insert_or_update_unsafe(k,d,f, std::forward<Types>(args)...);
+        return insert_or_update_unsafe_intern(slot,f, std::forward<Types>(args)...);
     default:
         return make_insert_ret(bend(), v, false);
     }

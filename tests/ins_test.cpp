@@ -142,8 +142,8 @@ int find_succ(Hash& hash, size_t end)
 
             if (data == hash.end() || (*data).second != i+2)
             {
-                dtm::if_debug("Warning: can't find inserted key");
-                std::cout << i << std::endl;
+                // dtm::if_debug("Warning: can't find inserted key");
+                // std::cout << i << std::endl;
                 ++err;
             }
         });
@@ -180,7 +180,7 @@ struct test_in_stages
             t.out << otm::width(5) << i
                   << otm::width(5) << t.p
                   << otm::width(11) << n
-                  << otm::width(11) << cap;
+                  << otm::width(11) << cap << std::flush;
 
             t.synchronize();
 

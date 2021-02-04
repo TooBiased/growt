@@ -69,8 +69,12 @@ public:
         slot_type& operator=(slot_type&& source) = default;
         ~slot_type() = default;
 
-        inline key_type    get_key() const;
-        inline mapped_type get_mapped() const;
+        inline key_type          get_key() const;
+        inline const key_type&   get_key_ref() const;
+        inline mapped_type       get_mapped() const;
+        inline       value_type* get_pointer();
+        inline const value_type* get_pointer() const;
+        inline void              set_fingerprint(size_t hash);
 
         inline bool is_empty()   const;
         inline bool is_deleted() const;
@@ -151,7 +155,8 @@ public:
 // *** constructors ************************************************************
 template <class K, class D>
 seq_complex_slot<K,D>::slot_type::slot_type(const key_type& k,
-                                              const mapped_type& d, size_t hash)
+                                            const mapped_type& d, size_t hash)
+    : _mfptr(ptr_union{0})
 {
     auto ptr = allocate();
     new (ptr) value_type(k,d);
@@ -162,6 +167,7 @@ seq_complex_slot<K,D>::slot_type::slot_type(const key_type& k,
 
 template <class K, class D>
 seq_complex_slot<K,D>::slot_type::slot_type(const value_type& pair, size_t hash)
+    : _mfptr(ptr_union{0})
 {
     auto ptr = allocate();
     new (ptr) value_type(pair);
@@ -171,7 +177,8 @@ seq_complex_slot<K,D>::slot_type::slot_type(const value_type& pair, size_t hash)
 
 template <class K, class D>
 seq_complex_slot<K,D>::slot_type::slot_type(key_type&& k, mapped_type&& d,
-                                          size_t hash)
+                                            size_t hash)
+    : _mfptr(ptr_union{0})
 {
     auto ptr = allocate();
     new (ptr) value_type(std::move(k), std::move(d));
@@ -181,6 +188,7 @@ seq_complex_slot<K,D>::slot_type::slot_type(key_type&& k, mapped_type&& d,
 
 template <class K, class D>
 seq_complex_slot<K,D>::slot_type::slot_type(value_type&& pair, size_t hash)
+    : _mfptr(ptr_union{0})
 {
     auto ptr = allocate();
     new (ptr) value_type(std::move(pair));
@@ -208,6 +216,18 @@ seq_complex_slot<K,D>::slot_type::get_key() const
 }
 
 template <class K, class D>
+const typename seq_complex_slot<K,D>::key_type&
+seq_complex_slot<K,D>::slot_type::get_key_ref() const
+{
+    auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
+    if (!ptr)
+    {
+        debug::if_debug("getting key from empty slot");
+    }
+    return ptr->first;
+}
+
+template <class K, class D>
 typename seq_complex_slot<K,D>::mapped_type
 seq_complex_slot<K,D>::slot_type::get_mapped() const
 {
@@ -218,6 +238,27 @@ seq_complex_slot<K,D>::slot_type::get_mapped() const
         return mapped_type();
     }
     return ptr->second;
+}
+
+template <class K, class D>
+const typename seq_complex_slot<K,D>::value_type*
+seq_complex_slot<K,D>::slot_type::get_pointer() const
+{
+    return reinterpret_cast<value_type*>(_mfptr.split.pointer);
+}
+
+template <class K, class D>
+typename seq_complex_slot<K,D>::value_type*
+seq_complex_slot<K,D>::slot_type::get_pointer()
+{
+    return reinterpret_cast<value_type*>(_mfptr.split.pointer);
+}
+
+template <class K, class D>
+void
+seq_complex_slot<K,D>::slot_type::set_fingerprint(size_t hash)
+{
+    _mfptr.split.fingerprint = seq_complex_slot::fingerprint(hash);
 }
 
 
@@ -413,24 +454,18 @@ std::pair<typename seq_complex_slot<K,D>::mapped_type, bool>
 seq_complex_slot<K,D>::atomic_slot_type::atomic_update(slot_type & expected,
                                                      F f, Types&& ... args)
 {
-    if constexpr (! debug::debug_mode)
-        return std::make_pair(mapped_type(), false);
-    static std::atomic_bool once = true;
-    if (once.load())
-        debug::if_debug("atomic update is not implemented in complex types",
-                        once.exchange(false));
+    auto key_value = load().get_pointer();
+    auto result    = f(key_value->second, std::forward<Types>(args)...);
+    return std::make_pair(result, true);
 }
 
 template <class K, class D> template<class F, class ...Types>
 std::pair<typename seq_complex_slot<K,D>::mapped_type, bool>
 seq_complex_slot<K,D>::atomic_slot_type::non_atomic_update(F f, Types&& ... args)
 {
-    if constexpr (! debug::debug_mode)
-        return std::make_pair(mapped_type(), false);
-    static std::atomic_bool once = true;
-    if (once.load())
-        debug::if_debug("non-atomic update is not implemented in complex types",
-                        once.exchange(false));
+    auto key_value = load().get_pointer();
+    auto result    = f(key_value->second, std::forward<Types>(args)...);
+    return std::make_pair(result, true);
 }
 
 }
