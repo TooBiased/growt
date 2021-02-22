@@ -1,7 +1,7 @@
 /*******************************************************************************
  * data-structures/grow_table.h
  *
- * Defines the growtable architecture:
+ * Defines the growatble architecture:
  *   grow_table       - the global facade of our table
  *   grow_table_data   - the actual global object (immovable core)
  *   grow_table_handle - local handles on the global object (thread specific)
@@ -24,7 +24,7 @@
 
 
 #include "data-structures/returnelement.hpp"
-#include "data-structures/grow_iterator.hpp"
+#include "data-structures/migration_table_iterator.hpp"
 #include "example/update_fcts.hpp"
 
 namespace growt {
@@ -139,7 +139,9 @@ class migration_table_handle
 private:
     using this_type          = migration_table_handle<migration_table_data>;
     using parent_type        = typename migration_table_data::parent_type;
+public:
     using base_table_type    = typename migration_table_data::base_table_type;
+private:
     using worker_strat       = typename migration_table_data::worker_strat;
     using exclusion_strat    = typename migration_table_data::exclusion_strat;
     friend migration_table_data;
@@ -149,17 +151,26 @@ public:
     using slot_config        = typename base_table_type::slot_config;
     using slot_type          = typename slot_config::slot_type;
 
-    using key_type           = typename base_table_type::key_type;
-    using mapped_type        = typename base_table_type::mapped_type;
-    using value_type         = typename std::pair<const key_type, mapped_type>;
-    using iterator           = growt_iterator<this_type, false>;//value_intern*;
-    using const_iterator     = growt_iterator<this_type, true>;//growt_iterator<this_type, true>;
-    using size_type          = size_t;
-    using difference_type    = std::ptrdiff_t;
-    using reference          = growt_reference<this_type, false>;
-    using const_reference    = growt_reference<this_type, true>;
-    using mapped_reference   = growt_mapped_reference<this_type, false>;
-    using const_mapped_reference = growt_mapped_reference<this_type, true>;
+    static constexpr bool allows_deletions =
+        base_table_type::allows_deletions;
+    static constexpr bool allows_atomic_updates =
+        base_table_type::allows_atomic_updates;
+    static constexpr bool allows_updates =
+        base_table_type::allows_updates;
+    static constexpr bool allows_referential_integrity =
+        base_table_type::allows_referential_integrity;
+
+    using key_type               = typename base_table_type::key_type;
+    using mapped_type            = typename base_table_type::mapped_type;
+    using value_type             = typename std::pair<const key_type, mapped_type>;
+    using iterator               = migration_table_iterator<this_type, false>;
+    using const_iterator         = migration_table_iterator<this_type, true>;
+    using size_type              = size_t;
+    using difference_type        = std::ptrdiff_t;
+    using reference              = typename iterator::reference;
+    using const_reference        = typename const_iterator::reference;
+    using mapped_reference       = typename iterator::mapped_reference;
+    using const_mapped_reference = typename const_iterator::mapped_reference;
     using insert_return_type = std::pair<iterator, bool>;
 
     using local_iterator       = void;
@@ -210,7 +221,13 @@ public:
     { return insert_or_update(k, d, example::Overwrite(), d); }
 
     mapped_reference operator[](const key_type& k)
-        { return (*(insert(k, mapped_type()).first)).second; }
+    {
+        auto temp = insert(k, mapped_type());
+        // if ((*temp.first).first != k)
+        //     std::cout << "key is wrong on operator[] access" << std::endl;
+        // dtm::if_debug("insert unsuccessful on operator[] access", temp.first == end());
+        return (*temp.first).second;
+    }
 
     template <class F, class ... Types>
     insert_return_type update
@@ -240,6 +257,7 @@ public:
     size_type          erase_if (const key_type& k, const mapped_type& d);
 
     size_type element_count_approx() { return _mt_data.element_count_approx(); }
+
 private:
     // DATA+FUNCTIONS FOR MIGRATION STRATEGIES
     migration_table_data& _mt_data;
@@ -262,6 +280,7 @@ private:
     inline void         rls_table() const { _local_exclusion.rls_table(); }
     inline hash_ptr_reference get_table() const { return _local_exclusion.get_table(); }
 
+private:
     template<typename Functor, typename ... Types>
     inline typename std::result_of<Functor(hash_ptr_reference, Types&& ...)>::type
     execute (Functor f, Types&& ... param)
@@ -293,9 +312,9 @@ private:
                                             size_t version, bool inserted)
     { return std::make_pair(iterator(bit, version, *this), inserted); }
     inline base_table_iterator bend()
-    { return base_table_iterator (std::make_pair(key_type(), mapped_type()), nullptr, nullptr);}
+    { return base_table_iterator (slot_config::get_empty(), nullptr, nullptr);}
     inline base_table_iterator bcend()
-    { return base_table_citerator(std::make_pair(key_type(), mapped_type()), nullptr, nullptr);}
+    { return base_table_citerator(slot_config::get_empty(), nullptr, nullptr);}
 
     static constexpr double _max_fill_factor = 0.666;
 
@@ -890,7 +909,7 @@ template<class migration_table_data>
 inline typename migration_table_handle<migration_table_data>::iterator
 migration_table_handle<migration_table_data>::end()
 {
-    return iterator(base_table_iterator(std::pair<key_type, mapped_type>(key_type(), mapped_type()),
+    return iterator(base_table_iterator(slot_config::get_empty(),
                                        nullptr,nullptr),
                     0, *this);
 }

@@ -142,10 +142,10 @@ public:
         bool      atomic_mark  (slot_type& expected);
 
         template<class F, class ...Types>
-        std::pair<mapped_type, bool> atomic_update(slot_type & expected,
+        std::pair<slot_type, bool> atomic_update(slot_type & expected,
                                                    F f, Types&& ... args);
         template<class F, class ...Types>
-        std::pair<mapped_type, bool> non_atomic_update(F f, Types&& ... args);
+        std::pair<slot_type, bool> non_atomic_update(F f, Types&& ... args);
     };
 
     // static constexpr slot_type empty{ptr_union{uint64_t(0)}};
@@ -187,7 +187,7 @@ complex_slot<K,D,m>::slot_type::slot_type(const key_type& k,
     : _mfptr(ptr_union{0})
 {
     auto ptr = allocate();
-    new (ptr) value_type(k,d);
+    new (ptr) std::pair<const key_type, mapped_type>{k,d};
     _mfptr.split.pointer     = uint64_t(ptr);
     _mfptr.split.fingerprint = complex_slot::fingerprint(hash);
 }
@@ -198,7 +198,7 @@ complex_slot<K,D,m>::slot_type::slot_type(const value_type& pair, size_t hash)
     : _mfptr(ptr_union{0})
 {
     auto ptr = allocate();
-    new (ptr) value_type(pair);
+    new (ptr) std::pair<const key_type, mapped_type>{pair};
     _mfptr.split.pointer     = uint64_t(ptr);
     _mfptr.split.fingerprint = complex_slot::fingerprint(hash);
 }
@@ -209,7 +209,7 @@ complex_slot<K,D,m>::slot_type::slot_type(key_type&& k, mapped_type&& d,
     : _mfptr(ptr_union{0})
 {
     auto ptr = allocate();
-    new (ptr) value_type(std::move(k), std::move(d));
+    new (ptr) std::pair<const key_type, mapped_type>{std::move(k), std::move(d)};
     _mfptr.split.pointer     = uint64_t(ptr);
     _mfptr.split.fingerprint = complex_slot::fingerprint(hash);
 }
@@ -219,7 +219,7 @@ complex_slot<K,D,m>::slot_type::slot_type(Args&& ... args)
     : _mfptr(ptr_union{0})
 {
     auto ptr = allocate();
-    new (ptr) value_type(std::forward<Args>(args)...);
+    new (ptr) std::pair<const key_type, mapped_type>{std::forward<Args>(args)...};
     _mfptr.split.pointer     = uint64_t(ptr);
     // the fingerprint cannot be computed without the hash function
     // this has to be fixed with the set fingerprint function
@@ -231,7 +231,7 @@ complex_slot<K,D,m>::slot_type::slot_type(value_type&& pair, size_t hash)
     : _mfptr(ptr_union{0})
 {
     auto ptr = allocate();
-    new (ptr) value_type(std::move(pair));
+    new (ptr) std::pair<const key_type, mapped_type>{std::move(pair)};
     _mfptr.split.pointer     = uint64_t(ptr);
     _mfptr.split.fingerprint = complex_slot::fingerprint(hash);
 
@@ -357,7 +357,6 @@ complex_slot<K,D,m>::slot_type::operator value_type() const
     if (ptr == nullptr)
     {
         debug::if_debug("getting value_type from empty slot");
-        return false;
     }
     return *ptr;
 }
@@ -524,15 +523,16 @@ class _atomic_helper_type
 {
 public:
     template <class F, class ...Types>
-    inline static std::pair<typename SlotType::mapped_type,bool>
+    inline static std::pair<typename SlotType::slot_type,bool>
     execute(typename SlotType::atomic_slot_type* that,
             typename SlotType::slot_type&,
             F f, Types ... args)
     {
         // UGLY (Same as non_atomic_update)
-        auto key_value = that->load().get_pointer();
+        auto slot      = that->load();
+        auto key_value = slot.get_pointer();
         auto result = f.atomic(key_value->second,std::forward<Types>(args)...);
-        return std::make_pair(result,true);
+        return std::make_pair(slot,true);
     }
 };
 
@@ -542,7 +542,7 @@ class _atomic_helper_type<SlotType, false>
 {
 public:
     template <class F, class ...Types>
-    inline static std::pair<typename SlotType::mapped_type, bool>
+    inline static std::pair<typename SlotType::slot_type, bool>
     execute(typename SlotType::atomic_slot_type* that,
             typename SlotType::slot_type& expected,
             F f, Types ... args)
@@ -556,7 +556,8 @@ public:
                       "does not support atomics thus the provided function "
                       "must itself be atomic, if it is it should be named *.atomic");
         using atomic_mapped_type = std::atomic<mapped_type>;
-        auto key_value = that->load().get_pointer();
+        auto slot      = that->load();
+        auto key_value = slot.get_pointer();
         auto atomapped = reinterpret_cast<atomic_mapped_type*>
             (&(key_value->second));
         auto expmapped = expected.get_mapped();
@@ -565,7 +566,7 @@ public:
         bool succ = atomapped.compare_exchange_strong(expmapped,
                                                       newmapped,
                                                       std::memory_order_relaxed);
-        return std::make_pair(newmapped, succ);
+        return std::make_pair(slot, succ);
     }
 };
 }
@@ -573,7 +574,7 @@ public:
 
 // *** functor style updates ***************************************************
 template <class K, class D, bool m> template<class F, class ...Types>
-std::pair<typename complex_slot<K,D,m>::mapped_type, bool>
+std::pair<typename complex_slot<K,D,m>::slot_type, bool>
 complex_slot<K,D,m>::atomic_slot_type::atomic_update(slot_type & expected,
                                                      F f, Types&& ... args)
 {
@@ -584,12 +585,13 @@ complex_slot<K,D,m>::atomic_slot_type::atomic_update(slot_type & expected,
 }
 
 template <class K, class D, bool m> template<class F, class ...Types>
-std::pair<typename complex_slot<K,D,m>::mapped_type, bool>
+std::pair<typename complex_slot<K,D,m>::slot_type, bool>
 complex_slot<K,D,m>::atomic_slot_type::non_atomic_update(F f, Types&& ... args)
 {
-    auto key_value = load().get_pointer();
+    auto slot      = load();
+    auto key_value = slot.get_pointer();
     auto result    = f(key_value->second, std::forward<Types>(args)...);
-    return std::make_pair(result, true);
+    return std::make_pair(slot, true);
 }
 
 }

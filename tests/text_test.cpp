@@ -82,7 +82,6 @@ int push_file(Hash& hash, std::ifstream& in_stream, [[maybe_unused]]size_t id)
             words++;
             auto result = hash.insert(word, 1);
             if (result.second) uniques++;
-
         }
     }
     number_words.fetch_add(words,   std::memory_order_relaxed);
@@ -105,12 +104,18 @@ struct test_in_stages
                 ThreadType::is_main);
 
             std::ifstream in_file(file);
-
+            if (! in_file.is_open())
+            {
+                t.out << "Error: on opening input file" << std::endl;
+                return 0;
+            }
             t.out << otm::width(5) << i
                   << otm::width(5) << t.p
                   << otm::width(11) << cap << std::flush;
 
             t.synchronize();
+
+
 
             using handle_type = typename table_type::handle_type;
             handle_type hash = hash_table.get_handle();

@@ -23,7 +23,7 @@
 
 #include "utils/default_hash.hpp"
 #include "data-structures/returnelement.hpp"
-#include "data-structures/base_iterator.hpp"
+#include "data-structures/base_linear_iterator.hpp"
 #include "example/update_fcts.hpp"
 
 namespace growt
@@ -100,29 +100,45 @@ private:
     using hash_fct_type      = typename Config::hash_fct_type;
 
     template <class> friend class migration_table_handle;
+    template <class,bool> friend class migration_table_iterator;
+    template <class,bool> friend class migration_table_mapped_reference;
     template <class> friend class estrat_async;
     template <class> friend class estrat_sync;
     template <class> friend class wstrat_user;
     template <class> friend class wstrat_pool;
 
     static constexpr bool _parallel_init = true;
+
 public:
     using mapper_type            = typename Config::mapper_type;
     using slot_config            = typename Config::slot_config;
     using slot_type              = typename slot_config::slot_type;
     using atomic_slot_type       = typename slot_config::atomic_slot_type;
 
+    static constexpr bool allows_deletions =
+        slot_config::allows_deletions;
+    static constexpr bool allows_atomic_updates =
+        slot_config::allows_atomic_updates;
+    static constexpr bool allows_updates =
+        slot_config::allows_updates;
+    static constexpr bool allows_referential_integrity =
+        slot_config::allows_referential_integrity;
+
     using key_type               = typename slot_config::key_type;
     using mapped_type            = typename slot_config::mapped_type;
     using value_type             = typename slot_config::value_type;
-    using iterator               = base_iterator<this_type, false>;
-    using const_iterator         = base_iterator<this_type, true>;
+    using iterator               = base_linear_iterator<this_type, false>;
+    using const_iterator         = base_linear_iterator<this_type, true>;
     using size_type              = size_t;
     using difference_type        = std::ptrdiff_t;
-    using reference              = base_reference<this_type, false>;
-    using const_reference        = base_reference<this_type, true>;
-    using mapped_reference       = base_mapped_reference<this_type, false>;
-    using const_mapped_reference = base_mapped_reference<this_type, true>;
+    using reference              = typename iterator::reference;
+//base_linear_reference<this_type, false>;
+    using const_reference        = typename const_iterator::reference;
+//base_linear_reference<this_type, true>;
+    using mapped_reference       = typename iterator::mapped_reference;
+//base_linear_mapped_reference<this_type, false>;
+    using const_mapped_reference = typename const_iterator::mapped_reference;
+//base_linear_mapped_reference<this_type, true>;
     using insert_return_type     = std::pair<iterator, bool>;
 
 
@@ -254,30 +270,26 @@ private:
 
     // HELPER FUNCTION FOR ITERATOR CREATION ***********************************
 
-    inline iterator           make_iterator    (const key_type& k,
-                                                const mapped_type& d,
+    inline iterator           make_iterator    (const slot_type& slot,
                                                 atomic_slot_type* ptr)
-    { return iterator(std::make_pair(k,d), ptr, _table+_mapper.total_slots()); }
+    { return iterator(slot, ptr, _table+_mapper.total_slots()); }
 
-    inline const_iterator     make_citerator   (const key_type& k,
-                                                const mapped_type& d,
+    inline const_iterator     make_citerator   (const slot_type& slot,
                                                 atomic_slot_type* ptr) const
-    { return const_iterator(std::make_pair(k,d), ptr, _table+_mapper.total_slots());}
+    { return const_iterator(slot, ptr, _table+_mapper.total_slots());}
 
-    inline insert_return_type make_insert_ret  (const key_type& k,
-                                                const mapped_type& d,
+    inline insert_return_type make_insert_ret  (const slot_type& slot,
                                                 atomic_slot_type* ptr,
                                                 bool succ)
-    { return std::make_pair(make_iterator(k,d, ptr), succ); }
+    { return std::make_pair(make_iterator(slot, ptr), succ); }
 
     inline insert_return_type make_insert_ret  (iterator it, bool succ)
     { return std::make_pair(it, succ); }
 
-    inline insert_return_intern make_insert_ret(const key_type& k,
-                                                const mapped_type& d,
+    inline insert_return_intern make_insert_ret(const slot_type& slot,
                                                 atomic_slot_type* ptr,
                                                 ReturnCode code)
-    { return std::make_pair(make_iterator(k,d, ptr), code); }
+    { return std::make_pair(make_iterator(slot, ptr), code); }
 
     inline insert_return_intern make_insert_ret(iterator it, ReturnCode code)
     { return std::make_pair(it, code); }
@@ -416,7 +428,7 @@ base_linear<C>::begin()
     {
         auto temp = _table[i].load();
         if (!temp.is_empty() && !temp.is_deleted())
-            return make_iterator(temp.get_key(), temp.get_mapped(), &_table[i]);
+            return make_iterator(temp, &_table[i]);
     }
     return end();
 }
@@ -424,7 +436,7 @@ base_linear<C>::begin()
 template<class C>
 inline typename base_linear<C>::iterator
 base_linear<C>::end()
-{ return iterator(std::make_pair(key_type(), mapped_type()),nullptr,nullptr); }
+{ return iterator(slot_config::get_empty(),nullptr,nullptr); }
 
 
 template<class C>
@@ -435,7 +447,7 @@ base_linear<C>::cbegin() const
     {
         auto temp = _table[i].load();
         if (!temp.is_empty() && !temp.is_deleted())
-            return make_citerator(temp.get_key(), temp.get_mapped(), &_table[i]);
+            return make_citerator(temp, &_table[i]);
     }
     return end();
 }
@@ -444,7 +456,7 @@ template<class C>
 inline typename base_linear<C>::const_iterator
 base_linear<C>::cend() const
 {
-    return const_iterator(std::make_pair(key_type(),mapped_type()),
+    return const_iterator(slot_config::get_empty(),
                           nullptr,nullptr);
 }
 
@@ -460,8 +472,7 @@ base_linear<C>::range(size_t rstart, size_t rend)
     {
         auto temp = _table[i].load();
         if (!temp.is_empty() && !temp.is_deleted())
-            return range_iterator(std::make_pair(temp.get_key(),
-                                                 temp.get_mapped()),
+            return range_iterator(temp,
                                   &_table[i], &_table[temp_rend]);
     }
     return range_end();
@@ -510,7 +521,7 @@ base_linear<C>::insert_intern(const slot_type& slot, size_type hash)
         {
             if ( _table[temp].cas(curr, slot) )
             {
-                return make_insert_ret(key,slot.get_mapped(), &_table[temp],
+                return make_insert_ret(curr, &_table[temp],
                                        ReturnCode::SUCCESS_IN);
             }
             //somebody changed the current element! recheck it
@@ -518,7 +529,7 @@ base_linear<C>::insert_intern(const slot_type& slot, size_type hash)
         }
         else if (curr.compare_key(key, hash))
         {
-            return make_insert_ret(key, curr.get_mapped(), &_table[temp],
+            return make_insert_ret(curr, &_table[temp],
                                    ReturnCode::UNSUCCESS_ALREADY_USED);
         }
         else if (curr.is_deleted())
@@ -551,12 +562,12 @@ base_linear<C>::update_intern(const key_type& k, F f, Types&& ... args)
         }
         else if (curr.compare_key(k, htemp))
         {
-            mapped_type data;
-            bool        succ;
-            std::tie(data, succ) = _table[temp].atomic_update(curr,f,
-                                                          std::forward<Types>(args)...);
+            slot_type data = slot_config::get_empty();
+            bool      succ;
+            std::tie(data, succ) = _table[temp].atomic_update(
+                curr,f,std::forward<Types>(args)...);
             if (succ)
-                return make_insert_ret(k,data, &_table[temp],
+                return make_insert_ret(data, &_table[temp],
                                        ReturnCode::SUCCESS_UP);
             i--;
         }
@@ -578,7 +589,7 @@ base_linear<C>::update_unsafe_intern(const key_type& k, F f, Types&& ... args)
     for (size_type i = _mapper.map(htemp); ; ++i) //i < htemp+MaDis
     {
         size_type temp = _mapper.remap(i);
-        auto curr = _table[temp];
+        auto curr = _table[temp].load();
         if (curr.is_marked())
         {
             return make_insert_ret(end(),
@@ -591,12 +602,12 @@ base_linear<C>::update_unsafe_intern(const key_type& k, F f, Types&& ... args)
         }
         else if (curr.compare_key(k, htemp))
         {
-            mapped_type data;
-            bool        succ;
+            slot_type data = slot_config::get_empty();
+            bool      succ;
             std::tie(data, succ) = _table[temp].non_atomic_update(f,
                                                             std::forward<Types>(args)...);
             if (succ)
-                return make_insert_ret(k,data, &_table[temp],
+                return make_insert_ret(data, &_table[temp],
                                        ReturnCode::SUCCESS_UP);
             i--;
         }
@@ -627,7 +638,7 @@ base_linear<C>::insert_or_update_intern(const slot_type& slot, size_type hash,
         else if (curr.is_empty())
         {
             if ( _table[temp].cas(curr, slot) )
-                return make_insert_ret(key, slot.get_mapped(), &_table[temp],
+                return make_insert_ret(slot, &_table[temp],
                                        ReturnCode::SUCCESS_IN);
 
             //somebody changed the current element! recheck it
@@ -635,12 +646,12 @@ base_linear<C>::insert_or_update_intern(const slot_type& slot, size_type hash,
         }
         else if (curr.compare_key(key, hash))
         {
-            mapped_type data;
-            bool        succ;
+            slot_type data = slot_config::get_empty();
+            bool      succ;
             std::tie(data, succ) = _table[temp].atomic_update(curr, f,
                                                           std::forward<Types>(args)...);
             if (succ)
-                return make_insert_ret(key,data, &_table[temp],
+                return make_insert_ret(data, &_table[temp],
                                        ReturnCode::SUCCESS_UP);
             i--;
         }
@@ -671,19 +682,19 @@ base_linear<C>::insert_or_update_unsafe_intern(const slot_type& slot, size_type 
         else if (curr.is_empty())
         {
             if ( _table[temp].cas(curr, slot) )
-                return make_insert_ret(key,slot.get_mapped(), &_table[temp],
+                return make_insert_ret(slot, &_table[temp],
                                        ReturnCode::SUCCESS_IN);
             //somebody changed the current element! recheck it
             --i;
         }
         else if (curr.compare_key(key, hash))
         {
-            mapped_type data;
-            bool        succ;
+            slot_type data = slot_config::get_empty();
+            bool      succ;
             std::tie(data, succ) = _table[temp].non_atomic_update(f,
                                                             std::forward<Types>(args)...);
             if (succ)
-                return make_insert_ret(key,data, &_table[temp],
+                return make_insert_ret(data, &_table[temp],
                                        ReturnCode::SUCCESS_UP);
             i--;
         }
@@ -778,7 +789,7 @@ base_linear<C>::find(const key_type& k)
         if (curr.is_empty())
             return end();
         if (curr.compare_key(k, htemp))
-            return make_iterator(k, curr.get_mapped(), &_table[temp]);
+            return make_iterator(curr, &_table[temp]);
     }
     return end();
 }
@@ -795,7 +806,7 @@ base_linear<C>::find(const key_type& k) const
         if (curr.is_empty())
             return cend();
         if (curr.compare_key(k, htemp))
-            return make_citerator(k, curr.get_mapped(), &_table[temp]);
+            return make_citerator(curr, &_table[temp]);
     }
     return cend();
 }
@@ -1214,9 +1225,14 @@ base_linear_config<S,H,A,CM,CP,CU>::mapper_type::resize(size_t inserted, size_t 
     auto nsize = addressable_slots();
     double fill_rate = double(inserted - deleted)/double(nsize);
 
-    if (fill_rate > 0.6/2.) nsize <<= 1;
+    if (fill_rate > 0.3) nsize <<= 1;
 
-    size_t temp = (cyclic_mapping) ? addressable_slots() : 1;
+    size_t temp = 0;
+    if constexpr (cyclic_mapping)
+    { temp = addressable_slots(); }
+    else
+    { temp = (fill_rate > 0.3) ? 1 : 0; }
+
     return mapper_type(nsize, temp);
 }
 

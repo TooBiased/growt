@@ -76,6 +76,7 @@ public:
         inline key_type        get_key() const;
         inline const key_type& get_key_ref() const;
         inline mapped_type     get_mapped() const;
+        inline void set_mapped(const mapped_type& m);
         inline void set_fingerprint(size_t) const;
 
         inline bool is_empty()   const;
@@ -116,10 +117,10 @@ public:
         bool atomic_mark  (slot_type& expected);
 
         template<class F, class ...Types>
-        std::pair<mapped_type, bool> atomic_update(slot_type & expected,
+        std::pair<slot_type, bool> atomic_update(slot_type & expected,
                                                    F f, Types&& ... args);
         template<class F, class ...Types>
-        std::pair<mapped_type, bool> non_atomic_update(F f, Types&& ... args);
+        std::pair<slot_type, bool> non_atomic_update(F f, Types&& ... args);
     };
 
     static constexpr slot_type   get_empty()
@@ -192,6 +193,13 @@ public:
     simple_slot<K,D,m,dd>::slot_type::get_mapped() const
     {
         return data;
+    }
+
+    template <class K, class D, bool m, K dd>
+    void
+    simple_slot<K,D,m,dd>::slot_type::set_mapped(const mapped_type& mapped)
+    {
+        data = mapped;
     }
 
     template <class K, class D, bool m, K dd>
@@ -333,6 +341,7 @@ public:
     bool
     simple_slot<K,D,m,dd>::atomic_slot_type::atomic_mark(slot_type& expected)
     {
+        if constexpr (!m) return true;
         auto temp = expected;
         temp.key |= marked_bit;
         return cas(expected, temp);
@@ -365,12 +374,12 @@ public:
     inline static std::pair<typename SlotType::mapped_type,bool>
     execute(typename SlotType::atomic_slot_type* that,
             typename SlotType::slot_type&,
-            F f, Types ... args)
+            F f, Types&& ... args)
     {
         // UGLY (Same as non_atomic_update)
         auto temp = reinterpret_cast<typename SlotType::value_type*>(that);
         auto result = f.atomic(temp->second,std::forward<Types>(args)...);
-        return std::make_pair(result,true);
+        return std::make_pair(result, true);
     }
 };
 
@@ -383,7 +392,7 @@ public:
     inline static std::pair<typename SlotType::mapped_type, bool>
     execute(typename SlotType::atomic_slot_type* that,
             typename SlotType::slot_type& expected,
-            F f, Types ... args)
+            F f, Types&& ... args)
     {
         using pair_type = typename SlotType::value_type;
         using mapped_type = typename SlotType::mapped_type;
@@ -396,7 +405,7 @@ public:
         bool succ = atomapped.compare_exchange_strong(expmapped,
                                                       newmapped,
                                                       std::memory_order_relaxed);
-        return std::make_pair(newmapped, succ);
+        return std::make_pair(succ ? newmapped : expmapped, succ);
     }
 };
 
@@ -404,7 +413,7 @@ public:
 
 // *** functor style updates ***************************************************
     template <class K, class D, bool m, K dd> template<class F, class ...Types>
-    std::pair<typename simple_slot<K,D,m,dd>::mapped_type, bool>
+    std::pair<typename simple_slot<K,D,m,dd>::slot_type, bool>
     simple_slot<K,D,m,dd>::atomic_slot_type::atomic_update([[maybe_unused]]slot_type& expected,
                                                            [[maybe_unused]]F f,
                                                            [[maybe_unused]]Types&& ... args)
@@ -418,35 +427,26 @@ public:
         }
         else
         {
-            return _simple_atomic_helper::_atomic_helper_type<
+            auto temp = _simple_atomic_helper::_atomic_helper_type<
                 simple_slot,
                 _simple_atomic_helper::_has_atomic_type<F>::value>
                 ::execute(this, expected, f, std::forward<Types>(args)...);
+            return std::make_pair(slot_type(expected.get_key(), temp.first),
+                                  temp.second);
         }
 
-        // static std::atomic_bool once = true;
-        // if (once.load())
-        //     debug::if_debug("non-atomic update is not implemented in simple types",
-        //                     once.exchange(false));
-        // return std::make_pair(mapped_type(), false);
     }
 
     template <class K, class D, bool m, K dd> template<class F, class ...Types>
-    std::pair<typename simple_slot<K,D,m,dd>::mapped_type, bool>
+    std::pair<typename simple_slot<K,D,m,dd>::slot_type, bool>
     simple_slot<K,D,m,dd>::atomic_slot_type::non_atomic_update([[maybe_unused]]F f,
                                                                [[maybe_unused]]Types&& ... args)
     {
         // THIS COULD BE PRETTIER, BUT NON-ATOMIC-UPDATES ARE INHERENTLY UNSAFE
         auto this_pair_view = reinterpret_cast<std::pair<key_type, mapped_type>*>(this);
-        return std::make_pair(
-            f(this_pair_view->second, std::forward<Types>(args)...),
-            true);
-
-        // static std::atomic_bool once = true;
-        // if (once.load())
-        //     debug::if_debug("non-atomic update is not implemented in simple types",
-        //                     once.exchange(false));
-        // return std::make_pair(mapped_type(), false);
-
+        auto curr = this->load();
+        return std::make_pair(slot_type(curr.get_key(),
+                                        f(this_pair_view->second, std::forward<Types>(args)...)),
+                              true);
     }
 }

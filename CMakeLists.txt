@@ -279,6 +279,10 @@ function( GrowXExecutable variant cpp directory name )
   target_link_libraries(${name} ${TEST_DEP_LIBRARIES} ${ALLOC_LIB})
 endfunction( GrowXExecutable )
 
+GrowTExecutable( UAGROW functionality fun functionality_uaGrowT )
+GrowTExecutable( USGROW functionality fun functionality_usGrowT )
+GrowTExecutable( PAGROW functionality fun functionality_paGrowT )
+GrowTExecutable( PSGROW functionality fun functionality_psGrowT )
 
 GrowTExecutable( FOLKLORE ins_test  ins  ins_none_folklore )
 GrowTExecutable( FOLKLORE mix_test  mix  mix_none_folklore )
@@ -346,6 +350,13 @@ add_custom_target( psgrow )
 add_dependencies( psgrow
   ins_full_psGrowT mix_full_psGrowT con_full_psGrowT
   agg_full_psGrowT del_full_psGrowT text_full_psGrowT)
+
+add_custom_target( functionality )
+add_dependencies ( functionality
+  functionality_uaGrowT
+  functionality_usGrowT
+  functionality_paGrowT
+  functionality_psGrowT)
 
 add_custom_target( ins )
 add_dependencies( ins

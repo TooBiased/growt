@@ -1,5 +1,9 @@
 * Tasks
 
+** TODO setData does not exist update does not exist either
+   [2021-02-05 Fr 16:21]
+   [[file:~/IMP/growt/data-structures/base_linear_iterator.hpp::{%20_ptr->setData(value);%20}]]
+
 ** TODO the complex slots fingerprint is bad when doing circular mapping
    [2021-02-04 Do 18:59]
    [[file:~/IMP/growt/data-structures/element_types/complex_slot.hpp][file:~/IMP/growt/data-structures/element_types/complex_slot.hpp]]
