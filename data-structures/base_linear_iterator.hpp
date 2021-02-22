@@ -243,14 +243,14 @@ public:
         return copy;
     }
 
-    inline reference operator* () const
+    inline reference operator* ()
     {
         if constexpr (allows_referential_integrity)
             return *(_copy.get_pointer());
         else
             return reference(_copy, _ptr);
     }
-    pointer operator->() const
+    inline pointer operator->()
     {
         static_assert(allows_referential_integrity,
                       "Pointer access is only allowed on tables with referential integrity!");

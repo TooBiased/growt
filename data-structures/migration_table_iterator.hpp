@@ -287,19 +287,19 @@ public:
         return copy;
     }
 
-    inline reference operator* () const
+    inline reference operator* ()
     {
         if constexpr (allows_referential_integrity)
             return *_it;
         else
             return reference(*_it, _version, _tab);
     }
-    // inline pointer operator->() const
-    // {
-    //     static_assert(allows_referential_integrity,
-    //                   "Pointer access is only allowed on tables with referential integrity!");
-    //     return _it;
-    // }
+    inline pointer operator->()
+    {
+        static_assert(allows_referential_integrity,
+                      "Pointer access is only allowed on tables with referential integrity!");
+        return _it.operator->();
+    }
 
     inline bool operator==(const migration_table_iterator& rhs) const
     { return _it == rhs._it; }

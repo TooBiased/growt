@@ -39,7 +39,7 @@ namespace otm = utils_tm::out_tm;
 namespace ttm = utils_tm::thread_tm;
 namespace dtm = utils_tm::debug_tm;
 
-using text_config = table_config<std::string, size_t,
+using text_config = table_config<std::string, std::atomic_size_t,
                                 utils_tm::hash_tm::default_hash,allocator_type>;
 using table_type = typename text_config::table_type;
 
@@ -80,8 +80,9 @@ int push_file(Hash& hash, std::ifstream& in_stream, [[maybe_unused]]size_t id)
 
             in_stream >> word;
             words++;
-            auto result = hash.insert(word, 1);
+            auto result = hash.emplace(std::move(word), 1);
             if (result.second) uniques++;
+            else result.first->second.fetch_add(1, std::memory_order_relaxed);
         }
     }
     number_words.fetch_add(words,   std::memory_order_relaxed);
