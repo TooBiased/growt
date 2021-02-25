@@ -131,10 +131,6 @@ tbb_hm_wrapper<K,D,HF,AL>::find(const key_type& k)
     accessor_type a;
     if (hash.find(a,k)) return iterator(k,a->second);
     return end();
-    // if (hash.find(a, k))
-    //     return ReturnElement(k, a->second);
-    // else
-    //     return ReturnElement::getEmpty();
 }
 
 template<class K, class D, class HF, class AL>
@@ -146,12 +142,10 @@ tbb_hm_wrapper<K,D,HF,AL>::insert(const key_type& k, const mapped_type& d)
     {
         a->second = d;
         return std::make_pair(iterator(k,d),true);
-        // return ReturnCode::SUCCESS_IN;
     }
     else
     {
         return std::make_pair(iterator(k,a->second),false);
-        // return ReturnCode::UNSUCCESS_ALREADY_USED;
     }
 }
 
@@ -164,12 +158,10 @@ tbb_hm_wrapper<K,D,HF,AL>::emplace(key_type&& k, mapped_type&& d)
     {
         a->second = std::move(d);
         return std::make_pair(true,true);
-        // return ReturnCode::SUCCESS_IN;
     }
     else
     {
         return std::make_pair(false,false);
-        // return ReturnCode::UNSUCCESS_ALREADY_USED;
     }
 }
 
@@ -181,9 +173,9 @@ tbb_hm_wrapper<K,D,HF,AL>::update(const key_type& k, F f, Types&& ... args)
     if (hash.find(a, k))
     {
         auto temp = f(a->second, std::forward<Types>(args)...);
-        return std::make_pair(iterator(k, temp),true);//ReturnCode::SUCCESS_UP;
+        return std::make_pair(iterator(k, temp),true);
     }
-    else return std::make_pair(end(),false);//ReturnCode::UNSUCCESS_NOT_FOUND;
+    else return std::make_pair(end(),false);
 }
 
 template<class K, class D, class HF, class AL> template<class F, class ... Types>
@@ -194,12 +186,12 @@ tbb_hm_wrapper<K,D,HF,AL>::insert_or_update(const key_type& k, const mapped_type
     if (hash.insert(a,k))
     {
         a->second = d;
-        return std::make_pair(iterator(k,d),true);//ReturnCode::SUCCESS_IN;
+        return std::make_pair(iterator(k,d),true);
     }
     else
     {
         auto temp = f(a->second, std::forward<Types>(args)...);
-        return std::make_pair(iterator(k,temp),false);//ReturnCode::SUCCESS_UP;
+        return std::make_pair(iterator(k,temp),false);
     }
 }
 
@@ -226,12 +218,12 @@ tbb_hm_wrapper<K,D,HF,AL>::emplace_or_update(key_type&& k, mapped_type&& d,
     if (hash.insert(a,std::move(k)))
     {
         a->second = std::move(d);
-        return std::make_pair(true,true);//ReturnCode::SUCCESS_IN;
+        return std::make_pair(true,true);
     }
     else
     {
         f(a->second, std::forward<Types>(args)...);
-        return std::make_pair(false,false);//ReturnCode::SUCCESS_UP;
+        return std::make_pair(false,false);
     }
 }
 

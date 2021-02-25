@@ -137,8 +137,8 @@ struct test_in_stages
                 auto duration = t.synchronized(push_file<handle_type>, hash, in_file, t.id);
 
                 t.out << otm::width(12) << duration.second/1000000.;
-                t.out << otm::width(9)  << number_words.load(std::memory_order_relaxed);
-                t.out << otm::width(9)  << unique_words.load(std::memory_order_relaxed) << std::flush;
+                t.out << otm::width(9)  << number_words.load();
+                t.out << otm::width(9)  << unique_words.load() << std::flush;
             }
 
 #ifdef MALLOC_COUNT
@@ -147,9 +147,9 @@ struct test_in_stages
             t.out << std::endl;
             if constexpr (t.is_main)
             {
-                pos         .store(0, std::memory_order_relaxed);
-                unique_words.store(0, std::memory_order_relaxed);
-                number_words.store(0, std::memory_order_relaxed);
+                pos         .store(0);
+                unique_words.store(0);
+                number_words.store(0);
 
             }
 
