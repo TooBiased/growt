@@ -6,10 +6,10 @@
 #include "data-structures/element_types/complex_slot.hpp"
 #include "data-structures/element_types/simple_slot.hpp"
 
-#include "data-structures/newstrategies/estrat_async.hpp"
-#include "data-structures/newstrategies/estrat_sync.hpp"
-#include "data-structures/newstrategies/wstrat_user.hpp"
-#include "data-structures/newstrategies/wstrat_pool.hpp"
+#include "data-structures/strategies/estrat_async.hpp"
+#include "data-structures/strategies/estrat_sync.hpp"
+#include "data-structures/strategies/wstrat_user.hpp"
+#include "data-structures/strategies/wstrat_pool.hpp"
 
 #include "data-structures/hash_table_mods.hpp"
 #include "data-structures/base_linear.hpp"
