@@ -331,10 +331,10 @@ add_dependencies( folklore
   ins_none_folklore mix_none_folklore con_none_folklore
   agg_none_folklore text_none_folklore)
 
-# add_custom_target( sequential )
-# add_dependencies( sequential
-#   ins_full_sequential mix_full_sequential con_full_sequential
-#   agg_full_sequential)
+add_custom_target( sequential )
+add_dependencies( sequential
+  ins_full_sequential mix_full_sequential con_full_sequential
+  agg_full_sequential text_full_sequential)
 
 add_custom_target( uagrow )
 add_dependencies( uagrow
@@ -437,9 +437,6 @@ if (GROWT_BUILD_TBB)
 endif()
 
 if (GROWT_BUILD_FOLLY)
-  # set(TEMP_FLAGS "${CMAKE_CXX_FLAGS}")
-  # set(CMAKE_CXX_FLAGS "${OLD_FLAGS}")
-
   function( FollyExecutable variant cpp directory name )
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${directory})
 
@@ -525,26 +522,6 @@ if (GROWT_BUILD_JUNCTION)
     del_full_junction_linear del_full_junction_grampa del_full_junction_leap)
 endif()
 
-
-
-# # build additional tables when tsx is enabled
-# if (GROWT_BUILD_TSX)
-#   set (HASHLIST "${HASHLIST};xfolklore;uaxGrow;usxGrow;paxGrow;psxGrow")
-#   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mrtm")
-#   if (GROWT_BUILD_ALTERNATE_VARIANT)
-#     set(HASHLIST "${HASHLIST};usnxGrow;psnxGrow")
-#   endif()
-# endif()
-
-# if (GROWT_HASHFCT STREQUAL MURMUR3)
-#   find_package(smhasher)
-#   if (SMHASHER_FOUND)
-#     include_directories(${SMHASHER_INCLUDE_DIRS})
-#   else()
-#     message("Cannot find SMHasher which implements MURMUR3. Use MURMUR2 instead.")
-#   endif()
-# endif()
-
 if (GROWT_BUILD_CIRCULAR)
   GrowTExecutable( UAGROW ins_test ins ins_full_cmuaGrowT )
   target_compile_definitions(ins_full_cmuaGrowT PRIVATE
@@ -564,96 +541,4 @@ if (GROWT_BUILD_CIRCULAR)
   GrowTExecutable( USGROW ins_test ins ins_full_ccusGrowT )
   target_compile_definitions(ins_full_ccusGrowT PRIVATE
     -D CMAP -D CPROB)
-endif()
-
-
-if (GROWT_BUILD_OLD_VARIANTS)
-  GrowTExecutable( FOLKLOREOLD ins_test ins ins_none_old_folklore )
-  GrowTExecutable( FOLKLOREOLD mix_test mix mix_none_old_folklore )
-  GrowTExecutable( FOLKLOREOLD con_test con con_none_old_folklore )
-  GrowTExecutable( FOLKLOREOLD agg_test agg agg_none_old_folklore )
-  # GrowTExecutable( SEQUENTIALOLD ins_test seq ins_full_old_sequential )
-  # GrowTExecutable( SEQUENTIALOLD mix_test seq mix_full_old_sequential )
-  # GrowTExecutable( SEQUENTIALOLD con_test seq con_full_old_sequential )
-  # GrowTExecutable( SEQUENTIALOLD agg_test seq agg_full_old_sequential )
-  GrowTExecutable( UAGROWOLD ins_test ins ins_full_old_uaGrowT )
-  GrowTExecutable( USGROWOLD ins_test ins ins_full_old_usGrowT )
-  GrowTExecutable( PAGROWOLD ins_test ins ins_full_old_paGrowT )
-  GrowTExecutable( PSGROWOLD ins_test ins ins_full_old_psGrowT )
-  GrowTExecutable( UAGROWOLD mix_test mix mix_full_old_uaGrowT )
-  GrowTExecutable( USGROWOLD mix_test mix mix_full_old_usGrowT )
-  GrowTExecutable( PAGROWOLD mix_test mix mix_full_old_paGrowT )
-  GrowTExecutable( PSGROWOLD mix_test mix mix_full_old_psGrowT )
-  GrowTExecutable( UAGROWOLD del_test del del_full_old_uaGrowT )
-  GrowTExecutable( USGROWOLD del_test del del_full_old_usGrowT )
-  GrowTExecutable( PAGROWOLD del_test del del_full_old_paGrowT )
-  GrowTExecutable( PSGROWOLD del_test del del_full_old_psGrowT )
-  GrowTExecutable( UAGROWOLD con_test con con_full_old_uaGrowT )
-  GrowTExecutable( USGROWOLD con_test con con_full_old_usGrowT )
-  GrowTExecutable( PAGROWOLD con_test con con_full_old_paGrowT )
-  GrowTExecutable( PSGROWOLD con_test con con_full_old_psGrowT )
-  GrowTExecutable( UAGROWOLD agg_test agg agg_full_old_uaGrowT )
-  GrowTExecutable( USGROWOLD agg_test agg agg_full_old_usGrowT )
-  GrowTExecutable( PAGROWOLD agg_test agg agg_full_old_paGrowT )
-  GrowTExecutable( PSGROWOLD agg_test agg agg_full_old_psGrowT )
-  GrowTExecutable( USNGROWOLD ins_test ins ins_full_old_usnGrowT )
-  GrowTExecutable( PSNGROWOLD ins_test ins ins_full_old_psnGrowT )
-  GrowTExecutable( USNGROWOLD mix_test mix mix_full_old_usnGrowT )
-  GrowTExecutable( PSNGROWOLD mix_test mix mix_full_old_psnGrowT )
-  GrowTExecutable( USNGROWOLD del_test del del_full_old_usnGrowT )
-  GrowTExecutable( PSNGROWOLD del_test del del_full_old_psnGrowT )
-  GrowTExecutable( USNGROWOLD con_test con con_full_old_usnGrowT )
-  GrowTExecutable( PSNGROWOLD con_test con con_full_old_psnGrowT )
-  GrowTExecutable( USNGROWOLD agg_test agg agg_full_old_usnGrowT )
-  GrowTExecutable( PSNGROWOLD agg_test agg agg_full_old_psnGrowT )
-  add_custom_target( old_ins )
-  add_dependencies( old_ins
-    ins_none_old_folklore
-    #ins_full_old_sequential
-    ins_full_old_uaGrowT
-    ins_full_old_usGrowT
-    ins_full_old_paGrowT
-    ins_full_old_psGrowT
-    ins_full_old_usnGrowT
-    ins_full_old_psnGrowT )
-endif()
-
-if (GROWT_BUILD_TSX)
-  GrowXExecutable( XFOLKLORE ins_test ins ins_none_xfolklore )
-  GrowXExecutable( XFOLKLORE mix_test mix mix_none_xfolklore )
-  GrowXExecutable( XFOLKLORE con_test con con_none_xfolklore )
-  GrowXExecutable( XFOLKLORE agg_test agg agg_none_xfolklore )
-  GrowXExecutable( UAXGROW ins_test ins ins_full_uaxGrowT )
-  GrowXExecutable( USXGROW ins_test ins ins_full_usxGrowT )
-  GrowXExecutable( PAXGROW ins_test ins ins_full_paxGrowT )
-  GrowXExecutable( PSXGROW ins_test ins ins_full_psxGrowT )
-  GrowXExecutable( UAXGROW mix_test mix mix_full_uaxGrowT )
-  GrowXExecutable( USXGROW mix_test mix mix_full_usxGrowT )
-  GrowXExecutable( PAXGROW mix_test mix mix_full_paxGrowT )
-  GrowXExecutable( PSXGROW mix_test mix mix_full_psxGrowT )
-  GrowXExecutable( UAXGROW del_test del del_full_uaxGrowT )
-  GrowXExecutable( USXGROW del_test del del_full_usxGrowT )
-  GrowXExecutable( PAXGROW del_test del del_full_paxGrowT )
-  GrowXExecutable( PSXGROW del_test del del_full_psxGrowT )
-  GrowXExecutable( UAXGROW con_test con con_full_uaxGrowT )
-  GrowXExecutable( USXGROW con_test con con_full_usxGrowT )
-  GrowXExecutable( PAXGROW con_test con con_full_paxGrowT )
-  GrowXExecutable( PSXGROW con_test con con_full_psxGrowT )
-  GrowXExecutable( UAXGROW agg_test agg agg_full_uaxGrowT )
-  GrowXExecutable( USXGROW agg_test agg agg_full_usxGrowT )
-  GrowXExecutable( PAXGROW agg_test agg agg_full_paxGrowT )
-  GrowXExecutable( PSXGROW agg_test agg agg_full_psxGrowT )
-
-  if (GTOWT_BUILD_ALTERNATE_VARIANT)
-    GrowXExecutable( USNXGROW ins_test ins ins_full_usnxGrowT )
-    GrowXExecutable( PSNXGROW ins_test ins ins_full_psnxGrowT )
-    GrowXExecutable( USNXGROW mix_test mix mix_full_usnxGrowT )
-    GrowXExecutable( PSNXGROW mix_test mix mix_full_psnxGrowT )
-    GrowXExecutable( USNXGROW del_test del del_full_usnxGrowT )
-    GrowXExecutable( PSNXGROW del_test del del_full_psnxGrowT )
-    GrowXExecutable( USNXGROW con_test con con_full_usnxGrowT )
-    GrowXExecutable( PSNXGROW con_test con con_full_psnxGrowT )
-    GrowXExecutable( USNXGROW agg_test agg agg_full_usnxGrowT )
-    GrowXExecutable( PSNXGROW agg_test agg agg_full_psnxGrowT )
-  endif()
 endif()
