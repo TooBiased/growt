@@ -58,6 +58,7 @@ public:
 
         inline key_type    get_key() const;
         inline mapped_type get_mapped() const;
+        inline const key_type& get_key_ref() const;
 
         inline bool is_empty()   const;
         inline bool is_deleted() const;
@@ -152,6 +153,12 @@ public:
         return data;
     }
 
+    template <class K, class D, K dd>
+    const typename seq_simple_slot<K,D,dd>::key_type&
+    seq_simple_slot<K,D,dd>::slot_type::get_key_ref() const
+    {
+        return key;
+    }
 
 // *** state *******************************************************************
     template <class K, class D, K dd>

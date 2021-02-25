@@ -12,7 +12,7 @@
 
 #include <functional>
 
-#include "base_iterator.hpp"
+#include "base_linear_iterator.hpp"
 
 namespace growt
 {

@@ -4,31 +4,23 @@
 
 #include "utils/hash/murmur2_hash.hpp"
 #include "allocator/alignedallocator.hpp"
+#include "data-structures/hash_table_mods.hpp"
 
-using murmur2_hash = utils_tm::hash_tm::murmur2_hash;
+using hasher_type    = utils_tm::hash_tm::murmur2_hash;
+using allocator_type = growt::AlignedAllocator<>;
 
 //////////////////////////////////////////////////////////////
 // USING definitions.h (possibly slower compilation)
-#include "data-structures/definitions.hpp"
+#include "data-structures/table_config.hpp"
 
-using table_type = growt::uaGrow<murmur2_hash,
-                              growt::AlignedAllocator<> >;
-
-//////////////////////////////////////////////////////////////
-// EQUAL RESULT without definitions.h (possibly faster compilation)
-//
-// #include "data-structures/markableelement.hpp"
-// #include "data-structures/circular.hpp"
-// #include "data-structures/strategy/wstrat_user.hpp"
-// #include "data-structures/strategy/estrat_async.hpp"
-// #include "data-structures/growtable.hpp"
-// using table_type = growt::grow_table<growt::Circular<growt::MarkableElement,
-//                                                  murmur2_hash,
-//                                                  growt::AlignedAllocator<> >,
-//                                  growt::WStratUser,
-//                                  growt::EStratAsync>
-//////////////////////////////////////////////////////////////
-
+using table_type = typename growt::table_config<size_t, size_t,
+                                                hasher_type,
+                                                allocator_type,
+                                                hmod::growable,
+                                                hmod::deletion>::table_type;
+    // check hash_table_mods.hpp for other possiblen hash table modificators
+    // e.g. hmod::circular_map     this config choses the appropriate hash table
+    // according to your needs.
 
 // insert all keys between 1 and n into table with <key=i, data=i>
 // print message if insert is not successful
@@ -65,7 +57,7 @@ void search_n_and_mean(table_type& table, size_t n)
 
     size_t count = 0;
     size_t sum   = 0;
-    murmur2_hash randomizer{};
+    hasher_type randomizer{};
 
     for (size_t i = 0; i < n; ++i)
     {

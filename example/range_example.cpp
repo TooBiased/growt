@@ -3,20 +3,34 @@
 #include <random>
 #include <cmath>
 
+
 #include "utils/hash/murmur2_hash.hpp"
 #include "allocator/alignedallocator.hpp"
-using murmur2_hash = utils_tm::hash_tm::murmur2_hash;
+#include "data-structures/hash_table_mods.hpp"
+
+using hasher_type    = utils_tm::hash_tm::murmur2_hash;
+using allocator_type = growt::AlignedAllocator<>;
 
 //////////////////////////////////////////////////////////////
 // USING definitions.h (possibly slower compilation)
-#include "data-structures/definitions.hpp"
-using Table_t = growt::uaGrow<murmur2_hash, growt::AlignedAllocator<> >;
+#include "data-structures/table_config.hpp"
+
+using table_type = typename growt::table_config<size_t, size_t,
+                                                hasher_type,
+                                                allocator_type,
+                                                hmod::growable,
+                                                hmod::deletion>::table_type;
+    // check hash_table_mods.hpp for other possiblen hash table modificators
+    // e.g. hmod::circular_map     this config choses the appropriate hash table
+    // according to your needs.
+
+
 
 static std::atomic_size_t aggregator_static {0};
 static std::atomic_size_t aggregator_dynamic{0};
 
 
-void insertions(Table_t& table, size_t id, size_t n)
+void insertions(table_type& table, size_t id, size_t n)
 {
     // obtain a handle
     auto handle = table.get_handle();
@@ -35,7 +49,7 @@ void insertions(Table_t& table, size_t id, size_t n)
 
 
 // parallely computes sum over all elements (statically distributed workload)
-void static_load(Table_t& table, size_t id, size_t p)
+void static_load(table_type& table, size_t id, size_t p)
 {
     // obtain a handle
     auto   handle = table.get_handle();
@@ -56,7 +70,7 @@ void static_load(Table_t& table, size_t id, size_t p)
 
 
 // parallely computes sum over all elements (dynamically distributed workload)
-void dynamic_blockwise_load(Table_t& table, size_t block_size)
+void dynamic_blockwise_load(table_type& table, size_t block_size)
 {
     // obtain a handle
     auto   handle = table.get_handle();
@@ -90,7 +104,7 @@ int main (int, char**)
 {
     size_t  n   = 1000000;
     size_t  cap =  100000;
-    Table_t table(cap);
+    table_type table(cap);
 
     size_t temp = 0;
     for (size_t i = 1; i <= n*4; ++i) temp += i;

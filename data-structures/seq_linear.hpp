@@ -55,8 +55,8 @@ public:
 
     // Constructors ************************************************************
 
-    seq_iterator(pointer_intern p, const key_type& k, size_t v, const_table_type& t)
-        : _ptr(p), _key(k), _ver(v), _tab(t) { }
+    seq_iterator(pointer_intern p, const slot_type& sl, size_t v, const_table_type& t)
+        : _ptr(p), _slot(sl), _ver(v), _tab(t) { }
 
     seq_iterator(const seq_iterator& r) = default;
     seq_iterator& operator=(const seq_iterator& r) = default;
@@ -70,8 +70,8 @@ public:
     {
         if (_tab._version != _ver) refresh();
         while ( _ptr < _tab._t + _tab._mapper.total_slots() && _ptr->is_empty()) _ptr++;
-        if (_ptr == _tab._t+ _tab._mapper.total_slots()) { _ptr = nullptr; _key = key_type(); }
-        else { _key = _ptr->get_key(); }
+        if (_ptr == _tab._t+ _tab._mapper.total_slots()) { _ptr = nullptr; _slot = slot_config::get_empty(); }
+        else { _slot = _ptr->load(); }
         return *this;
     }
 
@@ -93,13 +93,13 @@ public:
 
 private:
     pointer_intern    _ptr;
-    key_type          _key;
+    slot_type         _slot;
     size_t            _ver;
     const_table_type& _tab;
 
     inline void refresh()
     {
-        seq_iterator it = _tab.find(_key);
+        seq_iterator it = _tab.find(_slot.get_key_ref());
         _ptr = it._ptr;
         _ver = it._ver;
     }
@@ -212,12 +212,14 @@ public:
     template<class F, class ... Types>
     insert_return_type emplace_or_update(key_type&& k, mapped_type&& d,
                                          F f, Types&& ... args);
-
+    template<class F, class ... Types>
+    insert_return_type insert_or_update_intern(const slot_type& sl, size_t hash,
+                                               F f, Types&& ... args);
 private:
-    iterator make_it(const slot_type& slot, atomic_slot_type* ptr)
-    { return iterator(slot, ptr, _version,*this); }
-    iterator make_cit(const slot_type& slot, atomic_slot_type* ptr) const
-    { return const_iterator(slot, ptr, _version,*this); }
+    iterator make_it(atomic_slot_type* ptr, const slot_type& slot)
+    { return iterator(ptr, slot, _version,*this); }
+    iterator make_cit(atomic_slot_type* ptr, const slot_type& slot) const
+    { return const_iterator(ptr, slot, _version,*this); }
 
     size_t _n_elem;
     size_t _thresh;
@@ -242,8 +244,8 @@ seq_linear<C>::begin()
 {
     for (size_t i = 0; i < _mapper.total_slots(); ++i)
     {
-        auto curr = _table[i];
-        if (! curr.is_empty()) return make_it(&_table[i], curr.get_key());
+        auto curr = _table[i].load();
+        if (! curr.is_empty()) return make_it(&_table[i], curr);
     }
     return end();
 }
@@ -252,7 +254,7 @@ template <class C>
 inline typename seq_linear<C>::iterator
 seq_linear<C>::end()
 {
-    return make_it(nullptr, key_type());
+    return make_it(nullptr, slot_config::get_empty());
 }
 
 template <class C>
@@ -283,7 +285,7 @@ seq_linear<C>::find(const key_type & k)
     {
         size_type temp = _mapper.remap(i);
         auto curr = _table[temp].load();
-        if (curr.compare_key(k,htemp)) return make_it(&_table[temp], k);
+        if (curr.compare_key(k,htemp)) return make_it(&_table[temp], curr);
         else if (curr.is_empty()) return end();
     }
 }
@@ -310,10 +312,8 @@ seq_linear<C>::insert(const key_type& k, const mapped_type& d)
     auto slot = slot_type(k,d, htemp);
 
     auto result = insert_intern(slot, htemp);
-    if (slot_config::needs_cleanup && !result.second)
-    {
-        slot.cleanup();
-    }
+    if (slot_config::needs_cleanup && !result.second) slot.cleanup();
+
     return result;
 }
 
@@ -325,10 +325,8 @@ seq_linear<C>::insert(const value_type& e)
     auto slot = slot_type(e, htemp);
 
     auto result = insert_intern(slot, htemp);
-    if (slot_config::needs_cleanup && !result.second)
-    {
-        slot.cleanup();
-    }
+    if (slot_config::needs_cleanup && !result.second) slot.cleanup();
+
     return result;
 }
 
@@ -341,10 +339,8 @@ seq_linear<C>::emplace(Args&& ... args)
     slot.set_fingerprint(htemp);
 
     auto result = insert_intern(slot, htemp);
-    if (slot_config::needs_cleanup && !result.second)
-    {
-        slot.cleanup();
-    }
+    if (slot_config::needs_cleanup && !result.second) slot.cleanup();
+
     return result;
 }
 
@@ -359,12 +355,12 @@ seq_linear<C>::insert_intern(slot_type sl, size_t hash)
         auto curr = _table[temp].load();
 
         if (curr.compare_key(key, hash))
-            return insert_return_type(make_it(&_table[temp], key), false);
+            return insert_return_type(make_it(&_table[temp], curr), false);
         else if (curr.is_empty())
         {
             if (inc_n()) { _n_elem--; return insert_intern(sl, hash); }
             _table[temp].non_atomic_set(sl);
-            return insert_return_type(make_it(&_table[temp], key), true);
+            return insert_return_type(make_it(&_table[temp], sl), true);
         }
         else if (curr.is_deleted())
         {
@@ -388,7 +384,7 @@ seq_linear<C>::update(const key_type& k, F f, Types&& ... args)
         {
             _table[temp].non_atomic_update(f, std::forward<Types>(args)...);
             // return ReturnCode::SUCCESS_UP;
-            return insert_return_type(make_it(&_table[temp], k), true);
+            return insert_return_type(make_it(&_table[temp], _table[temp].load()), true);
         }
         else if (curr.is_empty())
         {
@@ -407,21 +403,60 @@ inline typename seq_linear<C>::insert_return_type
 seq_linear<C>::insert_or_update(const key_type& k, const mapped_type& d, F f, Types&& ... args)
 {
     size_type htemp = h(k);
-    for (size_type i = _mapper.map(htemp);;++i)
+    slot_type sl    = slot_type(k, d, htemp);
+
+    auto result = insert_or_update_intern(sl, htemp,
+                                          f, std::forward<Types>(args)...);
+
+    if (slot_config::needs_cleanup && !result.second) sl.cleanup();
+
+    return result;
+}
+
+template <class C>
+template<class F, class ...Types>
+inline typename seq_linear<C>::insert_return_type
+seq_linear<C>::emplace_or_update(key_type&& k, mapped_type&& d,
+                                 F f, Types&& ... args)
+{
+    size_type htemp = h(k);
+    slot_type sl    = slot_type(std::move(k), std::move(d), htemp);
+
+    auto result = insert_or_update_intern(sl, htemp,
+                                          f, std::forward<Types>(args)...);
+
+    if (slot_config::needs_cleanup && !result.second) sl.cleanup();
+
+    return result;
+}
+
+template <class C>
+template<class F, class ...Types>
+inline typename seq_linear<C>::insert_return_type
+seq_linear<C>::insert_or_update_intern(const slot_type& sl, size_t hash,
+                                       F f, Types&& ... args)
+{
+    const key_type& key = sl.get_key_ref();
+    for (size_type i = _mapper.map(hash); ;++i)
     {
         size_type temp = _mapper.remap(i);
         auto curr = _table[temp].load();
 
-        if (curr.compare_key(k,htemp))
+        if (curr.compare_key(key,hash))
         {
             _table[temp].non_atomic_update(f, std::forward<Types>(args) ...);
-            return insert_return_type(make_it(&_table[temp], k), false);
+            return insert_return_type(make_it(&_table[temp], _table[temp].load()), false);
         }
         else if (curr.is_empty())
         {
-            if (inc_n()) { _n_elem--; return insert(k,d); }
-            _table[temp].non_atomic_set(slot_type(k,d,htemp));
-            return insert_return_type(make_it(&_table[temp], k), true);
+            if (inc_n())
+            {
+                _n_elem--;
+                return insert_or_update_intern(sl, hash,
+                                               f, std::forward<Types>(args) ...);
+            }
+            _table[temp].non_atomic_set(sl);
+            return insert_return_type(make_it(&_table[temp], sl), true);
         }
         else if (curr.is_deleted())
         {
@@ -429,7 +464,6 @@ seq_linear<C>::insert_or_update(const key_type& k, const mapped_type& d, F f, Ty
         }
     }
 }
-
 
 template <class C>
 inline typename seq_linear<C>::size_type

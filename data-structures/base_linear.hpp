@@ -205,9 +205,12 @@ public:
     (const key_type& k, const mapped_type& d, F f, Types&& ... args);
 
     template <class F, class ... Types>
+    insert_return_type emplace_or_update
+    (key_type&& k, mapped_type&& d, F f, Types&& ... args);
+
+    template <class F, class ... Types>
     insert_return_type insert_or_update_unsafe
     (const key_type& k, const mapped_type& d, F f, Types&& ... args);
-
 
     template <class F, class ... Types>
     insert_return_type emplace_or_update_unsafe
@@ -899,6 +902,23 @@ base_linear<C>::insert_or_update(const key_type& k,
 {
     auto hash = h(k);
     auto slot = slot_type(k,d,hash);
+    auto[it,rcode] = insert_or_update_intern(slot,hash,f,
+                                             std::forward<Types>(args)...);
+    if constexpr (slot_config::needs_cleanup)
+    {
+        if (! successful(rcode)) slot.cleanup();
+    }
+    return std::make_pair(it, (rcode == ReturnCode::SUCCESS_IN));
+}
+
+template<class C> template <class F, class ... Types>
+inline typename base_linear<C>::insert_return_type
+base_linear<C>::emplace_or_update(key_type&& k,
+                                  mapped_type&& d,
+                                  F f, Types&& ... args)
+{
+    auto hash = h(k);
+    auto slot = slot_type(std::move(k),std::move(d),hash);
     auto[it,rcode] = insert_or_update_intern(slot,hash,f,
                                              std::forward<Types>(args)...);
     if constexpr (slot_config::needs_cleanup)
