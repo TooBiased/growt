@@ -289,6 +289,7 @@ GrowTExecutable( FOLKLORE mix_test  mix  mix_none_folklore )
 GrowTExecutable( FOLKLORE con_test  con  con_none_folklore )
 GrowTExecutable( FOLKLORE agg_test  agg  agg_none_folklore )
 GrowTExecutable( FOLKLORE text_test text text_none_folklore )
+GrowTExecutable( FOLKLORE del_test  del  del_none_folklore )
 
 GrowTExecutable( SEQUENTIAL ins_test  seq  ins_full_sequential )
 GrowTExecutable( SEQUENTIAL mix_test  seq  mix_full_sequential )
@@ -320,6 +321,10 @@ GrowTExecutable( UAGROW text_test text text_full_uaGrowT )
 GrowTExecutable( USGROW text_test text text_full_usGrowT )
 GrowTExecutable( PAGROW text_test text text_full_paGrowT )
 GrowTExecutable( PSGROW text_test text text_full_psGrowT )
+
+# target_compile_definitions(del_full_uaGrowT PRIVATE
+#   -D CMAP)
+
 
 add_custom_target( folklore )
 add_dependencies( folklore

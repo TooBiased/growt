@@ -21,6 +21,7 @@
 #include "utils/pin_thread.hpp"
 #include "utils/command_line_parser.hpp"
 #include "utils/output.hpp"
+#include "utils/data_structures/circular_buffer.hpp"
 
 #include "tests/selection.hpp"
 
@@ -47,8 +48,7 @@ alignas(64) static table_type hash_table = table_type(0);
 alignas(64) static uint64_t* keys;
 alignas(64) static std::atomic_size_t current_block;
 alignas(64) static std::atomic_size_t errors;
-alignas(64) static std::atomic_size_t unsucc_deletes;
-alignas(64) static std::atomic_size_t succ_found;
+alignas(64) static std::atomic_size_t shared_temp;
 
 
 int generate_keys(size_t end)
@@ -72,18 +72,6 @@ int generate_keys(size_t end)
 template <class Hash>
 int prefill(Hash& hash, size_t pre)
 {
-    auto err = 0u;
-
-    ttm::execute_parallel(current_block, pre,
-        [&hash, &err](size_t i)
-        {
-            auto key = keys[i];
-            auto temp = hash.insert(key, i+2);
-            if (! temp.second )
-            { ++err; }
-        });
-
-    errors.fetch_add(err, std::memory_order_relaxed);
     return 0;
 }
 
@@ -91,26 +79,6 @@ int prefill(Hash& hash, size_t pre)
 template <class Hash>
 int del_test(Hash& hash, size_t end, size_t size)
 {
-    auto err         = 0u;
-    auto not_deleted = 0u;
-
-    ttm::execute_parallel(current_block, end,
-        [&hash, &err, &not_deleted, size](size_t i)
-        {
-            auto key = keys[i];
-
-            auto temp = hash.insert(key, i+2);
-            if (! temp.second )
-            { ++err; }
-
-            auto key2 = keys[i-size];
-
-            if (! hash.erase(key2))
-            { ++not_deleted; }
-        });
-
-    errors.fetch_add(err, std::memory_order_relaxed);
-    unsucc_deletes.fetch_add(not_deleted, std::memory_order_relaxed);
     return 0;
 }
 
@@ -131,7 +99,7 @@ int validate(Hash& hash, size_t end)
             }
         });
 
-    succ_found.fetch_add(found, std::memory_order_relaxed);
+    shared_temp.fetch_add(found, std::memory_order_relaxed);
     return 0;
 }
 
@@ -152,7 +120,7 @@ struct test_in_stages
         // STAGE0 Create Random Keys for insertions
         {
             if (ThreadType::is_main) current_block.store (0);
-            t.synchronized(generate_keys, ws+n);
+            t.synchronized(generate_keys, ws + n);
         }
 
         for (size_t i = 0; i < it; ++i)
@@ -172,20 +140,67 @@ struct test_in_stages
 
             handle_type hash = hash_table.get_handle();
 
+            auto last_block_index = 0;
+            auto local_buffer_size = ws/t.p + ((t.id < (ws%t.p)) ? 1 : 0);
+            auto buffer = circular_buffer<size_t>{local_buffer_size+1};
 
-            // STAGE0.1 prefill table with pre elements
+            // STAGE0.1 prefill table with one block per thread
             {
                 if (ThreadType::is_main) current_block.store(0);
 
-                t.synchronized(prefill<handle_type>, hash, ws);
+                t.synchronized(
+                    [&]()
+                    {
+                        auto temp = current_block.fetch_add(
+                            local_buffer_size,
+                            std::memory_order_relaxed);
+
+                        auto err = 0;
+
+                        for (size_t i = temp; i < temp + local_buffer_size; ++i)
+                        {
+                            auto key = keys[i];
+                            auto r = hash.insert(key, i+1);
+                            if (! r.second)
+                                err++;
+                            buffer.push_back(key);
+                        }
+                        errors.fetch_add(err, std::memory_order_relaxed);
+                        return 0;
+                    });
             }
 
             // STAGE1 n Mixed Operations
             {
-                if (ThreadType::is_main) current_block.store(ws);
+               auto duration = t.synchronized(
+                    [&]()
+                    {
+                        auto err = 0;
+                        ttm::execute_blockwise_parallel(
+                            current_block, ws + n,
+                            [&](size_t s, size_t e)
+                            {
+                                auto d = last_block_index;
+                                last_block_index = s;
 
-                auto duration = t.synchronized(del_test<handle_type>,
-                                               hash, ws+n, ws);
+                                for (size_t i = s; i < e; ++i, ++d)
+                                {
+                                    auto insert_key = keys[i];
+                                    auto r = hash.insert(insert_key, i+1);
+                                    if (! r.second) err++;
+
+                                    auto erase_key = buffer.pop_front();
+                                    if (! erase_key) { err++; continue; }
+                                    auto e = hash.erase(erase_key.value());
+                                    if (e != 1) err++;
+
+                                    buffer.push_back(insert_key);
+
+                                }
+                            });
+                        errors.fetch_add(err, std::memory_order_relaxed);
+                        return 0;
+                    });
 
                 t.out << otm::width(12) << duration.second/1000000.;
             }
@@ -195,11 +210,10 @@ struct test_in_stages
                 if (ThreadType::is_main) current_block.store(0);
 
                 auto duration = t.synchronized(validate<handle_type>,
-                                               hash, ws+n);
+                                               hash, ws + n);
 
                 t.out << otm::width(12) << duration.second/1000000.
-                      << otm::width(9)  << unsucc_deletes.load()
-                      << otm::width(9)  << succ_found.load()
+                      << otm::width(9)  << shared_temp.load()
                       << otm::width(9)  << errors.load();
             }
 
@@ -213,8 +227,7 @@ struct test_in_stages
             if (ThreadType::is_main)
             {
                 errors.store(0);
-                unsucc_deletes.store(0);
-                succ_found.store(0);
+                shared_temp.store(0);
             }
         }
 
@@ -246,8 +259,7 @@ int main(int argn, char** argc)
                << otm::width(11) << "w_size"
                << otm::width(12) << "t_del"
                << otm::width(12) << "t_val"
-               << otm::width(9)  << "unsucc"
-               << otm::width(9 ) << "remain"
+               << otm::width(9)  << "elem"
                << otm::width(9)  << "errors"
                << "    " << del_config::name()
                << std::endl;

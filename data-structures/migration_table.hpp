@@ -21,6 +21,7 @@
 #include <memory>
 #include <string>
 #include <sstream>
+#include <iostream>
 
 
 #include "data-structures/returnelement.hpp"
@@ -53,6 +54,15 @@ private:
     std::unique_ptr<migration_table_data_type> _mt_data;
 
 public:
+    static constexpr bool allows_deletions =
+        base_table_type::allows_deletions;
+    static constexpr bool allows_atomic_updates =
+        base_table_type::allows_atomic_updates;
+    static constexpr bool allows_updates =
+        base_table_type::allows_updates;
+    static constexpr bool allows_referential_integrity =
+        base_table_type::allows_referential_integrity;
+
     using handle_type               = migration_table_handle<migration_table_data_type>;
     friend handle_type;
 

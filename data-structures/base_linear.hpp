@@ -65,13 +65,16 @@ public:
             return 64 - log_size;                    // HashFct::significant_digits
         }
 
+        void init_helper(size_t capacity);
+
         size_t _probe_helper;
         size_t _map_helper;
         size_t _grow_helper;
 
     public:
         mapper_type() : _probe_helper(0), _map_helper(0) { }
-        mapper_type(size_t capacity, size_t prev_capacity = 0);
+        mapper_type(size_t capacity);
+        mapper_type(size_t capacity, size_t grow_helper);
 
         //size_t capacity;
 
@@ -367,11 +370,10 @@ base_linear<C>::base_linear(mapper_type mapper_, size_type version_)
 
     /* The table is initialized in parallel, during the migration */
     if constexpr (! _parallel_init)
-        std::fill( _table ,
-                   _table + _mapper.addressable_slots() ,
-                   slot_config::get_empty() );
-
-    if constexpr (! mapper_type::cyclic_mapping)
+        std::fill(_table ,
+                  _table + _mapper.total_slots() ,
+                  slot_config::get_empty() );
+    else if constexpr (! mapper_type::cyclic_mapping)
         std::fill(_table + _mapper.addressable_slots(),
                   _table + _mapper.total_slots(),
                   slot_config::get_empty() );
@@ -711,6 +713,7 @@ template<class C>
 inline ReturnCode base_linear<C>::erase_intern(const key_type& k)
 {
     size_type htemp = h(k);
+
     for (size_type i = _mapper.map(htemp); ; ++i) //i < htemp+MaDis
     {
         size_type temp = _mapper.remap(i);
@@ -726,7 +729,9 @@ inline ReturnCode base_linear<C>::erase_intern(const key_type& k)
         else if (curr.compare_key(k, htemp))
         {
             if (_table[temp].atomic_delete(curr))
+            {
                 return ReturnCode::SUCCESS_DEL;
+            }
             i--;
         }
         else if (curr.is_deleted())
@@ -847,7 +852,7 @@ base_linear<C>::emplace(Args&& ... args)
     auto slot = slot_type(std::forward<Args>(args)...);
     auto hash = h(slot.get_key_ref());
     auto[it,rcode] = insert_intern(slot, hash);
-    if constexpr (slot_type::needs_cleanup)
+    if constexpr (slot_config::needs_cleanup)
     {
         if (! successful(rcode)) slot.cleanup();
     }
@@ -1056,8 +1061,7 @@ base_linear<C>::migrate(this_type& target, size_type s, size_type e)
                 curr = _table[pos].load();
 
                 if (! _table[pos].atomic_mark(curr)) --i;
-
-                if ( (b = ! curr.is_empty()) ) // this might be nicer as an else if, but this is faster
+                else if ( (b = ! curr.is_empty()) ) // this might be nicer as an else if, but this is faster
                 {
                     if (!curr.is_deleted())
                     {
@@ -1078,7 +1082,7 @@ inline void base_linear<C>::initialize(size_t start, size_t end)
     if constexpr (! _parallel_init) return;
     if constexpr (_mapper.cyclic_mapping)
     {
-        for (size_t i = start, j=end;
+        for (size_t i = start, j = end;
              i <= _mapper.bitmask();
              i+=_mapper.grow_helper(), j+=_mapper.grow_helper())
         {
@@ -1141,23 +1145,38 @@ inline void base_linear<C>::insert_unsafe(const slot_type& e)
 // base_linear_config stuff
 template<class S, class H, class A, bool CM, bool CP, bool CU>
 base_linear_config<S,H,A,CM,CP,CU>::mapper_type::mapper_type(
+    size_t capacity)
+{
+    auto tcapacity = compute_capacity(capacity);
+    init_helper(tcapacity);
+    _grow_helper = 0;
+}
+
+template<class S, class H, class A, bool CM, bool CP, bool CU>
+base_linear_config<S,H,A,CM,CP,CU>::mapper_type::mapper_type(
     size_t capacity,
     size_t grow_helper)
 {
-    auto tcapacity = (grow_helper) ? capacity : compute_capacity(capacity);
-
-    if constexpr (cyclic_probing)
-        _probe_helper = tcapacity -1;
-    else
-        _probe_helper = tcapacity+lp_buffer;
-
-    if constexpr (cyclic_mapping)
-        _map_helper = tcapacity-1;
-    else
-        _map_helper = compute_right_shift(tcapacity);
-
+    init_helper(capacity);
     _grow_helper = grow_helper;
 }
+
+template<class S, class H, class A, bool CM, bool CP, bool CU>
+void
+base_linear_config<S,H,A,CM,CP,CU>::mapper_type::init_helper(size_t capacity)
+{
+    if constexpr (cyclic_probing)
+        _probe_helper = capacity -1;
+    else
+        _probe_helper = capacity+lp_buffer;
+
+    if constexpr (cyclic_mapping)
+        _map_helper = capacity-1;
+    else
+        _map_helper = compute_right_shift(capacity);
+
+}
+
 
 template<class S, class H, class A, bool CM, bool CP, bool CU>
 inline size_t
@@ -1225,7 +1244,8 @@ base_linear_config<S,H,A,CM,CP,CU>::mapper_type::resize(size_t inserted, size_t 
     auto nsize = addressable_slots();
     double fill_rate = double(inserted - deleted)/double(nsize);
 
-    if (fill_rate > 0.3) nsize <<= 1;
+    if (fill_rate > 0.3)
+        nsize <<= 1;
 
     size_t temp = 0;
     if constexpr (cyclic_mapping)

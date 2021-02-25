@@ -32,6 +32,11 @@ private:
     HashType hash;
 
 public:
+    static constexpr bool allows_deletions      = true;
+    static constexpr bool allows_atomic_updates = false;
+    static constexpr bool allows_updates        = true;
+    static constexpr bool allows_referential_integrity = true;
+
 
     using key_type           = Key;
     using mapped_type        = Data;
@@ -54,6 +59,8 @@ public:
 
     inline iterator find(const key_type& k);
     inline insert_return_type insert(const key_type& k, const mapped_type& d);
+    template <class ... Args>
+    inline insert_return_type emplace(Args&& ... args);
 
     template<class F, class ... Types>
     inline insert_return_type update(const key_type& k, F f, Types&& ... args);
@@ -63,6 +70,10 @@ public:
     inline insert_return_type update_unsafe(const key_type& k, F f, Types&& ... args);
     template<class F, class ... Types>
     inline insert_return_type insert_or_update_unsafe(const key_type& k, const mapped_type& d, F f, Types&& ... args);
+
+    template<class F, class ... Types>
+    inline insert_return_type emplace_or_update(key_type&& k, mapped_type&& d,
+                                                F , Types&& ... args);
 
     inline size_t erase(const key_type&);
 
@@ -166,4 +177,28 @@ tbb_um_wrapper<K,D,HF,AL>::erase(const key_type&)
     //static_assert(false, "tbb_um .remove(key) is not implemented")
     return 0;
 }
+
+
+template<class K, class D, class HF, class AL> template <class ... Args>
+typename tbb_um_wrapper<K,D,HF,AL>::insert_return_type
+tbb_um_wrapper<K,D,HF,AL>::emplace(Args&& ... args)
+{
+    return hash.emplace(std::forward<Args>(args)...);
+    // auto ret = hash.insert(std::make_pair(k,d)).second;
+    // return (ret) ? ReturnCode::SUCCESS_IN : ReturnCode::UNSUCCESS_ALREADY_USED;
+}
+
+template<class K, class D, class HF, class AL> template<class F, class ... Types>
+typename tbb_um_wrapper<K,D,HF,AL>::insert_return_type
+tbb_um_wrapper<K,D,HF,AL>::emplace_or_update(key_type&& k, mapped_type&& d,
+                                             F f, Types&& ... args)
+{
+    auto ret = hash.emplace(std::move(k), std::move(d));
+    if (! ret.second)
+    {
+        f.atomic(ret.first->second, std::forward<Types>(args)...);
+    }
+    return ret;
+}
+
 #endif // TBB_UM_WRAPPER

@@ -531,7 +531,7 @@ public:
         // UGLY (Same as non_atomic_update)
         auto slot      = that->load();
         auto key_value = slot.get_pointer();
-        auto result = f.atomic(key_value->second,std::forward<Types>(args)...);
+        f.atomic(key_value->second,std::forward<Types>(args)...);
         return std::make_pair(slot,true);
     }
 };

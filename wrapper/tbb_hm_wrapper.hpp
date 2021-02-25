@@ -54,12 +54,17 @@ private:
     intern_table_type hash;
 
 public:
+    static constexpr bool allows_deletions      = true;
+    static constexpr bool allows_atomic_updates = false;
+    static constexpr bool allows_updates        = true;
+    static constexpr bool allows_referential_integrity = false;
 
     using key_type           = Key;
     using mapped_type        = Data;
     using value_type         = typename std::pair<const key_type, mapped_type>;
     using iterator           = StupidIterator<key_type, mapped_type>;
     using insert_return_type = std::pair<iterator, bool>;
+    using emplace_return_type = std::pair<bool, bool>;
 
     tbb_hm_wrapper() = default;
     tbb_hm_wrapper(size_t capacity_) : hash(capacity_) { }
@@ -74,6 +79,7 @@ public:
 
     inline iterator find(const key_type& k);
     inline insert_return_type insert(const key_type& k, const mapped_type& d);
+    inline emplace_return_type emplace(key_type&& k, mapped_type&& d);
 
     template<class F, class ... Types>
     inline insert_return_type update(const key_type& k, F f, Types&& ... args);
@@ -83,6 +89,9 @@ public:
     inline insert_return_type update_unsafe(const key_type& k, F f, Types&& ... args);
     template<class F, class ... Types>
     inline insert_return_type insert_or_update_unsafe(const key_type& k, const mapped_type& d, F f, Types&& ... args);
+    template<class F, class ... Types>
+    inline emplace_return_type emplace_or_update(key_type&& k, mapped_type&& d,
+                                                F f, Types&& ... args);
     inline size_t erase(const key_type& k);
     inline iterator end();
 };
@@ -146,6 +155,24 @@ tbb_hm_wrapper<K,D,HF,AL>::insert(const key_type& k, const mapped_type& d)
     }
 }
 
+template<class K, class D, class HF, class AL>
+typename tbb_hm_wrapper<K,D,HF,AL>::emplace_return_type
+tbb_hm_wrapper<K,D,HF,AL>::emplace(key_type&& k, mapped_type&& d)
+{
+    accessor_type a;
+    if(hash.insert(a,std::move(k)))
+    {
+        a->second = std::move(d);
+        return std::make_pair(true,true);
+        // return ReturnCode::SUCCESS_IN;
+    }
+    else
+    {
+        return std::make_pair(false,false);
+        // return ReturnCode::UNSUCCESS_ALREADY_USED;
+    }
+}
+
 template<class K, class D, class HF, class AL> template<class F, class ... Types>
 typename tbb_hm_wrapper<K,D,HF,AL>::insert_return_type
 tbb_hm_wrapper<K,D,HF,AL>::update(const key_type& k, F f, Types&& ... args)
@@ -189,6 +216,25 @@ tbb_hm_wrapper<K,D,HF,AL>::insert_or_update_unsafe(const key_type& k, const mapp
 {
     return insert_or_update(k,d,f, std::forward<Types>(args)...);
 }
+
+template<class K, class D, class HF, class AL> template<class F, class ... Types>
+typename tbb_hm_wrapper<K,D,HF,AL>::emplace_return_type
+tbb_hm_wrapper<K,D,HF,AL>::emplace_or_update(key_type&& k, mapped_type&& d,
+                                             F f, Types&& ... args)
+{
+    accessor_type a;
+    if (hash.insert(a,std::move(k)))
+    {
+        a->second = std::move(d);
+        return std::make_pair(true,true);//ReturnCode::SUCCESS_IN;
+    }
+    else
+    {
+        f(a->second, std::forward<Types>(args)...);
+        return std::make_pair(false,false);//ReturnCode::SUCCESS_UP;
+    }
+}
+
 
 template<class K, class D, class HF, class AL>
 size_t

@@ -26,6 +26,8 @@
 
 #include "tests/selection.hpp"
 
+#include "example/update_fcts.hpp"
+
 /*
  * This Test is meant to test the tables performance on uniform random inputs.
  * 0. Creating 2n random keys
@@ -39,7 +41,7 @@ namespace otm = utils_tm::out_tm;
 namespace ttm = utils_tm::thread_tm;
 namespace dtm = utils_tm::debug_tm;
 
-using text_config = table_config<std::string, std::atomic_size_t,
+using text_config = table_config<std::string, size_t,
                                 utils_tm::hash_tm::default_hash,allocator_type>;
 using table_type = typename text_config::table_type;
 
@@ -80,9 +82,18 @@ int push_file(Hash& hash, std::ifstream& in_stream, [[maybe_unused]]size_t id)
 
             in_stream >> word;
             words++;
-            auto result = hash.emplace(std::move(word), 1);
-            if (result.second) uniques++;
-            else result.first->second.fetch_add(1, std::memory_order_relaxed);
+            // if constexpr (table_type::allows_referential_integrity)
+            // {
+            //     auto result = hash.emplace(std::move(word), 1);
+            //     if (result.second) uniques++;
+            //     else result.first->second++;
+            // }
+            // else
+            {
+                auto result = hash.emplace_or_update(
+                    std::move(word), 1, growt::example::Increment(), 1);
+                if (result.second) uniques++;
+            }
         }
     }
     number_words.fetch_add(words,   std::memory_order_relaxed);

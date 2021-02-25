@@ -190,6 +190,10 @@ public:
     const_iterator end()    const { return cend();   }
 
     insert_return_type insert(const key_type& k, const mapped_type& d);
+    insert_return_type insert(const value_type& e);
+    template <class ... Args>
+    insert_return_type emplace(Args&& ... args);
+    insert_return_type insert_intern(slot_type sl, size_t hash);
     size_type          erase (const key_type& k);
     iterator           find  (const key_type& k);
     const_iterator     find  (const key_type& k) const;
@@ -203,13 +207,17 @@ public:
     template<class F, class ... Types>
     insert_return_type update(const key_type& k, F f, Types&& ... args);
     template<class F, class ... Types>
-    insert_return_type insert_or_update(const key_type& k, const mapped_type& d, F f, Types&& ... args);
+    insert_return_type insert_or_update(const key_type& k, const mapped_type& d,
+                                        F f, Types&& ... args);
+    template<class F, class ... Types>
+    insert_return_type emplace_or_update(key_type&& k, mapped_type&& d,
+                                         F f, Types&& ... args);
 
 private:
-    iterator make_it(atomic_slot_type* p, const key_type& k)
-    { return iterator(p,k,_version,*this); }
-    iterator make_cit(const atomic_slot_type* p, const key_type& k) const
-    { return const_iterator(p,k,_version,*this); }
+    iterator make_it(const slot_type& slot, atomic_slot_type* ptr)
+    { return iterator(slot, ptr, _version,*this); }
+    iterator make_cit(const slot_type& slot, atomic_slot_type* ptr) const
+    { return const_iterator(slot, ptr, _version,*this); }
 
     size_t _n_elem;
     size_t _thresh;
@@ -299,27 +307,72 @@ inline typename seq_linear<C>::insert_return_type
 seq_linear<C>::insert(const key_type& k, const mapped_type& d)
 {
     size_type htemp = h(k);
-    for (size_type i = _mapper.map(htemp);;++i)
+    auto slot = slot_type(k,d, htemp);
+
+    auto result = insert_intern(slot, htemp);
+    if (slot_config::needs_cleanup && !result.second)
+    {
+        slot.cleanup();
+    }
+    return result;
+}
+
+template <class C>
+inline typename seq_linear<C>::insert_return_type
+seq_linear<C>::insert(const value_type& e)
+{
+    size_type htemp = h(e.first);
+    auto slot = slot_type(e, htemp);
+
+    auto result = insert_intern(slot, htemp);
+    if (slot_config::needs_cleanup && !result.second)
+    {
+        slot.cleanup();
+    }
+    return result;
+}
+
+template <class C> template <class ... Args>
+inline typename seq_linear<C>::insert_return_type
+seq_linear<C>::emplace(Args&& ... args)
+{
+    auto slot = slot_type(std::forward<Args>(args)...);
+    size_type htemp = h(slot.get_key_ref());
+    slot.set_fingerprint(htemp);
+
+    auto result = insert_intern(slot, htemp);
+    if (slot_config::needs_cleanup && !result.second)
+    {
+        slot.cleanup();
+    }
+    return result;
+}
+
+template <class C>
+inline typename seq_linear<C>::insert_return_type
+seq_linear<C>::insert_intern(slot_type sl, size_t hash)
+{
+    const key_type& key = sl.get_key_ref();
+    for (size_type i = _mapper.map(hash);;++i)
     {
         size_type temp = _mapper.remap(i);
         auto curr = _table[temp].load();
 
-        if (curr.compare_key(k,htemp))
-            return insert_return_type(make_it(&_table[temp], k), false); // already hashed
+        if (curr.compare_key(key, hash))
+            return insert_return_type(make_it(&_table[temp], key), false);
         else if (curr.is_empty())
         {
-            if (inc_n()) { _n_elem--; return insert(k,d); }
-            _table[temp].non_atomic_set(slot_type(k,d,htemp));
-            return insert_return_type(make_it(&_table[temp], k), true);
+            if (inc_n()) { _n_elem--; return insert_intern(sl, hash); }
+            _table[temp].non_atomic_set(sl);
+            return insert_return_type(make_it(&_table[temp], key), true);
         }
         else if (curr.is_deleted())
         {
             //do something appropriate
         }
     }
-    // grow();
-    // return insert(e);
 }
+
 
 template <class C>
 template<class F, class ...Types>

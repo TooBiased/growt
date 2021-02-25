@@ -61,6 +61,8 @@ public:
         slot_type(const value_type& pair, size_t hash);
         slot_type(key_type&& k, mapped_type&& d, size_t hash);
         slot_type(value_type&& pair, size_t hash);
+        template <class ... Args>
+        slot_type(Args&& ... args);
         slot_type(ptr_union source);
 
         slot_type(const slot_type& source) = default;
@@ -80,7 +82,6 @@ public:
         inline bool is_deleted() const;
         inline bool is_marked()  const;
         inline bool compare_key(const key_type& k, size_t hash) const;
-        inline void cleanup()    const;
 
         inline operator value_type() const;
         inline bool operator==(const slot_type& r) const;
@@ -197,6 +198,18 @@ seq_complex_slot<K,D>::slot_type::slot_type(value_type&& pair, size_t hash)
 
 }
 
+template <class K, class D> template <class ... Args>
+seq_complex_slot<K,D>::slot_type::slot_type(Args&& ... args)
+    : _mfptr(ptr_union{0})
+{
+    auto ptr = allocate();
+    new (ptr) value_type(std::forward<Args>(args)...);
+    _mfptr.split.pointer     = uint64_t(ptr);
+    // the fingerprint cannot be computed without the hash function
+    // this has to be fixed with the set fingerprint function
+    //_mfptr.split.fingerprint = complex_slot::fingerprint(hash);
+}
+
 template <class K, class D>
 seq_complex_slot<K,D>::slot_type::slot_type(ptr_union source)
     : _mfptr(source) { }
@@ -298,16 +311,16 @@ seq_complex_slot<K,D>::slot_type::compare_key(const key_type& k, size_t hash) co
     return ptr->first == k;
 }
 
-template <class K, class D>
-void
-seq_complex_slot<K,D>::slot_type::cleanup() const
-{
-    auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
-    if (ptr != nullptr)
-    {
-        deallocate(ptr);
-    }
-}
+// template <class K, class D>
+// void
+// seq_complex_slot<K,D>::slot_type::cleanup()
+// {
+//     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
+//     if (ptr != nullptr)
+//     {
+//         deallocate(ptr);
+//     }
+// }
 
 // *** operators ***************************************************************
 template <class K, class D>
@@ -317,7 +330,6 @@ seq_complex_slot<K,D>::slot_type::operator value_type() const
     if (ptr == nullptr)
     {
         debug::if_debug("getting value_type from empty slot");
-        return false;
     }
     return *ptr;
 }
@@ -371,7 +383,6 @@ seq_complex_slot<K,D>::slot_type::cleanup()
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
     if (!ptr)
     {
-        // debug::if_debug("cleanup on empty slot");
         return;
     }
     seq_complex_slot::deallocate(ptr);
