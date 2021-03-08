@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <memory>
 #include <string>
@@ -115,8 +116,9 @@ public:
     friend handle_type;
 
 
+
     migration_table_data(size_type size_)
-        : _global_exclusion(size_), _global_worker(), // handle_ptr(64),
+        : _global_exclusion(std::max(size_, size_type(1)<<15)), _global_worker(), // handle_ptr(64),
           _elements(0), _dummies(0), _grow_count(0)
     { }
 

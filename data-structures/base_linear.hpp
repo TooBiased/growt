@@ -53,7 +53,7 @@ public:
         // capacity is at least twice as large, as the inserted capacity
         static size_t compute_capacity(size_t desired_capacity)
         {
-            auto temp = 16384u;
+            auto temp = 256u;
             while (temp < desired_capacity) temp <<= 1;
             return temp << 1;
         }
