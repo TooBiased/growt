@@ -250,6 +250,7 @@ estrat_async<P>::local_data_type::migrate()
     // tables could already be deleted) but this can only happen if the migration
     // from curr is finished. If this is the case, next will never be accessed.
     auto next = _rec_handle.protect(_table->next_table);
+    while (!next) next = _rec_handle.protect(_table->next_table);
 
     // sanity checks, remove once I am sure
     if (next == nullptr)

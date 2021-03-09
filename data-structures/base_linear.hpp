@@ -22,6 +22,9 @@
 #include <iostream>
 
 #include "utils/default_hash.hpp"
+// #include "utils/output.hpp"
+// namespace otm = utils_tm::out_tm;
+
 #include "data-structures/returnelement.hpp"
 #include "data-structures/base_linear_iterator.hpp"
 #include "example/update_fcts.hpp"
@@ -110,6 +113,7 @@ private:
     template <class> friend class wstrat_user;
     template <class> friend class wstrat_pool;
 
+    // _parallel_init = false does not work with the asynchroneous variant
     static constexpr bool _parallel_init = true;
 
 public:
@@ -356,6 +360,8 @@ base_linear<C>::base_linear(size_type capacity_)
 
     if ( !_table ) std::bad_alloc();
 
+    // otm::buffered_out() << "(allocated ver 0 ptr " << _table << ")" << std::endl;
+
     std::fill( _table ,_table + nslots , slot_config::get_empty() );
 }
 
@@ -371,16 +377,21 @@ base_linear<C>::base_linear(mapper_type mapper_, size_type version_)
 
     if ( !_table ) std::bad_alloc();
 
+    // otm::buffered_out() << "(allocated ver " << version_ << " ptr " << _table << ")" << std::endl;
+
     /* The table is initialized in parallel, during the migration */
     if constexpr (! _parallel_init)
+    {
         std::fill(_table ,
                   _table + _mapper.total_slots() ,
-                  slot_config::get_empty() );
-    else if constexpr (! mapper_type::cyclic_mapping)
+                  slot_config::get_empty());
+    }
+    else if constexpr (! mapper_type::cyclic_probing)
+    {
         std::fill(_table + _mapper.addressable_slots(),
                   _table + _mapper.total_slots(),
                   slot_config::get_empty() );
-
+    }
 }
 
 template<class C>
@@ -389,6 +400,8 @@ base_linear<C>::~base_linear()
     // std::cout << "~base_linear" << std::endl;
     if constexpr (config_type::cleanup)
                      slot_cleanup();
+
+    // otm::buffered_out() << "(deallocate ver " << _version << " ptr " << _table << ")" << std::endl;
 
     if (_table) _allocator.deallocate(_table, _mapper.total_slots());
 }

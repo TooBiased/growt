@@ -970,10 +970,14 @@ inline void migration_table_handle<migration_table_data>::update_numbers()
     auto temp       = _mt_data._elements.fetch_add(_counts._inserted, std::memory_order_relaxed);
     temp           += _counts._inserted;
 
-    if (temp  > table->capacity() * _max_fill_factor)
+    int thresh = table->capacity()*_max_fill_factor;
+    if (temp  > thresh)
     {
-        rls_table();
-        grow();
+        if(temp - _counts._inserted < thresh)
+        {
+            rls_table();
+            grow();
+        }
     }
     rls_table();
     _counts.set(_counts._version, 0,0,0);
