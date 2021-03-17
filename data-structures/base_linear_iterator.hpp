@@ -70,9 +70,11 @@ public:
     inline void refresh() { _copy = *_ptr; }
 
     template<bool is_const2 = is_const>
-    inline typename std::enable_if<!is_const2>::type operator=(const mapped_type& value)
+    inline typename std::enable_if<!is_const2, base_linear_mapped_reference>::type
+    operator=(const mapped_type& value)
     {
         _ptr->atomic_update(_copy, _overwrite{}, value);
+        return *this;
     }
 
     template<class F, class ... Args>

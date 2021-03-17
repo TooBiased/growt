@@ -68,7 +68,8 @@ public:
     }
 
     template<bool is_const2 = is_const>
-    inline typename std::enable_if<!is_const2>::type operator=(const mapped_type& value)
+    inline typename std::enable_if<!is_const2, migration_table_mapped_reference>::type
+    operator=(const mapped_type& value)
     {
         static_assert(!is_const, "assignment operator called on a const_mapped_reference");
         _tab.execute(
