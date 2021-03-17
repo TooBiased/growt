@@ -325,7 +325,7 @@ add_dependencies( folklore
   ins_none_folklore mix_none_folklore con_none_folklore
   agg_none_folklore)
 
-dd_custom_target( sequential )
+add_custom_target( sequential )
 add_dependencies( sequential
   ins_full_sequential mix_full_sequential con_full_sequential
   agg_full_sequential)
