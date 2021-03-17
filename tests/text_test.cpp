@@ -96,8 +96,7 @@ int push_file(Hash& hash, std::ifstream& in_stream, [[maybe_unused]]size_t id)
             // }
             // else
             {
-                auto result = hash.emplace_or_update(
-                    std::move(word), 1, growt::example::Increment(), 1);
+                auto result = hash.insert(word, 1);
                 if (result.second) uniques++;
             }
         }
@@ -156,7 +155,6 @@ struct test_in_stages
                 pos         .store(0);
                 unique_words.store(0);
                 number_words.store(0);
-
             }
 
             in_file.close();
