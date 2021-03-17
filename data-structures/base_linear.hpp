@@ -226,6 +226,7 @@ public:
 
 protected:
     atomic_slot_type*  _table;
+    //std::atomic_int*   _init_table;
     mapper_type        _mapper;
     size_type          _version;
     std::atomic_size_t _current_copy_block;
@@ -1013,7 +1014,7 @@ base_linear<C>::migrate(this_type& target, size_type s, size_type e)
     long long i = s;
     auto curr = slot_config::get_empty();
 
-    if (mapper_type::cyclic_probing || mapper_type::cyclic_mapping || s > 0)
+    if (mapper_type::cyclic_probing || s > 0)
     {
         //FINDS THE FIRST EMPTY BUCKET (START OF IMPLICIT BLOCK)
         while (i<long(e))
@@ -1076,34 +1077,34 @@ base_linear<C>::migrate(this_type& target, size_type s, size_type e)
             }
         }
     }
-    if constexpr (!mapper_type::cyclic_probing && mapper_type::cyclic_mapping)
-    {
-        if (e == _mapper.addressable_slots())
-        {
-            i = 0;
-            b = true; // b indicates, if t[i-1] was non-empty
+    // if constexpr (!mapper_type::cyclic_probing && mapper_type::cyclic_mapping)
+    // {
+    //     if (e == _mapper.addressable_slots())
+    //     {
+    //         i = 0;
+    //         b = true; // b indicates, if t[i-1] was non-empty
 
-            for (; b; ++i)
-            {
-                auto pos  = _mapper.remap(i);
-                // auto t_pos= pos<<shift;
-                // for (size_type j = 0; j < 1ull<<shift; ++j)
-                //     target._table[t_pos+j].non_atomic_set(slot_config::get_empty());
-                target.initialize(pos);
+    //         for (; b; ++i)
+    //         {
+    //             auto pos  = _mapper.remap(i);
+    //             // auto t_pos= pos<<shift;
+    //             // for (size_type j = 0; j < 1ull<<shift; ++j)
+    //             //     target._table[t_pos+j].non_atomic_set(slot_config::get_empty());
+    //             target.initialize(pos);
 
-                curr = _table[pos].load();
+    //             curr = _table[pos].load();
 
-                if (! _table[pos].atomic_mark(curr)) --i;
-                else if ( (b = ! curr.is_empty()) ) // this might be nicer as an else if, but this is faster
-                {
-                    if (!curr.is_deleted())
-                    {
-                        target.insert_unsafe(curr); n++;
-                    }
-                }
-            }
-        }
-    }
+    //             if (! _table[pos].atomic_mark(curr)) --i;
+    //             else if ( (b = ! curr.is_empty()) ) // this might be nicer as an else if, but this is faster
+    //             {
+    //                 if (!curr.is_deleted())
+    //                 {
+    //                     target.insert_unsafe(curr); n++;
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
     // std::cout << "migrated one block" << std::endl;
     return n;
@@ -1126,7 +1127,8 @@ inline void base_linear<C>::initialize(size_t start, size_t end)
     else
     {
         std::fill(_table+(start<<_mapper.grow_helper()),
-                  _table+(end  <<_mapper.grow_helper()), slot_config::get_empty());
+                  _table+(end  <<_mapper.grow_helper()),
+                  slot_config::get_empty());
     }
 }
 
@@ -1136,6 +1138,10 @@ inline void base_linear<C>::initialize(size_t idx)
     if constexpr (! _parallel_init) return;
     if constexpr (_mapper.cyclic_mapping)
     {
+        if constexpr (! _mapper.cyclic_probing)
+        {
+            if (idx >= _mapper.grow_helper()) return;
+        }
         for (size_t i = idx;
              i <= _mapper.bitmask();
              i+=_mapper.grow_helper())

@@ -13,6 +13,8 @@
 #include <fstream>
 #include <string>
 
+#include "tbb/scalable_allocator.h"
+
 #ifdef MALLOC_COUNT
 #include "malloc_count.h"
 #endif
@@ -41,9 +43,13 @@ namespace otm = utils_tm::out_tm;
 namespace ttm = utils_tm::thread_tm;
 namespace dtm = utils_tm::debug_tm;
 
-using text_config = table_config<std::string, size_t,
+using scalable_string = std::basic_string<char,
+                                          std::char_traits<char>,
+                                          tbb::scalable_allocator<char>>;
+using text_config = table_config<scalable_string, size_t,
                                 utils_tm::hash_tm::default_hash,allocator_type>;
 using table_type = typename text_config::table_type;
+
 
 alignas(64) static table_type hash_table = table_type(0);
 //alignas(64) static std::atomic_size_t errors;
@@ -63,7 +69,7 @@ int push_file(Hash& hash, std::ifstream& in_stream, [[maybe_unused]]size_t id)
     {
         long long start = pos.fetch_add(block_size, std::memory_order_acquire);
         long long end   = start + block_size;
-        std::string word;
+        scalable_string word;
 
         //auto lout = otm::locally_buffered_output<otm::output_type>(otm::out());
         if (start > 0)

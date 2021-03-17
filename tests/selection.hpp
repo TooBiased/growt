@@ -39,6 +39,10 @@ using allocator_type = growt::NUMAPoolAllocator<>;
 using allocator_type = growt::HTLBPoolAllocator<>;
 #endif
 
+#ifdef TBB_ALIGNED
+#include "tbb/scalable_allocator.h"
+using allocator_type = tbb::scalable_allocator<void>;
+#endif
 
 
 
