@@ -120,33 +120,34 @@ target_link_libraries(range_example ${TEST_DEP_LIBRARIES})
 
 
 # if necessary find tbb
-if (USE_TBB_MEMPOOL OR GROWT_BUILD_TBB)
-  find_package(TBB)
+# if (USE_TBB_MEMPOOL OR GROWT_BUILD_TBB)
+find_package(TBB)
 
-  if (NOT TBB_FOUND)
-    message("Intel TBB not found. "
-      "memPool cannot be used and TBB-Tests cannot be created!")
-    set(GROWT_BUILD_TBB OFF)
-    if (USE_TBB_MEMPOOL)
-      message(STATUS "Switch to aligned alloc!")
-      set(GROWT_ALLOCATOR ALIGNED)
-    endif()
-  elseif(TBB_INTERFACE_VERSION LESS 8000)
-    message("Intel TBB ${TBB_INTERFACE_VERSION} is too old. "
-      "ThreadPool cannot be used and TBB-Tests cannot be created!")
-    set(GROWT_BUILD_TBB OFF)
-    if (USE_TBB_MEMPOOL)
-      message(STATUS "Switch to aligned alloc!")
-      set(GROWT_ALLOCATOR ALIGNED)
-    endif()
-  else()
-    include_directories(STATUS ${TBB_INCLUDE_DIRS})
-    link_directories(${TBB_LIBRARY_DIRS})
-    if (USE_TBB_MEMPOOL)
-      set(ALLOC_LIB ${TBB_LIBRARIES})
-    endif()
+if (NOT TBB_FOUND)
+  message("Intel TBB not found. "
+    "memPool cannot be used and TBB-Tests cannot be created!")
+  set(GROWT_BUILD_TBB OFF)
+  if (USE_TBB_MEMPOOL)
+    message(STATUS "Switch to aligned alloc!")
+    set(GROWT_ALLOCATOR ALIGNED)
+  endif()
+elseif(TBB_INTERFACE_VERSION LESS 8000)
+  message("Intel TBB ${TBB_INTERFACE_VERSION} is too old. "
+    "ThreadPool cannot be used and TBB-Tests cannot be created!")
+  set(GROWT_BUILD_TBB OFF)
+  if (USE_TBB_MEMPOOL)
+    message(STATUS "Switch to aligned alloc!")
+    set(GROWT_ALLOCATOR ALIGNED)
+  endif()
+else()
+  include_directories(STATUS ${TBB_INCLUDE_DIRS})
+  link_directories(${TBB_LIBRARY_DIRS})
+  if (USE_TBB_MEMPOOL)
+    set(ALLOC_LIB ${TBB_LIBRARIES})
   endif()
 endif()
+# endif()
+
 
 if (GROWT_ALLOCATOR STREQUAL NUMA_POOL)
   find_package(NUMA)
@@ -161,7 +162,6 @@ if (GROWT_ALLOCATOR STREQUAL NUMA_POOL)
     set(ALLOC_LIB ${ALLOC_LIB} ${NUMA_LIBRARIES})
   endif()
 endif()
-
 
 
 ##### SUBMODULE FINDS ##########################################################
@@ -290,13 +290,11 @@ GrowTExecutable( FOLKLORE ins_test  ins  ins_none_folklore )
 GrowTExecutable( FOLKLORE mix_test  mix  mix_none_folklore )
 GrowTExecutable( FOLKLORE con_test  con  con_none_folklore )
 GrowTExecutable( FOLKLORE agg_test  agg  agg_none_folklore )
-GrowTExecutable( FOLKLORE text_test text text_none_folklore )
 
 GrowTExecutable( SEQUENTIAL ins_test  seq  ins_full_sequential )
 GrowTExecutable( SEQUENTIAL mix_test  seq  mix_full_sequential )
 GrowTExecutable( SEQUENTIAL con_test  seq  con_full_sequential )
 GrowTExecutable( SEQUENTIAL agg_test  seq  agg_full_sequential )
-GrowTExecutable( SEQUENTIAL text_test text text_full_sequential )
 
 GrowTExecutable( UAGROW ins_test ins ins_full_uaGrowT )
 GrowTExecutable( USGROW ins_test ins ins_full_usGrowT )
@@ -318,11 +316,6 @@ GrowTExecutable( UAGROW agg_test agg agg_full_uaGrowT )
 GrowTExecutable( USGROW agg_test agg agg_full_usGrowT )
 GrowTExecutable( PAGROW agg_test agg agg_full_paGrowT )
 GrowTExecutable( PSGROW agg_test agg agg_full_psGrowT )
-GrowTExecutable( UAGROW text_test text text_full_uaGrowT )
-GrowTExecutable( USGROW text_test text text_full_usGrowT )
-GrowTExecutable( PAGROW text_test text text_full_paGrowT )
-GrowTExecutable( PSGROW text_test text text_full_psGrowT )
-
 # target_compile_definitions(del_full_uaGrowT PRIVATE
 #   -D CMAP)
 
@@ -330,32 +323,32 @@ GrowTExecutable( PSGROW text_test text text_full_psGrowT )
 add_custom_target( folklore )
 add_dependencies( folklore
   ins_none_folklore mix_none_folklore con_none_folklore
-  agg_none_folklore text_none_folklore)
+  agg_none_folklore)
 
-add_custom_target( sequential )
+dd_custom_target( sequential )
 add_dependencies( sequential
   ins_full_sequential mix_full_sequential con_full_sequential
-  agg_full_sequential text_full_sequential)
+  agg_full_sequential)
 
 add_custom_target( uagrow )
 add_dependencies( uagrow
   ins_full_uaGrowT mix_full_uaGrowT con_full_uaGrowT
-  agg_full_uaGrowT del_full_uaGrowT text_full_uaGrowT)
+  agg_full_uaGrowT del_full_uaGrowT)
 
 add_custom_target( usgrow )
 add_dependencies( usgrow
   ins_full_usGrowT mix_full_usGrowT con_full_usGrowT
-  agg_full_usGrowT del_full_usGrowT text_full_usGrowT)
+  agg_full_usGrowT del_full_usGrowT)
 
 add_custom_target( pagrow )
 add_dependencies( pagrow
   ins_full_paGrowT mix_full_paGrowT con_full_paGrowT
-  agg_full_paGrowT del_full_paGrowT text_full_paGrowT)
+  agg_full_paGrowT del_full_paGrowT)
 
 add_custom_target( psgrow )
 add_dependencies( psgrow
   ins_full_psGrowT mix_full_psGrowT con_full_psGrowT
-  agg_full_psGrowT del_full_psGrowT text_full_psGrowT)
+  agg_full_psGrowT del_full_psGrowT)
 
 add_custom_target( functionality )
 add_dependencies ( functionality
@@ -397,12 +390,27 @@ add_dependencies( del
   del_full_uaGrowT    del_full_usGrowT
   del_full_uaGrowT    del_full_usGrowT)
 
-add_custom_target( text )
-add_dependencies( text
-  text_full_sequential
-  text_none_folklore
-  text_full_uaGrowT    text_full_usGrowT
-  text_full_uaGrowT    text_full_usGrowT)
+if (TBB_FOUND)
+  GrowTExecutable( FOLKLORE text_test text text_none_folklore )
+  GrowTExecutable( SEQUENTIAL text_test text text_full_sequential )
+  GrowTExecutable( UAGROW text_test text text_full_uaGrowT )
+  GrowTExecutable( USGROW text_test text text_full_usGrowT )
+  GrowTExecutable( PAGROW text_test text text_full_paGrowT )
+  GrowTExecutable( PSGROW text_test text text_full_psGrowT )
+  target_link_libraries(text_none_folklore ${TBB_LIBRARIES})
+  target_link_libraries(text_full_sequential ${TBB_LIBRARIES})
+  target_link_libraries(text_full_uaGrowT ${TBB_LIBRARIES})
+  target_link_libraries(text_full_usGrowT ${TBB_LIBRARIES})
+  target_link_libraries(text_full_paGrowT ${TBB_LIBRARIES})
+  target_link_libraries(text_full_psGrowT ${TBB_LIBRARIES})
+
+  add_custom_target( text )
+  add_dependencies( text
+    text_full_sequential
+    text_none_folklore
+    text_full_uaGrowT    text_full_usGrowT
+    text_full_uaGrowT    text_full_usGrowT)
+endif()
 
 
 if (GROWT_BUILD_TBB)
@@ -428,6 +436,8 @@ if (GROWT_BUILD_TBB)
 
   TBBExecutable( TBBUM  text_test text text_full_TBBum )
   TBBExecutable( TBBHM  text_test text text_full_TBBhm )
+  target_link_libraries(text_full_TBBum ${TBB_LIBRARIES})
+  target_link_libraries(text_full_TBBhm ${TBB_LIBRARIES})
 
   add_custom_target( tbb )
   add_dependencies( tbb
@@ -478,12 +488,15 @@ if (GROWT_BUILD_CUCKOO)
   CuckooExecutable( CUCKOO  con_test con con_full_cuckoo )
   CuckooExecutable( CUCKOO  agg_test agg agg_full_cuckoo )
   CuckooExecutable( CUCKOO  del_test del del_full_cuckoo )
-  CuckooExecutable( CUCKOO  text_test text text_full_cuckoo )
+  if (TBB_FOUND)
+    CuckooExecutable( CUCKOO  text_test text text_full_cuckoo )
+    target_link_libraries(text_full_cuckoo ${TBB_LIBRARIES})
+  endif()
 
   add_custom_target( cuckoo )
   add_dependencies( cuckoo
     ins_full_cuckoo mix_full_cuckoo con_full_cuckoo
-    agg_full_cuckoo del_full_cuckoo text_full_cuckoo)
+    agg_full_cuckoo del_full_cuckoo)
 endif()
 
 if (GROWT_BUILD_JUNCTION)
