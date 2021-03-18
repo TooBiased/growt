@@ -88,13 +88,39 @@ int push_file(Hash& hash, std::ifstream& in_stream, [[maybe_unused]]size_t id)
 
             in_stream >> word;
             words++;
-            // if constexpr (table_type::allows_referential_integrity)
-            // {
-            //     auto result = hash.emplace(std::move(word), 1);
-            //     if (result.second) uniques++;
-            //     else result.first->second++;
-            // }
-            // else
+
+            #define VARIANT 2
+
+            if (VARIANT == 1)
+            {
+                auto result = hash.emplace_or_update(
+                    std::move(word), 1, growt::example::Increment(), 1);
+                if (result.second) uniques++;
+            }
+            if (VARIANT == 2)
+            {
+                auto result = hash.insert_or_update(
+                    word, 1, growt::example::Increment(), 1);
+                if (result.second) uniques++;
+            }
+            if (VARIANT == 3)
+            {
+                auto result = hash.insert(word, 1);
+                if (result.second) uniques++;
+                else result.first->second++;
+            }
+            if (VARIANT == 4)
+            {
+                auto result = hash.emplace(std::move(word), 1);
+                if (result.second) uniques++;
+                else result.first->second++;
+            }
+            if (VARIANT == 5)
+            {
+                auto result = hash.emplace(std::move(word), 1);
+                if (result.second) uniques++;
+            }
+            if (VARIANT == 6)
             {
                 auto result = hash.insert(word, 1);
                 if (result.second) uniques++;
