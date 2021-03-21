@@ -4,6 +4,8 @@
 #include <tuple>
 #include <string>
 
+#include "tbb/scalable_allocator.h"
+
 #include "utils/debug.hpp"
 namespace debug = utils_tm::debug_tm;
 
@@ -43,7 +45,8 @@ struct ptr_splitter<false>
     { }
 };
 
-template <class Key, class Data, bool markable>
+template <class Key, class Data, bool markable,
+          class Allocator = tbb::scalable_allocator<void>>
 class complex_slot
 {
     using ptr_split = ptr_splitter<markable>;
@@ -69,6 +72,7 @@ public:
     using key_type = Key;
     using mapped_type = Data;
     using value_type = std::pair<const key_type, mapped_type>;
+    using allocator_type = typename Allocator::template rebind<value_type>::other;
 
     static constexpr bool allows_marking               = markable;
     static constexpr bool allows_deletions             = false;
@@ -163,26 +167,36 @@ public:
     }
 
     static value_type* allocate()
-    { return static_cast<value_type*>(malloc(sizeof(value_type)));}
-    static void        deallocate(value_type* ptr) { free(ptr); }
+    {
+        //return static_cast<value_type*>(malloc(sizeof(value_type)));
+        return allocator.allocate(1);
+    }
+    static void        deallocate(value_type* ptr)
+    {
+        //free(ptr);
+        allocator.deallocate(ptr, 1);
+    }
 
     static std::string name()
     {
         return "complex_slot";
     }
+
+private:
+    static allocator_type allocator;
 };
 
 
 
 // SLOT_TYPE *******************************************************************
 // *** statics *****************************************************************
-// template <class K, class D, bool m>
-// static complex_slot<K,D,m>::empty = complex_slot<K,D,m>::slot_type(
-//     typename complex_slot<K,D,m>::ptr_union{ptr_union(0)});
+// template <class K, class D, bool m, class A>
+// static complex_slot<K,D,m,A>::empty = complex_slot<K,D,m,A>::slot_type(
+//     typename complex_slot<K,D,m,A>::ptr_union{ptr_union(0)});
 
 // *** constructors ************************************************************
-template <class K, class D, bool m>
-complex_slot<K,D,m>::slot_type::slot_type(const key_type& k,
+template <class K, class D, bool m, class A>
+complex_slot<K,D,m,A>::slot_type::slot_type(const key_type& k,
                                           const mapped_type& d, size_t hash)
     : _mfptr(ptr_union{0})
 {
@@ -193,8 +207,8 @@ complex_slot<K,D,m>::slot_type::slot_type(const key_type& k,
 }
 
 
-template <class K, class D, bool m>
-complex_slot<K,D,m>::slot_type::slot_type(const value_type& pair, size_t hash)
+template <class K, class D, bool m, class A>
+complex_slot<K,D,m,A>::slot_type::slot_type(const value_type& pair, size_t hash)
     : _mfptr(ptr_union{0})
 {
     auto ptr = allocate();
@@ -203,8 +217,8 @@ complex_slot<K,D,m>::slot_type::slot_type(const value_type& pair, size_t hash)
     _mfptr.split.fingerprint = complex_slot::fingerprint(hash);
 }
 
-template <class K, class D, bool m>
-complex_slot<K,D,m>::slot_type::slot_type(key_type&& k, mapped_type&& d,
+template <class K, class D, bool m, class A>
+complex_slot<K,D,m,A>::slot_type::slot_type(key_type&& k, mapped_type&& d,
                                           size_t hash)
     : _mfptr(ptr_union{0})
 {
@@ -214,10 +228,12 @@ complex_slot<K,D,m>::slot_type::slot_type(key_type&& k, mapped_type&& d,
     _mfptr.split.fingerprint = complex_slot::fingerprint(hash);
 }
 
-template <class K, class D, bool m> template <class ... Args>
-complex_slot<K,D,m>::slot_type::slot_type(Args&& ... args)
+template <class K, class D, bool m, class A> template <class ... Args>
+complex_slot<K,D,m,A>::slot_type::slot_type(Args&& ... args)
     : _mfptr(ptr_union{0})
 {
+    //static_assert(Args);
+
     auto ptr = allocate();
     new (ptr) std::pair<const key_type, mapped_type>{std::forward<Args>(args)...};
     _mfptr.split.pointer     = uint64_t(ptr);
@@ -226,8 +242,8 @@ complex_slot<K,D,m>::slot_type::slot_type(Args&& ... args)
     //_mfptr.split.fingerprint = complex_slot::fingerprint(hash);
 }
 
-template <class K, class D, bool m>
-complex_slot<K,D,m>::slot_type::slot_type(value_type&& pair, size_t hash)
+template <class K, class D, bool m, class A>
+complex_slot<K,D,m,A>::slot_type::slot_type(value_type&& pair, size_t hash)
     : _mfptr(ptr_union{0})
 {
     auto ptr = allocate();
@@ -237,14 +253,14 @@ complex_slot<K,D,m>::slot_type::slot_type(value_type&& pair, size_t hash)
 
 }
 
-template <class K, class D, bool m>
-complex_slot<K,D,m>::slot_type::slot_type(ptr_union source)
+template <class K, class D, bool m, class A>
+complex_slot<K,D,m,A>::slot_type::slot_type(ptr_union source)
     : _mfptr(source) { }
 
 // *** getter ******************************************************************
-template <class K, class D, bool m>
-typename complex_slot<K,D,m>::key_type
-complex_slot<K,D,m>::slot_type::get_key() const
+template <class K, class D, bool m, class A>
+typename complex_slot<K,D,m,A>::key_type
+complex_slot<K,D,m,A>::slot_type::get_key() const
 {
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
     if (!ptr)
@@ -255,9 +271,9 @@ complex_slot<K,D,m>::slot_type::get_key() const
     return ptr->first;
 }
 
-template <class K, class D, bool m>
-const typename complex_slot<K,D,m>::key_type&
-complex_slot<K,D,m>::slot_type::get_key_ref() const
+template <class K, class D, bool m, class A>
+const typename complex_slot<K,D,m,A>::key_type&
+complex_slot<K,D,m,A>::slot_type::get_key_ref() const
 {
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
     if (!ptr)
@@ -267,9 +283,9 @@ complex_slot<K,D,m>::slot_type::get_key_ref() const
     return ptr->first;
 }
 
-template <class K, class D, bool m>
-typename complex_slot<K,D,m>::mapped_type
-complex_slot<K,D,m>::slot_type::get_mapped() const
+template <class K, class D, bool m, class A>
+typename complex_slot<K,D,m,A>::mapped_type
+complex_slot<K,D,m,A>::slot_type::get_mapped() const
 {
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
     if (!ptr)
@@ -280,9 +296,9 @@ complex_slot<K,D,m>::slot_type::get_mapped() const
     return ptr->second;
 }
 
-template <class K, class D, bool m>
-const typename complex_slot<K,D,m>::value_type*
-complex_slot<K,D,m>::slot_type::get_pointer() const
+template <class K, class D, bool m, class A>
+const typename complex_slot<K,D,m,A>::value_type*
+complex_slot<K,D,m,A>::slot_type::get_pointer() const
 {
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
     if (!ptr)
@@ -292,9 +308,9 @@ complex_slot<K,D,m>::slot_type::get_pointer() const
     return ptr;
 }
 
-template <class K, class D, bool m>
-typename complex_slot<K,D,m>::value_type*
-complex_slot<K,D,m>::slot_type::get_pointer()
+template <class K, class D, bool m, class A>
+typename complex_slot<K,D,m,A>::value_type*
+complex_slot<K,D,m,A>::slot_type::get_pointer()
 {
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
     if (!ptr)
@@ -304,40 +320,40 @@ complex_slot<K,D,m>::slot_type::get_pointer()
     return ptr;
 }
 
-template <class K, class D, bool m>
+template <class K, class D, bool m, class A>
 void
-complex_slot<K,D,m>::slot_type::set_fingerprint(size_t hash)
+complex_slot<K,D,m,A>::slot_type::set_fingerprint(size_t hash)
 {
     _mfptr.split.fingerprint = complex_slot::fingerprint(hash);
 }
 
 // *** state *******************************************************************
-template <class K, class D, bool m>
+template <class K, class D, bool m, class A>
 bool
-complex_slot<K,D,m>::slot_type::is_empty() const
+complex_slot<K,D,m,A>::slot_type::is_empty() const
 {
     if constexpr (!m) return _mfptr.full == 0;
     return _mfptr.split.pointer == 0;
 }
 
-template <class K, class D, bool m>
+template <class K, class D, bool m, class A>
 bool
-complex_slot<K,D,m>::slot_type::is_deleted() const
+complex_slot<K,D,m,A>::slot_type::is_deleted() const
 {
     return _mfptr.full == complex_slot::get_deleted()._mfptr.full;
 }
 
-template <class K, class D, bool m>
+template <class K, class D, bool m, class A>
 bool
-complex_slot<K,D,m>::slot_type::is_marked() const
+complex_slot<K,D,m,A>::slot_type::is_marked() const
 {
     if constexpr (!m) return false;
     return _mfptr.split.mark;
 }
 
-template <class K, class D, bool m>
+template <class K, class D, bool m, class A>
 bool
-complex_slot<K,D,m>::slot_type::compare_key(const key_type& k, size_t hash) const
+complex_slot<K,D,m,A>::slot_type::compare_key(const key_type& k, size_t hash) const
 {
     if (fingerprint(hash) != _mfptr.split.fingerprint) return false;
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
@@ -350,8 +366,8 @@ complex_slot<K,D,m>::slot_type::compare_key(const key_type& k, size_t hash) cons
 }
 
 // *** operators ***************************************************************
-template <class K, class D, bool m>
-complex_slot<K,D,m>::slot_type::operator value_type() const
+template <class K, class D, bool m, class A>
+complex_slot<K,D,m,A>::slot_type::operator value_type() const
 {
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
     if (ptr == nullptr)
@@ -361,9 +377,9 @@ complex_slot<K,D,m>::slot_type::operator value_type() const
     return *ptr;
 }
 
-template <class K, class D, bool m>
+template <class K, class D, bool m, class A>
 bool
-complex_slot<K,D,m>::slot_type::operator==(const slot_type& r) const
+complex_slot<K,D,m,A>::slot_type::operator==(const slot_type& r) const
 {
     if (_mfptr.fingerprint != r._mfptr.fingerprint) return false;
     auto ptr0 = reinterpret_cast<value_type*>(_mfptr.split.pointer);
@@ -381,9 +397,9 @@ complex_slot<K,D,m>::slot_type::operator==(const slot_type& r) const
     return ptr0->key == ptr1->key;
 }
 
-template <class K, class D, bool m>
+template <class K, class D, bool m, class A>
 bool
-complex_slot<K,D,m>::slot_type::operator!=(const slot_type& r) const
+complex_slot<K,D,m,A>::slot_type::operator!=(const slot_type& r) const
 {
     if (_mfptr.fingerprint != r._mfptr.fingerprint) return false;
     auto ptr0 = reinterpret_cast<value_type*>(_mfptr.split.pointer);
@@ -403,9 +419,9 @@ complex_slot<K,D,m>::slot_type::operator!=(const slot_type& r) const
 
 
 // *** cleanup *****************************************************************
-template <class K, class D, bool m>
+template <class K, class D, bool m, class A>
 void
-complex_slot<K,D,m>::slot_type::cleanup()
+complex_slot<K,D,m,A>::slot_type::cleanup()
 {
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
     if (!ptr)
@@ -423,52 +439,52 @@ complex_slot<K,D,m>::slot_type::cleanup()
 // ATOMIC_SLOT_TYPE ************************************************************
 // *** constructors
 
-template <class K, class D, bool m>
-complex_slot<K,D,m>::atomic_slot_type::atomic_slot_type(const atomic_slot_type& source)
+template <class K, class D, bool m, class A>
+complex_slot<K,D,m,A>::atomic_slot_type::atomic_slot_type(const atomic_slot_type& source)
     : _aptr(source.load()._mfptr.full)
 { }
 
-template <class K, class D, bool m>
-typename complex_slot<K,D,m>::atomic_slot_type&
-complex_slot<K,D,m>::atomic_slot_type::operator=(const atomic_slot_type& source)
+template <class K, class D, bool m, class A>
+typename complex_slot<K,D,m,A>::atomic_slot_type&
+complex_slot<K,D,m,A>::atomic_slot_type::operator=(const atomic_slot_type& source)
 {
     non_atomic_set(source.load());
     return *this;
 }
 
-template <class K, class D, bool m>
-complex_slot<K,D,m>::atomic_slot_type::atomic_slot_type(const slot_type& source)
+template <class K, class D, bool m, class A>
+complex_slot<K,D,m,A>::atomic_slot_type::atomic_slot_type(const slot_type& source)
     : _aptr(source._mfptr.full)
 { }
 
-template <class K, class D, bool m>
-typename complex_slot<K,D,m>::atomic_slot_type&
-complex_slot<K,D,m>::atomic_slot_type::operator=(const slot_type& source)
+template <class K, class D, bool m, class A>
+typename complex_slot<K,D,m,A>::atomic_slot_type&
+complex_slot<K,D,m,A>::atomic_slot_type::operator=(const slot_type& source)
 {
     non_atomic_set(source);
     return *this;
 }
 
 // *** common atomics **********************************************************
-template <class K, class D, bool m>
-typename complex_slot<K,D,m>::slot_type
-complex_slot<K,D,m>::atomic_slot_type::load() const
+template <class K, class D, bool m, class A>
+typename complex_slot<K,D,m,A>::slot_type
+complex_slot<K,D,m,A>::atomic_slot_type::load() const
 {
     ptr_union pu;
     pu.full = _aptr.load(std::memory_order_relaxed);
     return pu;
 }
 
-template <class K, class D, bool m>
+template <class K, class D, bool m, class A>
 void
-complex_slot<K,D,m>::atomic_slot_type::non_atomic_set(const slot_type& source)
+complex_slot<K,D,m,A>::atomic_slot_type::non_atomic_set(const slot_type& source)
 {
     reinterpret_cast<size_t&>(_aptr) = source._mfptr.full;
 }
 
-template <class K, class D, bool m>
+template <class K, class D, bool m, class A>
 bool
-complex_slot<K,D,m>::atomic_slot_type::cas(slot_type& expected,
+complex_slot<K,D,m,A>::atomic_slot_type::cas(slot_type& expected,
                                               const slot_type& goal)
 {
     return _aptr.compare_exchange_strong(expected._mfptr.full,
@@ -476,18 +492,18 @@ complex_slot<K,D,m>::atomic_slot_type::cas(slot_type& expected,
                                          std::memory_order_relaxed);
 }
 
-template <class K, class D, bool m>
+template <class K, class D, bool m, class A>
 bool
-complex_slot<K,D,m>::atomic_slot_type::atomic_delete(slot_type& expected)
+complex_slot<K,D,m,A>::atomic_slot_type::atomic_delete(slot_type& expected)
 {
     return _aptr.compare_exchange_strong(expected._mfptr.full,
                                          get_deleted._mfptr.full,
                                          std::memory_order_relaxed);
 }
 
-template <class K, class D, bool m>
+template <class K, class D, bool m, class A>
 bool
-complex_slot<K,D,m>::atomic_slot_type::atomic_mark  (slot_type& expected)
+complex_slot<K,D,m,A>::atomic_slot_type::atomic_mark  (slot_type& expected)
 {
     if constexpr (!m) return true;
     ptr_union pu = expected._mfptr;
@@ -524,15 +540,16 @@ class _atomic_helper_type
 public:
     template <class F, class ...Types>
     inline static std::pair<typename SlotType::slot_type,bool>
-    execute(typename SlotType::atomic_slot_type* that,
-            typename SlotType::slot_type&,
+    execute([[maybe_unused]]typename SlotType::atomic_slot_type* that,
+            typename SlotType::slot_type& curr,
             F f, Types ... args)
     {
         // UGLY (Same as non_atomic_update)
-        auto slot      = that->load();
-        auto key_value = slot.get_pointer();
+        //typename SlotType::slot_type slot = that->load();
+        auto key_value = curr.get_pointer();
         f.atomic(key_value->second,std::forward<Types>(args)...);
-        return std::make_pair(slot,true);
+        using slot_type = typename SlotType::slot_type;
+        return std::make_pair(static_cast<const slot_type&>(curr), true);
     }
 };
 
@@ -551,31 +568,32 @@ public:
         static_assert(sizeof(mapped_type) == sizeof(std::atomic<mapped_type>),
                       "Error in complex_slot::atomic_update the mapped_type "
                       "cannot act as atomic member");
-        static_assert(std::atomic<mapped_type>::is_always_lock_free(),
+        static_assert(std::atomic<mapped_type>::is_always_lock_free,
                       "Error in complex_slot::atomic_update the mapped type "
                       "does not support atomics thus the provided function "
                       "must itself be atomic, if it is it should be named *.atomic");
         using atomic_mapped_type = std::atomic<mapped_type>;
-        auto slot      = that->load();
-        auto key_value = slot.get_pointer();
+        using slot_type = typename SlotType::slot_type;
+        // auto slot      = that->load();
+        auto key_value_ptr = expected.get_pointer();
         auto atomapped = reinterpret_cast<atomic_mapped_type*>
-            (&(key_value->second));
-        auto expmapped = expected.get_mapped();
+            (&(key_value_ptr->second));
+        auto expmapped = atomapped.load();
         auto newmapped = expmapped;
         f(newmapped, std::forward<Types>(args)...);
-        bool succ = atomapped.compare_exchange_strong(expmapped,
+        bool succ = atomapped->compare_exchange_strong(expmapped,
                                                       newmapped,
                                                       std::memory_order_relaxed);
-        return std::make_pair(slot, succ);
+        return std::make_pair(static_cast<const slot_type&>(expected), succ);
     }
 };
 }
 
 
 // *** functor style updates ***************************************************
-template <class K, class D, bool m> template<class F, class ...Types>
-std::pair<typename complex_slot<K,D,m>::slot_type, bool>
-complex_slot<K,D,m>::atomic_slot_type::atomic_update(slot_type & expected,
+template <class K, class D, bool m, class A> template<class F, class ...Types>
+std::pair<typename complex_slot<K,D,m,A>::slot_type, bool>
+complex_slot<K,D,m,A>::atomic_slot_type::atomic_update(slot_type & expected,
                                                      F f, Types&& ... args)
 {
     return _complex_atomic_helper::_atomic_helper_type<
@@ -584,14 +602,14 @@ complex_slot<K,D,m>::atomic_slot_type::atomic_update(slot_type & expected,
             this, expected, f, std::forward<Types>(args)...);
 }
 
-template <class K, class D, bool m> template<class F, class ...Types>
-std::pair<typename complex_slot<K,D,m>::slot_type, bool>
-complex_slot<K,D,m>::atomic_slot_type::non_atomic_update(F f, Types&& ... args)
+template <class K, class D, bool m, class A> template<class F, class ...Types>
+std::pair<typename complex_slot<K,D,m,A>::slot_type, bool>
+complex_slot<K,D,m,A>::atomic_slot_type::non_atomic_update(F f, Types&& ... args)
 {
-    auto slot      = load();
+    slot_type slot = load();
     auto key_value = slot.get_pointer();
-    auto result    = f(key_value->second, std::forward<Types>(args)...);
-    return std::make_pair(slot, true);
+    f.atomic(key_value->second,std::forward<Types>(args)...);
+    return std::make_pair(std::move(slot), true);
 }
 
 }

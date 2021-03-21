@@ -67,11 +67,11 @@ public:
     {   free(p);   }
 
     //! Returns the adress of x.
-    pointer adress(reference x) const noexcept
+    pointer address(reference x) const noexcept
     {   return std::addressof(x);   }
 
     //! Returns the adress of x.
-    const_pointer adress(const_reference x) const noexcept
+    const_pointer address(const_reference x) const noexcept
     {   return std::addressof(x);   }
 
     //! Maximum size possible to allocate

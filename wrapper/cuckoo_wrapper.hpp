@@ -166,7 +166,7 @@ cuckoo_wrapper<K,D,HF,AL>::insert_or_update(const key_type& k, const mapped_type
 {
     // no differentiation between update and insert
     // args1 = std::forward<Types>(args)...
-    auto res = hash.upsert(k, [&f, &args...](mapped_type& v){ f(v, std::forward<Types>(args)...); }, d);
+    hash.upsert(k, [&f, &args...](mapped_type& v){ f(v, std::forward<Types>(args)...); }, d);
     return std::make_pair(iterator(k,d), true);
 }
 

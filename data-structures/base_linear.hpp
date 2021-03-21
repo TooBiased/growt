@@ -667,8 +667,8 @@ base_linear<C>::insert_or_update_intern(const slot_type& slot, size_type hash,
         {
             slot_type data = slot_config::get_empty();
             bool      succ;
-            std::tie(data, succ) = _table[temp].atomic_update(curr, f,
-                                                          std::forward<Types>(args)...);
+            std::tie(data, succ) = _table[temp].atomic_update(
+                curr, f, std::forward<Types>(args)...);
             if (succ)
                 return make_insert_ret(data, &_table[temp],
                                        ReturnCode::SUCCESS_UP);
@@ -920,7 +920,7 @@ base_linear<C>::insert_or_update(const key_type& k,
                                              std::forward<Types>(args)...);
     if constexpr (slot_config::needs_cleanup)
     {
-        if (! successful(rcode)) slot.cleanup();
+        if (rcode != ReturnCode::SUCCESS_IN) slot.cleanup();
     }
     return std::make_pair(it, (rcode == ReturnCode::SUCCESS_IN));
 }
@@ -937,7 +937,7 @@ base_linear<C>::emplace_or_update(key_type&& k,
                                              std::forward<Types>(args)...);
     if constexpr (slot_config::needs_cleanup)
     {
-        if (! successful(rcode)) slot.cleanup();
+        if (rcode != ReturnCode::SUCCESS_IN) slot.cleanup();
     }
     return std::make_pair(it, (rcode == ReturnCode::SUCCESS_IN));
 }
@@ -954,7 +954,7 @@ base_linear<C>::insert_or_update_unsafe(const key_type& k,
                                                     std::forward<Types>(args)...);
     if constexpr (slot_type::needs_cleanup)
     {
-        if (! successful(rcode)) slot.cleanup();
+        if (rcode != ReturnCode::SUCCESS_IN) slot.cleanup();
     }
     return std::make_pair(it, (rcode == ReturnCode::SUCCESS_IN));
 }
@@ -971,7 +971,7 @@ base_linear<C>::emplace_or_update_unsafe(key_type&& k,
                                                     std::forward<Types>(args)...);
     if constexpr (slot_type::needs_cleanup)
     {
-        if (! successful(rcode)) slot.cleanup();
+        if (rcode != ReturnCode::SUCCESS_IN) slot.cleanup();
     }
     return std::make_pair(it, (rcode == ReturnCode::SUCCESS_IN));
 }

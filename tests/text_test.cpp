@@ -12,6 +12,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <atomic>
 
 #include "tbb/scalable_allocator.h"
 
@@ -89,7 +90,7 @@ int push_file(Hash& hash, std::ifstream& in_stream, [[maybe_unused]]size_t id)
             in_stream >> word;
             words++;
 
-            #define VARIANT 2
+            #define VARIANT 1
 
             if (VARIANT == 1)
             {
@@ -103,18 +104,18 @@ int push_file(Hash& hash, std::ifstream& in_stream, [[maybe_unused]]size_t id)
                     word, 1, growt::example::Increment(), 1);
                 if (result.second) uniques++;
             }
-            if (VARIANT == 3)
-            {
-                auto result = hash.insert(word, 1);
-                if (result.second) uniques++;
-                else result.first->second++;
-            }
-            if (VARIANT == 4)
-            {
-                auto result = hash.emplace(std::move(word), 1);
-                if (result.second) uniques++;
-                else result.first->second++;
-            }
+            // if (VARIANT == 3)
+            // {
+            //     auto result = hash.insert(word, 1);
+            //     if (result.second) uniques++;
+            //     else result.first->second++;
+            // }
+            // if (VARIANT == 4)
+            // {
+            //     auto result = hash.emplace(std::move(word), 1);
+            //     if (result.second) uniques++;
+            //     else result.first->second++;
+            // }
             if (VARIANT == 5)
             {
                 auto result = hash.emplace(std::move(word), 1);
@@ -124,6 +125,15 @@ int push_file(Hash& hash, std::ifstream& in_stream, [[maybe_unused]]size_t id)
             {
                 auto result = hash.insert(word, 1);
                 if (result.second) uniques++;
+            }
+            if (VARIANT == 7)
+            {
+                auto result = hash.insert(word, 1);
+                if (result.second) uniques++;
+                if (!result.second)
+                {
+                    hash.update(word, growt::example::Increment(),1);
+                }
             }
         }
     }
@@ -168,8 +178,8 @@ struct test_in_stages
                 auto duration = t.synchronized(push_file<handle_type>, hash, in_file, t.id);
 
                 t.out << otm::width(12) << duration.second/1000000.;
-                t.out << otm::width(9)  << number_words.load();
-                t.out << otm::width(9)  << unique_words.load() << std::flush;
+                t.out << otm::width(13)  << number_words.load();
+                t.out << otm::width(13)  << unique_words.load() << std::flush;
             }
 
 #ifdef MALLOC_COUNT
