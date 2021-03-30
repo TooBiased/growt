@@ -16,8 +16,8 @@
 #include <memory>
 #include <string>
 
-#include "utils/output.hpp"
-namespace otm = utils_tm::out_tm;
+#include "utils/debug.hpp"
+namespace dtm = utils_tm::debug_tm;
 #include "utils/memory_reclamation/counting_reclamation.hpp"
 namespace rtm = utils_tm::reclamation_tm;
 
@@ -167,8 +167,8 @@ public:
         inline hash_ptr_reference get_table();
         inline void rls_table() { }
 
-        void grow();
-        void help_grow();
+        void grow(int version);
+        void help_grow(int version);
         inline size_t migrate();
 
     private:
@@ -209,8 +209,11 @@ estrat_async<P>::local_data_type::get_table()
 
 template <class P>
 void
-estrat_async<P>::local_data_type::grow()
+estrat_async<P>::local_data_type::grow([[maybe_unused]]int version)
 {
+    dtm::if_debug("in grow expected version is weird!",
+                  int(_table->_version) != version);
+
     auto new_table = _rec_handle.create_pointer(
         _table->_mapper.resize(_parent._elements.load(std::memory_order_acquire),
                                _parent._dummies.load (std::memory_order_acquire)),
@@ -224,16 +227,15 @@ estrat_async<P>::local_data_type::grow()
     }
 
     _worker_strat.execute_migration(*this, _epoch);
-
     end_grow();
 }
 
 
 template <class P>
 void
-estrat_async<P>::local_data_type::help_grow()
+estrat_async<P>::local_data_type::help_grow(int version)
 {
-    _worker_strat.execute_migration(*this, _epoch);
+    _worker_strat.execute_migration(*this, version); //_epoch);
     end_grow();
 }
 
@@ -244,19 +246,26 @@ estrat_async<P>::local_data_type::migrate()
     // enter_migration(): nhelper ++
     _global._n_helper.fetch_add(1, std::memory_order_acq_rel);
 
-    // curr is protected (buffered counting pointer)
-    auto curr = _table;
+    // curr is protected (buffered counting pointer) + but we protect it again in case of pool bla
+    //auto curr = _table;
+    auto curr = _rec_handle.protect(_global._table);
+
     // next is not actually protected properly (i.e. the next pointer of old
     // tables could already be deleted) but this can only happen if the migration
     // from curr is finished. If this is the case, next will never be accessed.
     auto next = _rec_handle.protect(_table->next_table);
-    while (!next) next = _rec_handle.protect(_table->next_table);
+    //while (!next) next = _rec_handle.protect(_table->next_table);
+    if (!next)
+    {
+        // apparently we're already on the new table
+        auto ver = curr->_version;
+        _rec_handle.unprotect(curr);
+        return ver;
+    }
 
     // sanity checks, remove once I am sure
-    if (next == nullptr)
-    { otm::out() << "in migrate, table has no next" << std::endl; }
-    if (next->_version != curr->_version + 1)
-    { otm::out() << "in migrate, next is not curr+1" << std::endl; }
+    //dtm::if_debug("in migrate, table has no next", next == nullptr);
+    dtm::if_debug("in migrate, next is not curr+1", next->_version != curr->_version + 1);
 
 //     //global.g_count.fetch_add(
     blockwise_migrate(curr, next);//,
@@ -265,8 +274,12 @@ estrat_async<P>::local_data_type::migrate()
     // leave_migration(): nhelper --
     _global._n_helper.fetch_sub(1, std::memory_order_release);
 
+    auto ver = next->_version;
+
+    _rec_handle.unprotect(curr);
     _rec_handle.unprotect(next);
-    return next->_version;
+
+    return ver;
 }
 
 template <class P>
@@ -306,6 +319,7 @@ estrat_async<P>::local_data_type::end_grow()
     //wait for other helpers
     while (_global._n_helper.load(std::memory_order_acquire)) { }
 
+    // here we don't protect curr because this cannot be a pool thread
     auto curr = _table;
     // next is unprotected here but we do not access it if we
     auto next = curr->next_table.load();

@@ -287,8 +287,10 @@ private:
     inline insert_return_type insert_or_update_unsafe_intern(
         slot_type& slot,
         F f, Types&& ... args);
-    inline void         grow()      const { _local_exclusion.grow(); }
-    inline void         help_grow() const { _local_exclusion.help_grow(); }
+    inline void         grow(int version) const
+    { _local_exclusion.grow(version); }
+    inline void         help_grow(int version) const
+    { _local_exclusion.help_grow(version); }
     inline void         rls_table() const { _local_exclusion.rls_table(); }
     inline hash_ptr_reference get_table() const { return _local_exclusion.get_table(); }
 
@@ -336,42 +338,44 @@ public:
     void update_numbers();
 
 private:
-    void inc_inserted(int v);
-    void inc_deleted(int v);
+    void inc_inserted();
+    void inc_deleted();
 
     class alignas(64) local_count
     {
     public:
-        int  _version;
         int  _updates;
         int  _inserted;
         int  _deleted;
-        local_count() : _version(-1), _updates(0), _inserted(0), _deleted(0)
+        local_count() : _updates(0), _inserted(0), _deleted(0)
         {  }
 
         local_count(local_count&& rhs)
-            : _version(rhs._version), _updates(rhs._updates),
-              _inserted(rhs._inserted), _deleted(rhs._deleted)
+            : _updates(rhs._updates),
+              _inserted(rhs._inserted),
+              _deleted(rhs._deleted)
         {
-            rhs._version = 0;
+            rhs._updates =0;
+            rhs._inserted=0;
+            rhs._deleted =0;
         }
 
         local_count& operator=(local_count&& rhs)
         {
-            _version   = rhs._version;
-            rhs._version  = 0;
             _updates  = rhs._updates;
             _inserted = rhs._inserted;
             _deleted  = rhs._deleted;
+            rhs._updates =0;
+            rhs._inserted=0;
+            rhs._deleted =0;
             return *this;
         }
 
-        void set(int ver, int upd, int in, int del)
+        void set(int upd, int in, int del)
         {
             _updates  = upd;
             _inserted = in;
             _deleted  = del;
-            _version  = ver;
         }
 
         local_count(const local_count&) = delete;
@@ -474,7 +478,8 @@ migration_table_handle<migration_table_data>::~migration_table_handle()
     // {
     //     _mt_data.handle_ptr.remove(_handle_id);
     // }
-    if (_counts._version >= 0)
+
+    // if (_counts._version >= 0)
     {
         update_numbers();
     }
@@ -557,18 +562,18 @@ migration_table_handle<migration_table_data>::insert_intern(slot_type& slot)
     {
     case ReturnCode::SUCCESS_IN:
     case ReturnCode::TSX_SUCCESS_IN:
-        inc_inserted(v);
+        inc_inserted();
         return make_insert_ret(result.first, v, true);
     case ReturnCode::UNSUCCESS_ALREADY_USED:
     case ReturnCode::TSX_UNSUCCESS_ALREADY_USED:
         return make_insert_ret(result.first, v, false);
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
-        grow();
+        grow(v);
         return insert_intern(slot);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
-        help_grow();
+        help_grow(v);
         return insert_intern(slot);
     default:
         return make_insert_ret(bend(), v, false);
@@ -603,11 +608,11 @@ migration_table_handle<migration_table_data>::update(const key_type& k, F f, Typ
         return make_insert_ret(result.first, v, false);
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
-        grow();  // usually impossible as this collides with NOT_FOUND
+        grow(v);  // usually impossible as this collides with NOT_FOUND
         return update(k,f, std::forward<Types>(args)...);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
-        help_grow();
+        help_grow(v);
         return update(k,f, std::forward<Types>(args)...);
     default:
         return make_insert_ret(bend(), v, false);
@@ -641,11 +646,11 @@ migration_table_handle<migration_table_data>::update_unsafe(const key_type& k, F
         return make_insert_ret(result.first, v, false);
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
-        grow();
+        grow(v);
         return update_unsafe(k,f, std::forward<Types>(args)...);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
-        help_grow();
+        help_grow(v);
         return update_unsafe(k,f, std::forward<Types>(args)...);
     default:
         return make_insert_ret(bend(), v, false);
@@ -708,18 +713,18 @@ migration_table_handle<migration_table_data>::insert_or_update_intern(
     {
     case ReturnCode::SUCCESS_IN:
     case ReturnCode::TSX_SUCCESS_IN:
-        inc_inserted(v);
+        inc_inserted();
         return make_insert_ret(result.first, v, true);
     case ReturnCode::SUCCESS_UP:
     case ReturnCode::TSX_SUCCESS_UP:
         return make_insert_ret(result.first, v, false);
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
-        grow();
+        grow(v);
         return insert_or_update_intern(slot,f, std::forward<Types>(args)...);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
-        help_grow();
+        help_grow(v);
         return insert_or_update_intern(slot,f, std::forward<Types>(args)...);
     default:
         return make_insert_ret(bend(), v, false);
@@ -785,18 +790,18 @@ migration_table_handle<migration_table_data>::insert_or_update_unsafe_intern(
     {
     case ReturnCode::SUCCESS_IN:
     case ReturnCode::TSX_SUCCESS_IN:
-        inc_inserted(v);
+        inc_inserted();
         return make_insert_ret(result.first, v, true);
     case ReturnCode::SUCCESS_UP:
     case ReturnCode::TSX_SUCCESS_UP:
         return make_insert_ret(result.first, v, false);
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
-        grow();
+        grow(v);
         return insert_or_update_unsafe_intern(slot,f, std::forward<Types>(args)...);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
-        help_grow();
+        help_grow(v);
         return insert_or_update_unsafe_intern(slot,f, std::forward<Types>(args)...);
     default:
         return make_insert_ret(bend(), v, false);
@@ -846,14 +851,14 @@ migration_table_handle<migration_table_data>::erase(const key_type& k)
     switch(result)
     {
     case ReturnCode::SUCCESS_DEL:
-        inc_deleted(v);
+        inc_deleted();
         return 1;
     case ReturnCode::TSX_SUCCESS_DEL:
-        inc_deleted(v);  // TSX DELETION COULD BE USED TO AVOID DUMMIES => dec_inserted()
+        inc_deleted();  // TSX DELETION COULD BE USED TO AVOID DUMMIES => dec_inserted()
         return 1;
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
-        help_grow();
+        help_grow(v);
         return erase(k);
     case ReturnCode::UNSUCCESS_NOT_FOUND:
     case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
@@ -883,14 +888,14 @@ migration_table_handle<migration_table_data>::erase_if(const key_type& k, const 
     switch(result)
     {
     case ReturnCode::SUCCESS_DEL:
-        inc_deleted(v);
+        inc_deleted();
         return 1;
     case ReturnCode::TSX_SUCCESS_DEL:
-        inc_deleted(v);  // TSX DELETION COULD BE USED TO AVOID DUMMIES => dec_inserted()
+        inc_deleted();  // TSX DELETION COULD BE USED TO AVOID DUMMIES => dec_inserted()
         return 1;
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
-        help_grow();
+        help_grow(v);
         return erase_if(k,d);
     case ReturnCode::UNSUCCESS_NOT_FOUND:
     case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
@@ -958,12 +963,12 @@ inline void migration_table_handle<migration_table_data>::update_numbers()
     _counts._updates  = 0;
 
     auto table = get_table();
-    if (table->_version != size_t(_counts._version))
-    {
-        _counts.set(table->_version, 0,0,0);
-        rls_table();
-        return;
-    }
+    // if (table->version != size_t(_counts._version))
+    // {
+    //     _counts.set(table->_version, 0,0,0);
+    //     rls_table();
+    //     return;
+    // }
 
     _mt_data._dummies.fetch_add(_counts._deleted,std::memory_order_relaxed);
 
@@ -975,18 +980,21 @@ inline void migration_table_handle<migration_table_data>::update_numbers()
     {
         if(temp - _counts._inserted < thresh)
         {
+            int v = table->_version;
             rls_table();
-            grow();
+            grow(v);
+            _counts.set(0,0,0);
+            return;
         }
     }
     rls_table();
-    _counts.set(_counts._version, 0,0,0);
+    _counts.set(0,0,0);
 }
 
 template<class migration_table_data>
-inline void migration_table_handle<migration_table_data>::inc_inserted(int v)
+inline void migration_table_handle<migration_table_data>::inc_inserted()
 {
-    if (_counts._version == v)
+    // if (_counts._version == v)
     {
         ++_counts._inserted;
         if (++_counts._updates > 64)
@@ -994,17 +1002,17 @@ inline void migration_table_handle<migration_table_data>::inc_inserted(int v)
             update_numbers();
         }
     }
-    else
-    {
-        _counts.set(v,1,1,0);
-    }
+    // else
+    // {
+    //     _counts.set(v,1,1,0);
+    // }
 }
 
 
 template<class migration_table_data>
-inline void migration_table_handle<migration_table_data>::inc_deleted(int v)
+inline void migration_table_handle<migration_table_data>::inc_deleted()
 {
-    if (_counts._version == v)
+    // if (_counts._version == v)
     {
         ++_counts._deleted;
         if (++_counts._updates > 64)
@@ -1012,10 +1020,10 @@ inline void migration_table_handle<migration_table_data>::inc_deleted(int v)
             update_numbers();
         }
     }
-    else
-    {
-        _counts.set(v,1,0,1);
-    }
+    // else
+    // {
+    //     _counts.set(v,1,0,1);
+    // }
 }
 
 // template <typename migration_table_data>

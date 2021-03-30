@@ -514,17 +514,14 @@ if (GROWT_BUILD_JUNCTION)
   JunctionExecutable( JUNCTION_LINEAR      ins_test ins ins_full_junction_linear )
   JunctionExecutable( JUNCTION_LINEAR      mix_test mix mix_full_junction_linear )
   JunctionExecutable( JUNCTION_LINEAR      con_test con con_full_junction_linear )
-  JunctionExecutable( JUNCTION_LINEAR      agg_test agg agg_full_junction_linear )
   JunctionExecutable( JUNCTION_LINEAR      del_test del del_full_junction_linear )
   JunctionExecutable( JUNCTION_GRAMPA      ins_test ins ins_full_junction_grampa )
   JunctionExecutable( JUNCTION_GRAMPA      mix_test mix mix_full_junction_grampa )
   JunctionExecutable( JUNCTION_GRAMPA      con_test con con_full_junction_grampa )
-  JunctionExecutable( JUNCTION_GRAMPA      agg_test agg agg_full_junction_grampa )
   JunctionExecutable( JUNCTION_GRAMPA      del_test del del_full_junction_grampa )
   JunctionExecutable( JUNCTION_LEAPFROG    ins_test ins ins_full_junction_leap )
   JunctionExecutable( JUNCTION_LEAPFROG    mix_test mix mix_full_junction_leap )
   JunctionExecutable( JUNCTION_LEAPFROG    con_test con con_full_junction_leap )
-  JunctionExecutable( JUNCTION_LEAPFROG    agg_test agg agg_full_junction_leap )
   JunctionExecutable( JUNCTION_LEAPFROG    del_test del del_full_junction_leap )
 
   add_custom_target( junctiontrgt )
@@ -532,7 +529,6 @@ if (GROWT_BUILD_JUNCTION)
     ins_full_junction_linear ins_full_junction_grampa ins_full_junction_leap
     mix_full_junction_linear mix_full_junction_grampa mix_full_junction_leap
     con_full_junction_linear con_full_junction_grampa con_full_junction_leap
-    agg_full_junction_linear agg_full_junction_grampa agg_full_junction_leap
     del_full_junction_linear del_full_junction_grampa del_full_junction_leap)
 endif()
 
