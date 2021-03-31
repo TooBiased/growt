@@ -403,6 +403,11 @@ if (TBB_FOUND)
   target_link_libraries(text_full_usGrowT ${TBB_LIBRARIES})
   target_link_libraries(text_full_paGrowT ${TBB_LIBRARIES})
   target_link_libraries(text_full_psGrowT ${TBB_LIBRARIES})
+  target_link_libraries(functionality_uaGrowT ${TBB_LIBRARIES})
+  target_link_libraries(functionality_usGrowT ${TBB_LIBRARIES})
+  target_link_libraries(functionality_paGrowT ${TBB_LIBRARIES})
+  target_link_libraries(functionality_psGrowT ${TBB_LIBRARIES})
+
 
   add_custom_target( text )
   add_dependencies( text
