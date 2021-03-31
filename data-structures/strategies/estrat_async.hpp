@@ -250,21 +250,19 @@ estrat_async<P>::local_data_type::migrate()
     //auto curr = _table;
     auto curr = _rec_handle.protect(_global._table);
 
+    // *star*
     // next is not actually protected properly (i.e. the next pointer of old
     // tables could already be deleted) but this can only happen if the migration
     // from curr is finished. If this is the case, next will never be accessed.
-    auto next = _rec_handle.protect(_table->next_table);
-    //while (!next) next = _rec_handle.protect(_table->next_table);
-    if (!next)
+    if (!_table->next_table.load(std::memory_order_acquire))
     {
-        // apparently we're already on the new table
+        _global._n_helper.fetch_sub(1, std::memory_order_acq_rel);
         auto ver = curr->_version;
         _rec_handle.unprotect(curr);
         return ver;
     }
+    auto next = _rec_handle.protect(_table->next_table);
 
-    // sanity checks, remove once I am sure
-    //dtm::if_debug("in migrate, table has no next", next == nullptr);
     dtm::if_debug("in migrate, next is not curr+1", next->_version != curr->_version + 1);
 
 //     //global.g_count.fetch_add(
