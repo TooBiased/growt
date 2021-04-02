@@ -542,8 +542,6 @@ if (GROWT_BUILD_TBB)
 
   TBBExecutable( TBBUM  text_test text text_full_TBBum )
   TBBExecutable( TBBHM  text_test text text_full_TBBhm )
-  target_link_libraries(text_full_TBBum ${TBB_LIBRARIES})
-  target_link_libraries(text_full_TBBhm ${TBB_LIBRARIES})
 
   add_custom_target( tbb )
   add_dependencies( tbb
@@ -626,7 +624,7 @@ if (GROWT_BUILD_JUNCTION)
   function( JunctionExecutable variant cpp directory name )
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${directory})
     add_executable(${name} tests/${cpp}.cpp)
-    set_target_properties(${name} PROPERTIES COMPILE_FLAGS "${FLAGS_NO_WARNING}")
+    set_target_properties(${name} PROPERTIES COMPILE_FLAGS "${FLAGS} -w")
     target_compile_definitions(${name} PRIVATE
       -D ${variant}
       -D ${GROWT_HASHFCT}
