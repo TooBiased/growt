@@ -47,8 +47,9 @@ option(GROWT_BUILD_TBB
   "(optional) builds tests for tbb hash map and unordered map (using wrappers)!" OFF)
 option(GROWT_BUILD_JUNCTION
   "(optional) builds tests for junction tables (Linear, Grampa, Leapfrog)!" OFF)
+
 option(GROWT_BUILD_LEGACY
-  "(optional) builds tests for legacy tables (Julian Shun's Implementation, LeaHash, URCU, Hopscotch) only possible in the appropriate branch!" ON)
+  "(optional) builds tests for legacy tables (Julian Shun's Implementation, LeaHash, URCU, Hopscotch) only possible in the appropriate branch!" OFF)
 
 option(GROWT_BUILD_MEMORY_TEST
   "(optional) builds tests that output memory (i.e. residential set size)" OFF)
@@ -486,47 +487,36 @@ if (TBB_FOUND)
 endif()
 
 if (GROWT_BUILD_LEGACY)
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ins)
-  add_executable(ins_hopscotch tests/ins_test.cpp)
-  set_target_properties(ins_hopscotch PROPERTIES COMPILE_FLAGS "${FLAGS_NO_WARNING}")
-  target_compile_definitions(ins_hopscotch PRIVATE
-    -D HOPSCOTCH -D${GROWT_HASHFCT})
-  target_link_libraries(ins_hopscotch ${TEST_DEP_LIBRARIES})
+  function( LegacyExecutable variant cpp directory name )
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${directory})
+    add_executable(${name} tests/${cpp}.cpp)
+    set_target_properties(${name} PROPERTIES COMPILE_FLAGS "${FLAGS} -w")
+    target_compile_definitions(${name} PRIVATE
+      -D ${variant}
+      -D ${GROWT_HASHFCT}
+      -D ${GROWT_ALLOCATOR})
+    target_link_libraries( ${name} ${TEST_DEP_LIBRARIES} ${ALLOC_LIB})
+  endfunction( LegacyExecutable )
 
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ins)
-  add_executable(ins_leahash tests/ins_test.cpp)
-  set_target_properties(ins_leahash PROPERTIES COMPILE_FLAGS "${FLAGS_NO_WARNING}")
-  target_compile_definitions(ins_leahash PRIVATE
-    -D LEAHASH -D${GROWT_HASHFCT})
-  target_link_libraries(ins_leahash ${TEST_DEP_LIBRARIES})
+  LegacyExecutable( HOPSCOTCH  ins_test ins ins_none_hopscotch )
+  LegacyExecutable( LEAHASH    ins_test ins ins_none_leahash )
+  LegacyExecutable( SHUNHASH   ins_test ins ins_none_shunhash )
+  LegacyExecutable( SHUNHASH   ins_test ins ins_none_shunhash_nd )
+  target_compile_definitions(ins_none_shunhash_nd PRIVATE -D SHUN_ND)
+  LegacyExecutable( RCU_BASE   ins_test ins ins_semi_rcu )
+  target_link_libraries(ins_semi_rcu ${URCU_LIBRARIES})
+  LegacyExecutable( RCU_BASE   ins_test ins ins_semi_rcu_qsbr )
+  target_compile_definitions(ins_semi_rcu_qsbr PRIVATE -D QSBR)
+  target_link_libraries(ins_semi_rcu_qsbr ${URCU_QSBR_LIBRARIES})
 
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ins)
-  add_executable(ins_shunhash tests/ins_test.cpp)
-  set_target_properties(ins_shunhash PROPERTIES COMPILE_FLAGS "${FLAGS_NO_WARNING}")
-  target_compile_definitions(ins_shunhash PRIVATE
-    -D SHUNHASH -D${GROWT_HASHFCT})
-  target_link_libraries(ins_shunhash ${TEST_DEP_LIBRARIES})
-
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ins)
-  add_executable(ins_shunhash_nd tests/ins_test.cpp)
-  set_target_properties(ins_shunhash_nd PROPERTIES COMPILE_FLAGS "${FLAGS_NO_WARNING}")
-  target_compile_definitions(ins_shunhash_nd PRIVATE
-    -D SHUNHASH -D${GROWT_HASHFCT} -D SHUN_ND)
-  target_link_libraries(ins_shunhash_nd ${TEST_DEP_LIBRARIES})
-
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ins)
-  add_executable(ins_rcu_base tests/ins_test.cpp)
-  set_target_properties(ins_rcu_base PROPERTIES COMPILE_FLAGS "${FLAGS_NO_WARNING}")
-  target_compile_definitions(ins_rcu_base PRIVATE
-    -D RCU_BASE -D${GROWT_HASHFCT})
-  target_link_libraries(ins_rcu_base ${TEST_DEP_LIBRARIES} ${URCU_LIBRARIES})
-
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ins)
-  add_executable(ins_rcu_qsbr tests/ins_test.cpp)
-  set_target_properties(ins_rcu_qsbr PROPERTIES COMPILE_FLAGS "${FLAGS_NO_WARNING}")
-  target_compile_definitions(ins_rcu_qsbr PRIVATE
-    -D RCU_BASE -D${GROWT_HASHFCT} -D QSBR)
-  target_link_libraries(ins_rcu_qsbr ${TEST_DEP_LIBRARIES} ${URCU_QSBR_LIBRARIES})
+  add_custom_target( legacy )
+  add_dependencies( legacy
+    ins_none_hopscotch
+    ins_none_leahash
+    ins_none_shunhash
+    ins_none_shunhash_nd
+    ins_semi_rcu
+    ins_semi_rcu_qsbr)
 endif()
 
 if (GROWT_BUILD_TBB)
@@ -561,6 +551,7 @@ if (GROWT_BUILD_TBB)
     mix_full_TBBhm mix_full_TBBum
     con_full_TBBhm con_full_TBBum
     agg_full_TBBhm agg_full_TBBum)
+
   if (GROWT_BUILD_MEMORY_TEST)
     GrowTExecutable( TBBHM ins_test mem mem_full_TBBhm )
     target_compile_definitions(mem_full_TBBhm PRIVATE -D GROWT_RSS_MODE)

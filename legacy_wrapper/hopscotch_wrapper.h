@@ -22,48 +22,47 @@
 #include <BitmapHopscotchHashMap.h>
 #include <../framework/cpp_framework.h>
 
-#include "wrapper/stupid_iterator.h"
+#include "wrapper/stupid_iterator.hpp"
 
 //using namespace growt;
 
 template<class Hasher>
-class HopscotchWrapper
+class hopscotch_wrapper
 {
 private:
     using uint64 = u_int64_t;
     using uint = unsigned int;
     using ll = long long;
 
-    template<class HasherForThing>
-    class HopscotchHashThing
+    class hopscotch_hash_thing
     {
     public:
         static const uint64 _EMPTY_HASH  =  0;
         static const uint64 _BUSY_HASH   =  1;
-        static const ll     _EMPTY_KEY   =  0;
-        static const ll     _EMPTY_DATA  =  0;
+        static const uint64 _EMPTY_KEY   =  0;
+        static const uint64 _EMPTY_DATA  =  0;
 
-        inline static uint64 Calc(ll key)
+        inline static uint64 Calc(uint64 key)
         {
-            HasherForThing hasher;
+            Hasher hasher;
             return hasher(key);
                  //uint64(__builtin_ia32_crc32di(1329235987123598723ull, key));
         }
 
-        inline static bool IsEqual(ll left_key, ll right_key)
+        inline static bool IsEqual(uint64 left_key, uint64 right_key)
         { return left_key == right_key; }
 
-        inline static void relocate_key_reference(ll volatile& left,
-                                                  const ll volatile& right)
+        inline static void relocate_key_reference(uint64 volatile& left,
+                                                  const uint64 volatile& right)
         { left = right; }
 
-        inline static void relocate_data_reference(ll volatile& left,
-                                                   const ll volatile& right)
+        inline static void relocate_data_reference(uint64 volatile& left,
+                                                   const uint64 volatile& right)
         { left = right; }
     };
 
-    using HashType = BitmapHopscotchHashMap<ll, ll,
-                                            HopscotchHashThing<Hasher>,
+    using HashType = BitmapHopscotchHashMap<uint64, uint64,
+                                            hopscotch_hash_thing,
                                             CMDR::TTASLock, CMDR::Memory>;
     HashType hash;
     size_t capacity;
@@ -77,17 +76,17 @@ public:
     using const_iterator     = bool;
     using insert_return_type = std::pair<iterator, bool>;
 
-    HopscotchWrapper() = default;
-    HopscotchWrapper(size_t capacity_) : hash(capacity_, 256), capacity(capacity_) {}
-    HopscotchWrapper(const HopscotchWrapper&) = delete;
-    HopscotchWrapper& operator=(const HopscotchWrapper&) = delete;
+    hopscotch_wrapper() = default;
+    hopscotch_wrapper(size_t capacity_) : hash(capacity_, 256), capacity(capacity_) {}
+    hopscotch_wrapper(const hopscotch_wrapper&) = delete;
+    hopscotch_wrapper& operator=(const hopscotch_wrapper&) = delete;
 
     // I know this is really ugly, but it works for my benchmarks (all elements are forgotten)
-    HopscotchWrapper(HopscotchWrapper&& rhs) : hash(rhs.capacity*2, 256)
+    hopscotch_wrapper(hopscotch_wrapper&& rhs) : hash(rhs.capacity*2, 256)
     { }
 
     // I know this is even uglier, but it works for my benchmarks (all elements are forgotten)
-    HopscotchWrapper& operator=(HopscotchWrapper&& rhs)
+    hopscotch_wrapper& operator=(hopscotch_wrapper&& rhs)
     {
         capacity = rhs.capacity;
         (& hash)->~HashType();
@@ -96,8 +95,8 @@ public:
     }
 
 
-    using Handle = HopscotchWrapper&;
-    Handle getHandle() { return *this; }
+    using handle_type = hopscotch_wrapper&;
+    handle_type get_handle() { return *this; }
 
 
     inline iterator find(const key_type& k)
@@ -108,7 +107,7 @@ public:
 
     inline insert_return_type insert(const key_type& k, const mapped_type& d)
     {
-        bool res = (hash.putIfAbsent(k,d) == HopscotchHashThing<Hasher>::_EMPTY_DATA);
+        bool res = (hash.putIfAbsent(k,d) == hopscotch_hash_thing::_EMPTY_DATA);
         return std::make_pair(iterator(k,d),res);
     }
 
@@ -134,6 +133,30 @@ public:
     }
 
     inline iterator end() { return false; }
+};
+
+
+template <class Key, class Data, class HashFct, class Allocator, hmod ... Mods>
+class hopscotch_config
+{
+public:
+    using key_type = Key;
+    using mapped_type = Data;
+    using hash_fct_type = HashFct;
+    using allocator_type = Allocator;
+
+    using mods = mod_aggregator<Mods ...>;
+
+    // Derived Types
+    using value_type = std::pair<const key_type, mapped_type>;
+
+    static constexpr bool is_viable = true;
+
+    static_assert(is_viable, "hopscotch wrapper does not support the chosen flags");
+
+    using table_type = hopscotch_wrapper<hash_fct_type>;
+
+    static std::string name() { return "hopscotch"; }
 };
 
 #endif // HOPSCOTCH_WRAPPER

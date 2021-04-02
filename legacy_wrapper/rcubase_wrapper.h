@@ -25,24 +25,25 @@
 
 #include <ctime>
 #include <iostream>
-#include "wrapper/stupid_iterator.h"
+#include "wrapper/stupid_iterator.hpp"
 
 
-template<class Hasher>
-class RCUBaseWrapper
+template<class Hasher, class Allocator>
+class rcu_wrapper
 {
 private:
-    typedef long long ll;
-
+    using uint64 = uint64_t;
     struct mynode {
-        ll key;
-        ll value;
+        uint64 key;
+        uint64 value;
 
         struct cds_lfht_node node;	/* Chaining in hash table */
         struct rcu_head rcu_head;	/* For call_rcu() */
     };
+    using allocator_type     = typename Allocator::template rebind<mynode>::other;
 
-    static inline size_t h(ll key)
+
+    static inline size_t h(uint64 key)
     {
         return Hasher()(key);
     }
@@ -50,14 +51,15 @@ private:
     static inline int match(struct cds_lfht_node *ht_node, const void *_key)
     {
         mynode *node = caa_container_of(ht_node, struct mynode, node);
-        ll *key = (ll*) _key;
+        uint64 *key = (uint64*) _key;
         return *key == node->key;
     }
 
     static inline void free_node(struct rcu_head *head)
     {
         struct mynode *node = caa_container_of(head, struct mynode, rcu_head);
-        free(node);
+        //free(node);
+        allocator_type().destroy(node);
     }
 
     static inline void qsbr_state()
@@ -71,8 +73,8 @@ private:
         #endif
     }
 
-
     cds_lfht *hash_table;
+    allocator_type allocator;
 
 public:
 
@@ -82,8 +84,8 @@ public:
     using iterator           = StupidIterator<size_t, size_t>;
     using insert_return_type = std::pair<iterator, bool>;
 
-    RCUBaseWrapper() = default;
-    RCUBaseWrapper(size_t capacity_)
+    rcu_wrapper() = default;
+    rcu_wrapper(size_t capacity_)
     {
         size_t initial_size = 1;
         while (initial_size < capacity_) initial_size <<= 1;
@@ -92,28 +94,28 @@ public:
             NULL);
     }
 
-    RCUBaseWrapper(const RCUBaseWrapper&) = delete;
-    RCUBaseWrapper& operator=(const RCUBaseWrapper&) = delete;
+    rcu_wrapper(const rcu_wrapper&) = delete;
+    rcu_wrapper& operator=(const rcu_wrapper&) = delete;
 
     // I know this is really ugly, but it works for my benchmarks (all elements are forgotten)
-    RCUBaseWrapper(RCUBaseWrapper&& rhs) : hash_table(rhs.hash_table)
+    rcu_wrapper(rcu_wrapper&& rhs) : hash_table(rhs.hash_table)
     {
         rhs.hash_table = nullptr;
     }
 
     // I know this is even uglier, but it works for my benchmarks (all elements are forgotten)
-    RCUBaseWrapper& operator=(RCUBaseWrapper&& rhs)
+    rcu_wrapper& operator=(rcu_wrapper&& rhs)
     {
         hash_table = rhs.hash_table;
         rhs.hash_table = nullptr;
         return *this;
     }
 
-    ~RCUBaseWrapper() { /* SHOULD DO SOMETHING */ }
+    ~rcu_wrapper() { /* SHOULD DO SOMETHING */ }
 
 
-    using Handle = RCUBaseWrapper&;
-    Handle getHandle()
+    using handle_type = rcu_wrapper&;
+    handle_type get_handle()
     {
         static thread_local bool already_registered = false;
         if (! already_registered)
@@ -127,10 +129,10 @@ public:
 
     inline iterator find(const key_type& k)
     {
-        ll key_copy = k;
+        uint64 key_copy = k;
         cds_lfht_iter iter;
         mynode* node;
-        ll value = 0;
+        uint64 value = 0;
         unsigned long hash = h(k);//jhash(&key_copy, sizeof(ll), seed);
 
         rcu_read_lock();
@@ -153,7 +155,8 @@ public:
 
     inline insert_return_type insert(const key_type& k, const mapped_type& d)
     {
-        mynode* node = (mynode*)malloc(sizeof(*node));
+        //mynode* node = (mynode*)malloc(sizeof(*node));
+        mynode* node = allocator.allocate(1);
         cds_lfht_node_init(&node->node);
         node->key   = k;
         node->value = d;
@@ -198,6 +201,36 @@ public:
     }
 
     inline iterator end() { return iterator(); }
+};
+
+template <class Key, class Data, class HashFct, class Allocator, hmod ... Mods>
+class rcu_config
+{
+public:
+    using key_type = Key;
+    using mapped_type = Data;
+    using hash_fct_type = HashFct;
+    using allocator_type = Allocator;
+
+    using mods = mod_aggregator<Mods ...>;
+
+    // derived Types
+    using value_type = std::pair<const key_type, mapped_type>;
+
+    static constexpr bool is_viable = true;
+
+    static_assert(is_viable, "rcu wrapper does not support the chosen flags");
+
+    using table_type = rcu_wrapper<hash_fct_type, allocator_type>;
+
+    static std::string name()
+    {
+        #ifdef QSBR
+        return "rcu_qsbr";
+        #else
+        return "rcu";
+        #endif
+    }
 };
 
 #endif // RCU_BASE_WRAPPER

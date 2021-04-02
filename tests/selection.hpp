@@ -169,3 +169,39 @@ using table_config = CONFIG<Key,
                             Alloc,
                             Mods ...>;
 #endif
+
+
+#if defined(HOPSCOTCH)         ||               \
+    defined(LEAHASH)           ||               \
+    defined(SHUNHASH)          ||               \
+    defined(RCU_BASE)
+
+#if defined(HOPSCOTCH)
+#include "legacy_wrapper/hopscotch_wrapper.h"
+#define CONFIG hopscotch_config
+#endif
+
+#if defined(LEAHASH)
+#include "legacy_wrapper/leahash_wrapper.h"
+#define CONFIG leahash_config
+#endif
+
+#if defined(SHUNHASH)
+#include "legacy_wrapper/shun_wrapper.h"
+#define CONFIG shun_config
+#endif
+
+#if defined(RCU_BASE)
+#include "legacy_wrapper/rcubase_wrapper.h"
+#define CONFIG rcu_config
+#endif
+
+
+template <class Key, class Data, class HashFct, class Alloc,
+          hmod ... Mods>
+using table_config = CONFIG<Key,
+                            Data,
+                            HashFct,
+                            Alloc,
+                            Mods ...>;
+#endif
