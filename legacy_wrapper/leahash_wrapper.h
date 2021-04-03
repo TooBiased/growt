@@ -96,6 +96,7 @@ public:
     inline iterator find(const key_type& k)
     {
         size_t res = hash.containsKey(k); // LEAHASH and HOPSCOTCH Implementations are sets
+        if (!res) return iterator();
         return iterator(k,res);
     }
 
