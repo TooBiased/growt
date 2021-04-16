@@ -281,7 +281,7 @@ estrat_async<P>::local_data_type::migrate()
         return ver;
     }
 
-    otm::buffered_out() << " ver:" << next->version << std::endl;
+    otm::buffered_out() << " ver:" << next->_version << std::endl;
     dtm::if_debug("in migrate, next is not curr+1", next->_version != curr->_version + 1);
 
 //     //global.g_count.fetch_add(
