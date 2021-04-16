@@ -339,7 +339,7 @@ estrat_async<P>::local_data_type::end_grow()
     //wait for other helpers
     while (_global._n_helper.load(std::memory_order_acquire)) { }
 
-    otm::buffered_out() << "end_grow id:" << _id << " current:" << _table << " version:" << _table->version;
+    otm::buffered_out() << "end_grow id:" << _id << " current:" << _table << " version:" << _table->_version;
     // here we don't protect curr because this cannot be a pool thread
     auto curr = _table;
     // next is unprotected here but we do not access it if we
