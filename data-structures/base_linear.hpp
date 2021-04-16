@@ -1292,7 +1292,15 @@ base_linear_config<S,H,A,CM,CP,CU>::mapper_type::remap(size_t hashed) const
     if constexpr (cyclic_probing)
         return hashed & _probe_helper;
     else
+    {
+        if (hashed > addressable_slots()+500)
+        {
+            otm::buffered_out() << "going too far " << hashed << std::endl;
+            while (true)
+            { /* wait a while */ }
+        }
         return hashed;
+    }
 }
 
 template<class S, class H, class A, bool CM, bool CP, bool CU>
