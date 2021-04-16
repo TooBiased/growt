@@ -189,10 +189,11 @@ template<class P>
 void
 estrat_async<P>::local_data_type::init()
 {
-    _table = _rec_handle.protect(_global._table);
-    while (_table->_version != _global._epoch.load(std::memory_order_relaxed))
-    { /* wait */ }
-    _epoch = _table->_version;
+    load();
+    // _table = _rec_handle.protect(_global._table);
+    // while (_table->_version != _global._epoch.load(std::memory_order_relaxed))
+    // { /* wait */ }
+    // _epoch = _table->_version;
 }
 
 template <class P>
@@ -249,19 +250,20 @@ estrat_async<P>::local_data_type::migrate()
     // curr is protected (buffered counting pointer) + but we protect it again in case of pool bla
     //auto curr = _table;
     auto curr = _rec_handle.protect(_global._table);
+    while (!curr) { curr = _rec_handle.protect(_global._table); }
 
     // *star*
     // next is not actually protected properly (i.e. the next pointer of old
     // tables could already be deleted) but this can only happen if the migration
     // from curr is finished. If this is the case, next will never be accessed.
-    if (!_table->next_table.load(std::memory_order_acquire))
+    auto next = _rec_handle.protect(curr->next_table);
+    if (!curr->next_table.load(std::memory_order_acquire))
     {
         _global._n_helper.fetch_sub(1, std::memory_order_acq_rel);
         auto ver = curr->_version;
         _rec_handle.unprotect(curr);
         return ver;
     }
-    auto next = _rec_handle.protect(_table->next_table);
 
     dtm::if_debug("in migrate, next is not curr+1", next->_version != curr->_version + 1);
 
