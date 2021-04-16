@@ -22,8 +22,8 @@
 #include <iostream>
 
 #include "utils/default_hash.hpp"
-// #include "utils/output.hpp"
-// namespace otm = utils_tm::out_tm;
+#include "utils/output.hpp"
+namespace otm = utils_tm::out_tm;
 
 #include "data-structures/returnelement.hpp"
 #include "data-structures/base_linear_iterator.hpp"
@@ -1293,12 +1293,12 @@ base_linear_config<S,H,A,CM,CP,CU>::mapper_type::remap(size_t hashed) const
         return hashed & _probe_helper;
     else
     {
-        // if (hashed > addressable_slots()+500)
-        // {
-        //     // otm::buffered_out() << "going too far " << hashed << std::endl;
-        //     // while (true)
-        // //     { /* wait a while */ }
-        // }
+        if (hashed > addressable_slots()+500)
+        {
+            otm::buffered_out() << "going too far " << hashed << std::endl;
+            while (true)
+            { /* wait a while */ }
+        }
         return hashed;
     }
 }
