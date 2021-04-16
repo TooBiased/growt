@@ -278,7 +278,7 @@ estrat_async<P>::local_data_type::migrate()
         auto ver = curr->_version;
         _rec_handle.unprotect(curr);
         otm::buffered_out() << " next is zero must be old" << std::endl;
-        while (_global._table.load() != 666) { /*wait for the world to end*/ }
+        while ((void*)_global._table.load() != (void*)this) { /*wait for the world to end*/ }
         return ver;
     }
 
