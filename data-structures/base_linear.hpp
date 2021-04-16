@@ -538,6 +538,9 @@ base_linear<C>::insert_intern(const slot_type& slot, size_type hash)
         }
         else if (curr.is_empty())
         {
+            if constexpr (mapper_type::cycle_prob)
+                if (temp == _mapper.probe_helper)
+                    return make_insert_ret(end(), ReturnCode::UNSUCCESS_FULL);
             if ( _table[temp].cas(curr, slot) )
             {
                 return make_insert_ret(curr, &_table[temp],
@@ -1207,7 +1210,7 @@ base_linear_config<S,H,A,CM,CP,CU>::mapper_type::init_helper(size_t capacity)
     if constexpr (cyclic_probing)
         _probe_helper = capacity -1;
     else
-        _probe_helper = capacity+lp_buffer;
+        _probe_helper = capacity+lp_buffer-1;
 
     if constexpr (cyclic_mapping)
         _map_helper = capacity-1;
@@ -1221,10 +1224,11 @@ template<class S, class H, class A, bool CM, bool CP, bool CU>
 inline size_t
 base_linear_config<S,H,A,CM,CP,CU>::mapper_type::total_slots() const
 {
-    if constexpr (cyclic_probing)
-        return _probe_helper + 1;
-    else
-        return _probe_helper;
+    // if constexpr (cyclic_probing)
+    //     return _probe_helper + 1;
+    // else
+    //     return _probe_helper + 1;
+    return _probe_helper+1;
 }
 
 template<class S, class H, class A, bool CM, bool CP, bool CU>
@@ -1234,7 +1238,7 @@ base_linear_config<S,H,A,CM,CP,CU>::mapper_type::addressable_slots() const
     if constexpr (cyclic_probing)
         return _probe_helper + 1;
     else
-        return _probe_helper-lp_buffer;
+        return _probe_helper-lp_buffer+1;
 }
 
 template<class S, class H, class A, bool CM, bool CP, bool CU>
@@ -1246,7 +1250,7 @@ base_linear_config<S,H,A,CM,CP,CU>::mapper_type::bitmask() const
     else if constexpr (cyclic_mapping)
         return _map_helper;
     else
-        return _probe_helper-lp_buffer-1;
+        return addressable_slots()-1;
 }
 
 template<class S, class H, class A, bool CM, bool CP, bool CU>
