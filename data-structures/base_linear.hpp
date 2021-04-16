@@ -537,7 +537,7 @@ base_linear<C>::insert_intern(const slot_type& slot, size_type hash)
         }
         else if (curr.is_empty())
         {
-            if constexpr (mapper_type::cycle_prob)
+            if constexpr (mapper_type::cyclic_probing)
                 if (temp == _mapper.total_slots()-1)
                     return make_insert_ret(end(), ReturnCode::UNSUCCESS_FULL);
             if ( _table[temp].cas(curr, slot) )
