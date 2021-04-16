@@ -742,7 +742,7 @@ inline ReturnCode base_linear<C>::erase_intern(const key_type& k)
         auto curr = _table[temp].load();
         if (curr.is_marked())
         {
-            otm::buffered_out() << "erase invalid at " << temp << " ver:" << _table._version << std::endl;
+            otm::buffered_out() << "erase invalid at " << temp << " ver:" << _version << std::endl;
             return ReturnCode::UNSUCCESS_INVALID;
         }
         else if (curr.is_empty())
