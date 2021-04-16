@@ -532,7 +532,9 @@ base_linear<C>::insert_intern(const slot_type& slot, size_type hash)
 
         if (curr.is_marked())
         {
-            otm::buffered_out() << "insert invalid at " << temp << " ver:" << _version << std::endl;
+            otm::buffered_out() << "insert invalid at " << temp
+                                << " ver:" << _version
+                                << " total slots" << _mapper.total_slots() << std::endl;
             return make_insert_ret(end(),
                                    ReturnCode::UNSUCCESS_INVALID);
         }
