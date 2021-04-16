@@ -22,8 +22,8 @@
 #include <iostream>
 
 #include "utils/default_hash.hpp"
-#include "utils/output.hpp"
-namespace otm = utils_tm::out_tm;
+// #include "utils/output.hpp"
+// namespace otm = utils_tm::out_tm;
 
 #include "data-structures/returnelement.hpp"
 #include "data-structures/base_linear_iterator.hpp"
@@ -532,9 +532,9 @@ base_linear<C>::insert_intern(const slot_type& slot, size_type hash)
 
         if (curr.is_marked())
         {
-            otm::buffered_out() << "insert invalid at " << temp
-                                << " ver:" << _version
-                                << " total slots" << _mapper.total_slots() << std::endl;
+            // otm::buffered_out() << "insert invalid at " << temp
+            //                     << " ver:" << _version
+            //                     << " total slots" << _mapper.total_slots() << std::endl;
             return make_insert_ret(end(),
                                    ReturnCode::UNSUCCESS_INVALID);
         }
@@ -754,7 +754,7 @@ inline ReturnCode base_linear<C>::erase_intern(const key_type& k)
         auto curr = _table[temp].load();
         if (curr.is_marked())
         {
-            otm::buffered_out() << "erase invalid at " << temp << " ver:" << _version << std::endl;
+            // otm::buffered_out() << "erase invalid at " << temp << " ver:" << _version << std::endl;
             return ReturnCode::UNSUCCESS_INVALID;
         }
         else if (curr.is_empty())
@@ -1293,12 +1293,12 @@ base_linear_config<S,H,A,CM,CP,CU>::mapper_type::remap(size_t hashed) const
         return hashed & _probe_helper;
     else
     {
-        if (hashed > addressable_slots()+500)
-        {
-            otm::buffered_out() << "going too far " << hashed << std::endl;
-            while (true)
-            { /* wait a while */ }
-        }
+        // if (hashed > addressable_slots()+500)
+        // {
+        //     // otm::buffered_out() << "going too far " << hashed << std::endl;
+        //     // while (true)
+        // //     { /* wait a while */ }
+        // }
         return hashed;
     }
 }

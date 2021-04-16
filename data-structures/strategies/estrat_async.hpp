@@ -217,7 +217,7 @@ template <class P>
 void
 estrat_async<P>::local_data_type::grow([[maybe_unused]]int version)
 {
-    otm::buffered_out() << "grow id:" << _id << " version:" << version;
+    // otm::buffered_out() << "grow id:" << _id << " version:" << version;
 
     dtm::if_debug("in grow expected version is weird!",
                   int(_table->_version) != version);
@@ -227,17 +227,17 @@ estrat_async<P>::local_data_type::grow([[maybe_unused]]int version)
                                _parent._dummies.load (std::memory_order_acquire)),
         _table->_version+1);
 
-    otm::buffered_out() << " new:" << new_table;
+    // otm::buffered_out() << " new:" << new_table;
 
     _growable_table_type* nu_ll = nullptr;
     if (! _table->next_table.compare_exchange_strong(nu_ll, new_table))
     {
         // another thread triggered the growing
         _rec_handle.delete_raw(new_table);
-        otm::buffered_out() << " unsuccessful";
+        // otm::buffered_out() << " unsuccessful";
     }
 
-    otm::buffered_out() << std::endl;
+    // otm::buffered_out() << std::endl;
 
     _worker_strat.execute_migration(*this, _epoch);
     end_grow();
@@ -264,25 +264,25 @@ estrat_async<P>::local_data_type::migrate()
     auto curr = _rec_handle.protect(_global._table);
     while (!curr) { curr = _rec_handle.protect(_global._table); }
 
-    otm::buffered_out() << "migration id:" << _id << " current:" << curr;
+    // otm::buffered_out() << "migration id:" << _id << " current:" << curr;
 
     // *star*
     // next is not actually protected properly (i.e. the next pointer of old
     // tables could already be deleted) but this can only happen if the migration
     // from curr is finished. If this is the case, next will never be accessed.
     auto next = _rec_handle.protect(curr->next_table);
-    otm::buffered_out() << " next:" << next;
+    // otm::buffered_out() << " next:" << next;
     if (!curr->next_table.load(std::memory_order_acquire))
     {
         _global._n_helper.fetch_sub(1, std::memory_order_acq_rel);
         auto ver = curr->_version;
         _rec_handle.unprotect(curr);
-        otm::buffered_out() << " next is zero must be old" << std::endl;
-        while ((void*)_global._table.load() != (void*)this) { /*wait for the world to end*/ }
+        // otm::buffered_out() << " next is zero must be old" << std::endl;
+        //while ((void*)_global._table.load() != (void*)this) { /*wait for the world to end*/ }
         return ver;
     }
 
-    otm::buffered_out() << " ver:" << next->_version << std::endl;
+    // otm::buffered_out() << " ver:" << next->_version << std::endl;
     dtm::if_debug("in migrate, next is not curr+1", next->_version != curr->_version + 1);
 
 //     //global.g_count.fetch_add(
@@ -339,13 +339,13 @@ estrat_async<P>::local_data_type::end_grow()
     //wait for other helpers
     while (_global._n_helper.load(std::memory_order_acquire)) { }
 
-    otm::buffered_out() << "end_grow id:" << _id << " current:" << _table << " version:" << _table->_version;
+    // otm::buffered_out() << "end_grow id:" << _id << " current:" << _table << " version:" << _table->_version;
     // here we don't protect curr because this cannot be a pool thread
     auto curr = _table;
     // next is unprotected here but we do not access it if we
     auto next = curr->next_table.load();
 
-    otm::buffered_out() << " next:" << next;
+    // otm::buffered_out() << " next:" << next;
     if (!next)
     {
         // we already have the new table?
@@ -355,7 +355,7 @@ estrat_async<P>::local_data_type::end_grow()
     if (_global._table.compare_exchange_strong(curr, nullptr,
                                                std::memory_order_acq_rel))
     {
-        otm::buffered_out() << " I am the one" << std::endl;
+        // otm::buffered_out() << " I am the one" << std::endl;
         // now we are responsible for some stuff
 
         // updates to the number of elements can have minor race conditions but
@@ -371,7 +371,7 @@ estrat_async<P>::local_data_type::end_grow()
         _rec_handle.safe_delete(_table);
     }
 
-    otm::buffered_out() << std::endl;
+    // otm::buffered_out() << std::endl;
     load();
 }
 
