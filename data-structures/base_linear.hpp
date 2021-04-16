@@ -22,8 +22,8 @@
 #include <iostream>
 
 #include "utils/default_hash.hpp"
-// #include "utils/output.hpp"
-// namespace otm = utils_tm::out_tm;
+#include "utils/output.hpp"
+namespace otm = utils_tm::out_tm;
 
 #include "data-structures/returnelement.hpp"
 #include "data-structures/base_linear_iterator.hpp"
@@ -532,14 +532,17 @@ base_linear<C>::insert_intern(const slot_type& slot, size_type hash)
 
         if (curr.is_marked())
         {
+            otm::buffered_out() << "insert invalid at " << temp << " ver:" << _table._version << std::endl;
             return make_insert_ret(end(),
                                    ReturnCode::UNSUCCESS_INVALID);
         }
         else if (curr.is_empty())
         {
             if constexpr (mapper_type::cyclic_probing)
+            {
                 if (temp == _mapper.total_slots()-1)
                     return make_insert_ret(end(), ReturnCode::UNSUCCESS_FULL);
+            }
             if ( _table[temp].cas(curr, slot) )
             {
                 return make_insert_ret(curr, &_table[temp],
@@ -739,6 +742,7 @@ inline ReturnCode base_linear<C>::erase_intern(const key_type& k)
         auto curr = _table[temp].load();
         if (curr.is_marked())
         {
+            otm::buffered_out() << "erase invalid at " << temp << " ver:" << _table._version << std::endl;
             return ReturnCode::UNSUCCESS_INVALID;
         }
         else if (curr.is_empty())
