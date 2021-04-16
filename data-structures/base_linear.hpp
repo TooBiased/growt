@@ -69,7 +69,6 @@ public:
         }
 
         void init_helper(size_t capacity);
-
         size_t _probe_helper;
         size_t _map_helper;
         size_t _grow_helper;
@@ -539,7 +538,7 @@ base_linear<C>::insert_intern(const slot_type& slot, size_type hash)
         else if (curr.is_empty())
         {
             if constexpr (mapper_type::cycle_prob)
-                if (temp == _mapper.probe_helper)
+                if (temp == _mapper.total_slots()-1)
                     return make_insert_ret(end(), ReturnCode::UNSUCCESS_FULL);
             if ( _table[temp].cas(curr, slot) )
             {
