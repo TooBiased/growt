@@ -119,7 +119,7 @@ public:
                 _table.load()->slot_cleanup();
 
             // this is an unsafe deletion of a protected thing it should work fine
-            delete _table.load();
+            delete static_cast<rtm::counted_object<_growable_table_type>*>(_table.load());
         }
 
     private:
