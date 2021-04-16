@@ -532,7 +532,7 @@ base_linear<C>::insert_intern(const slot_type& slot, size_type hash)
 
         if (curr.is_marked())
         {
-            otm::buffered_out() << "insert invalid at " << temp << " ver:" << _table._version << std::endl;
+            otm::buffered_out() << "insert invalid at " << temp << " ver:" << _version << std::endl;
             return make_insert_ret(end(),
                                    ReturnCode::UNSUCCESS_INVALID);
         }
