@@ -303,10 +303,12 @@ template <class P>
 void
 estrat_async<P>::local_data_type::load()
 {
-    // if (_table) _rec_handle.unprotect(_table);
+    if (_table) _rec_handle.unprotect(_table);
     _table = _rec_handle.protect(_global._table);
-    while (_table->_version != _global._epoch.load(std::memory_order_relaxed))
-    { /* wait */ }
+    // while (_table->_version != _global._epoch.load(std::memory_order_relaxed))
+    // { /* wait */ }
+    while (_table == nullptr)
+    { _table = _rec_handle.protect(_global._table); }
     _epoch = _table->_version;
 }
 
@@ -322,7 +324,7 @@ estrat_async<P>::local_data_type::end_grow()
     // next is unprotected here but we do not access it if we
     auto next = curr->next_table.load();
 
-    if (_global._table.compare_exchange_strong(curr, next,
+    if (_global._table.compare_exchange_strong(curr, nullptr,
                                                std::memory_order_acq_rel))
     {
         // now we are responsible for some stuff
@@ -335,6 +337,7 @@ estrat_async<P>::local_data_type::end_grow()
         // before this, no further operations can be done
         // thus next is safe because nothing could be inserted
         _global._epoch.store(next->_version, std::memory_order_release);
+        _global._table.store(next, std::memory_order_release);
 
         _rec_handle.safe_delete(_table);
     }
