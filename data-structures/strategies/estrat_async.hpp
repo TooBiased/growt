@@ -325,6 +325,11 @@ estrat_async<P>::local_data_type::end_grow()
     auto curr = _table;
     // next is unprotected here but we do not access it if we
     auto next = curr->next_table.load();
+    if (!next)
+    {
+        // we already have the new table?
+        return;
+    }
 
     if (_global._table.compare_exchange_strong(curr, nullptr,
                                                std::memory_order_acq_rel))
