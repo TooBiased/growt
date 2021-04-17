@@ -303,7 +303,7 @@ template <class P>
 void
 estrat_async<P>::local_data_type::load()
 {
-    // if (_table) _rec_handle.unprotect(_table);
+    if (_table) _rec_handle.unprotect(_table);
     _table = _rec_handle.protect(_global._table);
     while (_table->_version != _global._epoch.load(std::memory_order_relaxed))
     { /* wait */ }
