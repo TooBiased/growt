@@ -160,7 +160,7 @@ struct test_in_stages
                         for (size_t i = temp; i < temp + local_buffer_size; ++i)
                         {
                             auto key = keys[i];
-                            auto r = hash.insert(key, 666);
+                            auto r = hash.insert(key, i+1);
                             if (! r.second)
                                 err++;
                             buffer.push_back(key);
@@ -186,7 +186,7 @@ struct test_in_stages
                                 for (size_t i = s; i < e; ++i, ++d)
                                 {
                                     auto insert_key = keys[i];
-                                    auto r = hash.insert(insert_key, 666);
+                                    auto r = hash.insert(insert_key, i+1);
                                     if (! r.second) err++;
 
                                     auto erase_key = buffer.pop_front();

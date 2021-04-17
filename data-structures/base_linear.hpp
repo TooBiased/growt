@@ -22,8 +22,8 @@
 #include <iostream>
 
 #include "utils/default_hash.hpp"
-#include "utils/output.hpp"
-namespace otm = utils_tm::out_tm;
+// #include "utils/output.hpp"
+// namespace otm = utils_tm::out_tm;
 
 #include "data-structures/returnelement.hpp"
 #include "data-structures/base_linear_iterator.hpp"
@@ -560,10 +560,10 @@ base_linear<C>::insert_intern(const slot_type& slot, size_type hash)
         {
             //do something appropriate
         }
-        else if (curr.get_mapped() != 666)
-        {
-            otm::buffered_out() << "unexpected element in insert at:" << temp << std::endl;
-        }
+        // else if (curr.get_mapped() != 666)
+        // {
+        //     otm::buffered_out() << "unexpected element in insert at:" << temp << std::endl;
+        // }
     }
     return make_insert_ret(end(), ReturnCode::UNSUCCESS_FULL);
 }
@@ -1183,8 +1183,8 @@ inline void base_linear<C>::insert_unsafe(const slot_type& e)
 {
     const key_type k = e.get_key();
 
-    if (e.get_mapped() != 666)
-        otm::buffered_out() << "unsafe inserting weird element" << std::endl;
+    // if (e.get_mapped() != 666)
+    //     otm::buffered_out() << "unsafe inserting weird element" << std::endl;
 
     size_type htemp = h(k);
     for (size_type i = _mapper.map(htemp); ; ++i)
