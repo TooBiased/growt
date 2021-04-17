@@ -560,7 +560,7 @@ base_linear<C>::insert_intern(const slot_type& slot, size_type hash)
         {
             //do something appropriate
         }
-        else if (curr.get_data() != 666)
+        else if (curr.get_mapped() != 666)
         {
             otm::buffered_out() << "unexpected element in insert at:" << temp << std::endl;
         }
@@ -1183,7 +1183,7 @@ inline void base_linear<C>::insert_unsafe(const slot_type& e)
 {
     const key_type k = e.get_key();
 
-    if (e.get_data() != 666)
+    if (e.get_mapped() != 666)
         otm::buffered_out() << "unsafe inserting weird element" << std::endl;
 
     size_type htemp = h(k);
