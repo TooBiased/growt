@@ -1078,6 +1078,10 @@ base_linear<C>::migrate(this_type& target, size_type s, size_type e)
     for (; b; ++i)
     {
         auto pos  = _mapper.remap(i);
+
+        if (pos > _mapper.addressable_slots()) return n;
+
+
         // auto t_pos= pos<<shift;
         // for (size_type j = 0; j < 1ull<<shift; ++j)
         //     target._table[t_pos+j].non_atomic_set(slot_config::get_empty());
