@@ -538,6 +538,11 @@ base_linear<C>::insert_intern(const slot_type& slot, size_type hash)
         }
         else if (curr.is_empty())
         {
+            if constexpr (! mapper_type::cyclic_probing)
+            {
+                if (temp > _mapper.addressable_slots()+300)
+                    return make_insert_ret(end(), ReturnCode::UNSUCCESS_FULL);
+            }
             if ( _table[temp].cas(curr, slot) )
             {
                 return make_insert_ret(curr, &_table[temp],
@@ -656,6 +661,11 @@ base_linear<C>::insert_or_update_intern(const slot_type& slot, size_type hash,
         }
         else if (curr.is_empty())
         {
+            if constexpr (! mapper_type::cyclic_probing)
+            {
+                if (temp > _mapper.addressable_slots()+300)
+                    return make_insert_ret(end(), ReturnCode::UNSUCCESS_FULL);
+            }
             if ( _table[temp].cas(curr, slot) )
                 return make_insert_ret(slot, &_table[temp],
                                        ReturnCode::SUCCESS_IN);
@@ -700,6 +710,11 @@ base_linear<C>::insert_or_update_unsafe_intern(const slot_type& slot, size_type 
         }
         else if (curr.is_empty())
         {
+            if constexpr (! mapper_type::cyclic_probing)
+            {
+                if (temp > _mapper.addressable_slots()+300)
+                    return make_insert_ret(end(), ReturnCode::UNSUCCESS_FULL);
+            }
             if ( _table[temp].cas(curr, slot) )
                 return make_insert_ret(slot, &_table[temp],
                                        ReturnCode::SUCCESS_IN);
