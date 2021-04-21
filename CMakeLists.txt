@@ -459,6 +459,7 @@ add_dependencies( del
   del_full_uaGrowT    del_full_usGrowT
   del_full_uaGrowT    del_full_usGrowT)
 
+
 if (TBB_FOUND)
   GrowTExecutable( FOLKLORE text_test text text_none_folklore )
   GrowTExecutable( SEQUENTIAL text_test text text_full_sequential )
@@ -484,6 +485,15 @@ if (TBB_FOUND)
     text_none_folklore
     text_full_uaGrowT    text_full_usGrowT
     text_full_uaGrowT    text_full_usGrowT)
+endif()
+
+if (GROWT_BUILD_MEMORY_TEST)
+  GrowTExecutable( FOLKLORE ins_test mem mem_none_folklore )
+  target_compile_definitions(mem_none_folklore PRIVATE -D GROWT_RSS_MODE)
+  GrowTExecutable( UAGROWT ins_test mem mem_full_uaGrowT )
+  target_compile_definitions(mem_full_uaGrowT  PRIVATE -D GROWT_RSS_MODE)
+  GrowTExecutable( USGROWT ins_test mem mem_full_usGrowT )
+  target_compile_definitions(mem_full_usGrowT  PRIVATE -D GROWT_RSS_MODE)
 endif()
 
 if (GROWT_BUILD_LEGACY)
@@ -517,6 +527,23 @@ if (GROWT_BUILD_LEGACY)
     ins_none_shunhash_nd
     ins_semi_rcu
     ins_semi_rcu_qsbr)
+
+  if (GROWT_BUILD_MEMORY_TEST)
+    LegacyExecutable( HOPSCOTCH  ins_test mem mem_none_hopscotch )
+    target_compile_definitions(mem_none_hopscotch   PRIVATE -D GROWT_RSS_MODE)
+    LegacyExecutable( LEAHASH    ins_test mem mem_none_leahash )
+    target_compile_definitions(mem_none_leahash     PRIVATE -D GROWT_RSS_MODE)
+    LegacyExecutable( SHUNHASH   ins_test mem mem_none_shunhash )
+    target_compile_definitions(mem_none_shunhash    PRIVATE -D GROWT_RSS_MODE)
+    LegacyExecutable( SHUNHASH   ins_test mem mem_none_shunhash_nd )
+    target_compile_definitions(mem_none_shunhash_nd PRIVATE -D SHUN_ND -D GROWT_RSS_MODE)
+    LegacyExecutable( RCU_BASE   ins_test mem mem_semi_rcu )
+    target_compile_definitions(mem_semi_rcu    PRIVATE -D GROWT_RSS_MODE)
+    target_link_libraries(mem_semi_rcu ${URCU_LIBRARIES})
+    LegacyExecutable( RCU_BASE   ins_test mem mem_semi_rcu_qsbr )
+    target_compile_definitions(mem_semi_rcu_qsbr PRIVATE -D QSBR -D GROWT_RSS_MODE)
+    target_link_libraries(mem_semi_rcu_qsbr ${URCU_QSBR_LIBRARIES})
+  endif()
 endif()
 
 if (GROWT_BUILD_TBB)
