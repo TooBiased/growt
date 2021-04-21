@@ -48,6 +48,10 @@ option(GROWT_BUILD_TBB
 option(GROWT_BUILD_JUNCTION
   "(optional) builds tests for junction tables (Linear, Grampa, Leapfrog)!" OFF)
 
+option(GROWT_BUILD_MEMORY_TEST
+  "(optional) builds tests that output memory (i.e. residential set size)" OFF)
+
+
 set(GROWT_ALLOCATOR ALIGNED CACHE STRING
   "Specifies the used allocator (only relevant for our tables)!")
 set_property(CACHE GROWT_ALLOCATOR PROPERTY STRINGS ALIGNED POOL TBB_ALIGNED NUMA_POOL HTLB_POOL)
@@ -319,6 +323,15 @@ GrowTExecutable( PSGROW agg_test agg agg_full_psGrowT )
 # target_compile_definitions(del_full_uaGrowT PRIVATE
 #   -D CMAP)
 
+if (GROWT_BUILD_MEMORY_TEST)
+  GrowTExecutable( FOLKLORE ins_test mem mem_none_folklore )
+  target_compile_definitions(mem_none_folklore PRIVATE -D GROWT_RSS_MODE)
+  GrowTExecutable( UAGROW ins_test mem mem_full_uaGrowT )
+  target_compile_definitions(mem_full_uaGrowT PRIVATE -D GROWT_RSS_MODE)
+  GrowTExecutable( USGROW ins_test mem mem_full_usGrowT )
+  target_compile_definitions(mem_full_usGrowT PRIVATE -D GROWT_RSS_MODE)
+endif()
+
 
 add_custom_target( folklore )
 add_dependencies( folklore
@@ -417,7 +430,6 @@ if (TBB_FOUND)
     text_full_uaGrowT    text_full_usGrowT)
 endif()
 
-
 if (GROWT_BUILD_TBB)
   function( TBBExecutable variant cpp directory name )
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${directory})
@@ -450,6 +462,13 @@ if (GROWT_BUILD_TBB)
     mix_full_TBBhm mix_full_TBBum
     con_full_TBBhm con_full_TBBum
     agg_full_TBBhm agg_full_TBBum)
+
+  if (GROWT_BUILD_MEMORY_TEST)
+    GrowTExecutable( TBBHM ins_test mem mem_full_TBBhm )
+    target_compile_definitions(mem_full_TBBhm PRIVATE -D GROWT_RSS_MODE)
+    GrowTExecutable( TBBUM ins_test mem mem_full_TBBum )
+    target_compile_definitions(mem_full_TBBum PRIVATE -D GROWT_RSS_MODE)
+  endif()
 endif()
 
 if (GROWT_BUILD_FOLLY)
@@ -474,6 +493,11 @@ if (GROWT_BUILD_FOLLY)
   add_dependencies( follytrgt
     ins_semi_folly mix_semi_folly con_semi_folly
     agg_semi_folly)
+
+  if (GROWT_BUILD_MEMORY_TEST)
+    GrowTExecutable( FOLLY ins_test mem mem_semi_folly )
+    target_compile_definitions(mem_semi_folly PRIVATE -D GROWT_RSS_MODE)
+  endif()
 endif()
 
 if (GROWT_BUILD_CUCKOO)
@@ -502,6 +526,11 @@ if (GROWT_BUILD_CUCKOO)
   add_dependencies( cuckoo
     ins_full_cuckoo mix_full_cuckoo con_full_cuckoo
     agg_full_cuckoo del_full_cuckoo)
+
+  if (GROWT_BUILD_MEMORY_TEST)
+    GrowTExecutable( CUCKOO ins_test mem mem_full_cuckoo )
+    target_compile_definitions(mem_full_cuckoo PRIVATE -D GROWT_RSS_MODE)
+  endif()
 endif()
 
 if (GROWT_BUILD_JUNCTION)
@@ -535,6 +564,15 @@ if (GROWT_BUILD_JUNCTION)
     mix_full_junction_linear mix_full_junction_grampa mix_full_junction_leap
     con_full_junction_linear con_full_junction_grampa con_full_junction_leap
     del_full_junction_linear del_full_junction_grampa del_full_junction_leap)
+
+  if (GROWT_BUILD_MEMORY_TEST)
+    GrowTExecutable( JUNCTION_LINEAR ins_test mem mem_full_junction_linear )
+    target_compile_definitions(mem_full_junction_linear PRIVATE -D GROWT_RSS_MODE)
+    GrowTExecutable( JUNCTION_GRAMPA ins_test mem mem_full_junction_grampa )
+    target_compile_definitions(mem_full_junction_grampa PRIVATE -D GROWT_RSS_MODE)
+    GrowTExecutable( JUNCTION_LEAP   ins_test mem mem_full_junction_leap )
+    target_compile_definitions(mem_full_junction_leap   PRIVATE -D GROWT_RSS_MODE)
+  endif()
 endif()
 
 if (GROWT_BUILD_CIRCULAR)

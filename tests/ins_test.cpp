@@ -12,8 +12,26 @@
 #include <random>
 #include <iostream>
 
-#ifdef MALLOC_COUNT
-#include "malloc_count.h"
+#ifdef GROWT_RSS_MODE
+  #include <stdio.h>
+  static constexpr bool rss_mode = true;
+  size_t get_rss()
+  {
+      long rss = 0L;
+      FILE* fp = NULL;
+      if ( (fp = fopen( "/proc/self/statm", "r" )) == NULL )
+          return (size_t)0L;		/* Can't open? */
+      if ( fscanf( fp, "%*s%ld", &rss ) != 1 )
+      {
+          fclose( fp );
+          return (size_t)0L;		/* Can't read? */
+      }
+      fclose( fp );
+      return (size_t)rss;
+  }
+#else
+  static constexpr bool rss_mode = false;
+  constexpr size_t get_rss() { return 0; }
 #endif
 
 #include "utils/default_hash.hpp"
@@ -170,6 +188,8 @@ struct test_in_stages
             t.synchronized(generate_random, 2*n);
         }
 
+        [[maybe_unused]]size_t start_rss = get_rss();
+
         for (size_t i = 0; i < it; ++i)
         {
             // STAGE 0.1
@@ -218,9 +238,10 @@ struct test_in_stages
                 t.out << otm::width(12) << errors.load();
             }
 
-#ifdef MALLOC_COUNT
-            t.out << otm::width(16) << malloc_count_current();
-#endif
+            if constexpr (rss_mode)
+            {
+                t.out << otm::width(20) << get_rss() - start_rss;
+            }
 
             if (ThreadType::is_main)
             {
