@@ -186,7 +186,7 @@ struct test_in_stages
             t.out << otm::width(16) << malloc_count_current();
 #endif
             t.out << std::endl;
-            if constexpr (t.is_main)
+            if constexpr (ThreadType::is_main)
             {
                 pos         .store(0);
                 unique_words.store(0);

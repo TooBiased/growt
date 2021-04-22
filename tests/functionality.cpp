@@ -50,8 +50,8 @@ alignas(64) static std::atomic_size_t errors;
 template <class TType, class Func, class ... Args>
 void perform_test(TType& t, const std::string& name, const std::string& description, Func&& f, Args&& ... args)
 {
-    if constexpr (t.is_main) current_block.store(0, std::memory_order_relaxed);
-    if constexpr (t.is_main) errors.store(0, std::memory_order_relaxed);
+    if constexpr (TType::is_main) current_block.store(0, std::memory_order_relaxed);
+    if constexpr (TType::is_main) errors.store(0, std::memory_order_relaxed);
     t.out << "Starting test: " << name << std::endl;
     t.out << "    " << otm::color::bblack << description << otm::color::reset << std::endl;
     t.synchronized(f, std::forward<Args>(args)...);
@@ -621,7 +621,7 @@ struct test_in_stages
         for (size_t i = 0; i<it; ++i)
         {
             t.synchronize();
-            if constexpr (t.is_main) simple_table = simple_table_type{n};
+            if constexpr (ThreadType::is_main) simple_table = simple_table_type{n};
             t.synchronize();
 
             handle_type hash = simple_table.get_handle();
