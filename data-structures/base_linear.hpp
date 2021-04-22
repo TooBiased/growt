@@ -1135,7 +1135,7 @@ template<class C>
 inline void base_linear<C>::initialize(size_t start, size_t end)
 {
     if constexpr (! _parallel_init) return;
-    if constexpr (_mapper.cyclic_mapping)
+    if constexpr (mapper_type::cyclic_mapping)
     {
         for (size_t i = start, j = end;
              i <= _mapper.bitmask();
@@ -1157,9 +1157,9 @@ template<class C>
 inline void base_linear<C>::initialize(size_t idx)
 {
     if constexpr (! _parallel_init) return;
-    if constexpr (_mapper.cyclic_mapping)
+    if constexpr (mapper_type::cyclic_mapping)
     {
-        if constexpr (! _mapper.cyclic_probing)
+        if constexpr (! mapper_type::cyclic_probing)
         {
             if (idx >= _mapper.grow_helper()) return;
         }
