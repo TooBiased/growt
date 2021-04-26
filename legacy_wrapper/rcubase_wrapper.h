@@ -14,6 +14,8 @@
 #ifndef RCU_BASE_WRAPPER
 #define RCU_BASE_WRAPPER
 
+#include "tbb/scalable_allocator.h"
+
 #ifndef QSBR
 #include <urcu.h>
 #else
@@ -210,7 +212,7 @@ public:
     using key_type = Key;
     using mapped_type = Data;
     using hash_fct_type = HashFct;
-    using allocator_type = Allocator;
+    using allocator_type = tbb::scalable_allocator<void>;
 
     using mods = mod_aggregator<Mods ...>;
 
