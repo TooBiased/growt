@@ -275,18 +275,18 @@ if (GROWT_BUILD_LEGACY)
   endif()
 
   message(STATUS "Looking for urcu package")
-  find_path(URCU_DIR      userspace-rcu/install/include/urcu/rculfhash.h
+  find_path(URCU_DIR      userspace-rcu/include/urcu/rculfhash.h
     PATHS ${CMAKE_CURRENT_SOURCE_DIR}/misc/submodules)
   if (URCU_DIR)
     message(STATUS "Looking for urcu package -- found")
-    set(URCU_INCLUDE ${URCU_DIR}/userspace-rcu/install/include/)
+    set(URCU_INCLUDE ${URCU_DIR}/userspace-rcu/include/)
     include_directories(${URCU_INCLUDE})
     set(URCU_LIBRARIES -lurcu -lurcu-cds
-      -L${URCU_DIR}/userspace-rcu/install/lib/
-      -Wl,-rpath,${URCU_DIR}/userspace-rcu/install/lib)
+      -L${URCU_DIR}/userspace-rcu/lib/
+      -Wl,-rpath,${URCU_DIR}/userspace-rcu/lib)
     set(URCU_QSBR_LIBRARIES -lurcu-qsbr -lurcu-cds
-      -L${URCU_DIR}/userspace-rcu/install/lib/
-      -Wl,-rpath,${URCU_DIR}/userspace-rcu/install/lib)
+      -L${URCU_DIR}/userspace-rcu/lib/
+      -Wl,-rpath,${URCU_DIR}/userspace-rcu/lib)
   else()
     message(STATUS "Looking for urcu package -- not found")
     message("Cannot find userspace rcu implementation. Therefore, some tests cannot be created! Download compile and install their code into the submodules/userspace-rcu folder!")
@@ -514,10 +514,10 @@ if (GROWT_BUILD_LEGACY)
   LegacyExecutable( SHUNHASH   ins_test ins ins_none_shunhash_nd )
   target_compile_definitions(ins_none_shunhash_nd PRIVATE -D SHUN_ND)
   LegacyExecutable( RCU_BASE   ins_test ins ins_semi_rcu )
-  target_link_libraries(ins_semi_rcu ${URCU_LIBRARIES})
+  target_link_libraries(ins_semi_rcu ${URCU_LIBRARIES} ${TBB_LIBRARIES})
   LegacyExecutable( RCU_BASE   ins_test ins ins_semi_rcu_qsbr )
   target_compile_definitions(ins_semi_rcu_qsbr PRIVATE -D QSBR)
-  target_link_libraries(ins_semi_rcu_qsbr ${URCU_QSBR_LIBRARIES})
+  target_link_libraries(ins_semi_rcu_qsbr ${URCU_QSBR_LIBRARIES} ${TBB_LIBRARIES})
 
   add_custom_target( legacy )
   add_dependencies( legacy
