@@ -111,8 +111,6 @@ endif()
 find_package(Threads REQUIRED)
 set(TEST_DEP_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${TEST_DEP_LIBRARIES})
 
-
-
 # COMPILE THE EXAMPLE CODE (example/example.cpp)
 add_executable(example example/example.cpp)
 set_target_properties(example PROPERTIES COMPILE_FLAGS "${FLAGS}")
@@ -191,7 +189,6 @@ if (GROWT_BUILD_CUCKOO)
   endif()
 endif()
 
-
 if (GROWT_BUILD_JUNCTION)
   message(STATUS "Looking for junction")
 
@@ -211,7 +208,6 @@ if (GROWT_BUILD_JUNCTION)
     set(GROWT_BUILD_JUNCTION OFF)
   endif()
 endif()
-
 
 if (GROWT_BUILD_FOLLY)
   message(STATUS "Looking for folly")
@@ -254,6 +250,19 @@ if ((GROWT_HASHFCT STREQUAL XXHASH) OR
   endif()
 endif()
 
+if (GROWT_HASHFCT STREQUAL MURMUR3)
+  message(STATUS "Looking for smhasher")
+  find_path(MURMUR3_DIR MurmurHash3.cpp
+  PATHS ${CMAKE_CURRENT_SOURCE_DIR}/misc/submodules/smhasher)
+  if (MURMUR3_DIR)
+    include_directories(${MURMUR3_DIR}/)
+    message(STATUS "Looking for smhasher -- found")
+    message(STATUS "${MURMUR3_DIR}")
+  else()
+    message(STATUS "Looking for smhasher -- not found")
+    message(STATUS "Maybe: the smhasher submodule is not initialized")
+  endif()
+endif()
 
 configure_file ("misc/growt_config.h.in" "${PROJECT_BINARY_DIR}/growt_config.h")
 include_directories(${PROJECT_BINARY_DIR})
