@@ -132,9 +132,9 @@ struct test_in_stages
 
             t.out << otm::width(5) << i
                   << otm::width(5) << t.p
-                  << otm::width(11) << n
-                  << otm::width(11) << cap
-                  << otm::width(11) << ws;
+                  << otm::width(12) << n
+                  << otm::width(12) << cap
+                  << otm::width(12) << ws;
 
             t.synchronize();
 
@@ -213,8 +213,8 @@ struct test_in_stages
                                                hash, ws + n);
 
                 t.out << otm::width(12) << duration.second/1000000.
-                      << otm::width(9)  << shared_temp.load()
-                      << otm::width(9)  << errors.load();
+                      << otm::width(12)  << shared_temp.load()
+                      << otm::width(12)  << errors.load();
             }
 
 
@@ -254,13 +254,13 @@ int main(int argn, char** argc)
 
     otm::out() << otm::width(5)  << "#i"
                << otm::width(5)  << "p"
-               << otm::width(11) << "n"
-               << otm::width(11) << "cap"
-               << otm::width(11) << "w_size"
+               << otm::width(12) << "n"
+               << otm::width(12) << "cap"
+               << otm::width(12) << "w_size"
                << otm::width(12) << "t_del"
                << otm::width(12) << "t_val"
-               << otm::width(9)  << "elem"
-               << otm::width(9)  << "errors"
+               << otm::width(12)  << "elem"
+               << otm::width(12)  << "errors"
                << "    " << del_config::name()
                << std::endl;
 

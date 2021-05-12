@@ -325,7 +325,7 @@ junction_handle<JT>::erase(const key_type& k)
     size_t r = 0;
     {
         auto mutator = hash.find(k);
-        r = mutator.eraseValue();
+        r = mutator.eraseValue() ? 1 : 0;
     }
     if (++count > 64)
     {
