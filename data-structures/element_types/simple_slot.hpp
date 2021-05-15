@@ -323,15 +323,19 @@ public:
     template <class K, class D, bool m, K dd>
     bool
     simple_slot<K,D,m,dd>::atomic_slot_type::cas(slot_type& expected,
-                                                 slot_type goal, bool release)
+                                                 slot_type goal, [[maybe_unused]]bool release)
     {
         return __sync_bool_compare_and_swap_16(
             &_raw_data,
             reinterpret_cast<int128_t&>(expected),
-            goal,
-            false,
-            release ? __ATOMIC_RELEASE : __ATOMIC_RELAXED,
-            __ATOMIC_RELAXED);
+            goal);
+        // return __atomic_compare_exchange_16(
+        //     &_raw_data,
+        //     reinterpret_cast<int128_t*>(expected),
+        //     goal,
+        //     false,
+        //     release ? __ATOMIC_RELEASE : __ATOMIC_RELAXED,
+        //     __ATOMIC_RELAXED);
     }
 
     template <class K, class D, bool m, K dd>
@@ -427,7 +431,7 @@ public:
             auto temp = expected;
             f(temp.data, std::forward<Types>(args)...);
             return std::make_pair(temp,
-                                  cas(expected, temp), true);
+                                  cas(expected, temp, true));
         }
         else
         {
