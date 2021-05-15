@@ -112,7 +112,7 @@ public:
 
         slot_type load() const;
         void      non_atomic_set(const slot_type& goal);
-        bool cas(slot_type& expected, slot_type goal);
+        bool cas(slot_type& expected, slot_type goal, bool release = false);
         bool atomic_delete(slot_type& expected);
         bool atomic_mark  (slot_type& expected);
 
@@ -323,11 +323,15 @@ public:
     template <class K, class D, bool m, K dd>
     bool
     simple_slot<K,D,m,dd>::atomic_slot_type::cas(slot_type& expected,
-                                                 slot_type goal)
+                                                 slot_type goal, bool release)
     {
-        return __sync_bool_compare_and_swap_16(&_raw_data,
-                                               reinterpret_cast<int128_t&>(expected),
-                                               goal);
+        return __sync_bool_compare_and_swap_16(
+            &_raw_data,
+            reinterpret_cast<int128_t&>(expected),
+            goal,
+            false,
+            release ? __ATOMIC_RELEASE : __ATOMIC_RELAXED,
+            __ATOMIC_RELAXED);
     }
 
     template <class K, class D, bool m, K dd>
@@ -423,7 +427,7 @@ public:
             auto temp = expected;
             f(temp.data, std::forward<Types>(args)...);
             return std::make_pair(temp,
-                                  cas(expected, temp));
+                                  cas(expected, temp), true);
         }
         else
         {
