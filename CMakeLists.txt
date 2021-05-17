@@ -301,7 +301,7 @@ GrowTExecutable( PSGROW functionality fun functionality_psGrowT )
 
 GrowTExecutable( FOLKLORE ins_test  ins  ins_none_folklore )
 GrowTExecutable( FOLKLORE mix_test  mix  mix_none_folklore )
-GrowTExecutable( FOLKLORE con_test  con  con_none_folklore )
+GrowTExecutable( FOLKLORE con_test  conn  con_none_folklore )
 GrowTExecutable( FOLKLORE agg_test  agg  agg_none_folklore )
 
 GrowTExecutable( SEQUENTIAL ins_test  seq  ins_full_sequential )
@@ -321,10 +321,10 @@ GrowTExecutable( UAGROW del_test del del_full_uaGrowT )
 GrowTExecutable( USGROW del_test del del_full_usGrowT )
 GrowTExecutable( PAGROW del_test del del_full_paGrowT )
 GrowTExecutable( PSGROW del_test del del_full_psGrowT )
-GrowTExecutable( UAGROW con_test con con_full_uaGrowT )
-GrowTExecutable( USGROW con_test con con_full_usGrowT )
-GrowTExecutable( PAGROW con_test con con_full_paGrowT )
-GrowTExecutable( PSGROW con_test con con_full_psGrowT )
+GrowTExecutable( UAGROW con_test conn con_full_uaGrowT )
+GrowTExecutable( USGROW con_test conn con_full_usGrowT )
+GrowTExecutable( PAGROW con_test conn con_full_paGrowT )
+GrowTExecutable( PSGROW con_test conn con_full_psGrowT )
 GrowTExecutable( UAGROW agg_test agg agg_full_uaGrowT )
 GrowTExecutable( USGROW agg_test agg agg_full_usGrowT )
 GrowTExecutable( PAGROW agg_test agg agg_full_paGrowT )
@@ -400,8 +400,8 @@ add_dependencies( mix
   mix_full_uaGrowT    mix_full_usGrowT
   mix_full_uaGrowT    mix_full_usGrowT)
 
-add_custom_target( con )
-add_dependencies( con
+add_custom_target( conn )
+add_dependencies( conn
   con_full_sequential
   con_none_folklore
   con_full_uaGrowT    con_full_usGrowT
@@ -455,8 +455,8 @@ if (GROWT_BUILD_TBB)
   TBBExecutable( TBBUM  ins_test ins ins_full_TBBum )
   TBBExecutable( TBBHM  mix_test mix mix_full_TBBhm )
   TBBExecutable( TBBUM  mix_test mix mix_full_TBBum )
-  TBBExecutable( TBBHM  con_test con con_full_TBBhm )
-  TBBExecutable( TBBUM  con_test con con_full_TBBum )
+  TBBExecutable( TBBHM  con_test conn con_full_TBBhm )
+  TBBExecutable( TBBUM  con_test conn con_full_TBBum )
   TBBExecutable( TBBHM  agg_test agg agg_full_TBBhm )
   TBBExecutable( TBBUM  agg_test agg agg_full_TBBum )
 
@@ -495,7 +495,7 @@ if (GROWT_BUILD_FOLLY)
 
   FollyExecutable( FOLLY  ins_test ins ins_semi_folly )
   FollyExecutable( FOLLY  mix_test mix mix_semi_folly )
-  FollyExecutable( FOLLY  con_test con con_semi_folly )
+  FollyExecutable( FOLLY  con_test conn con_semi_folly )
   FollyExecutable( FOLLY  agg_test agg agg_semi_folly )
 
   add_custom_target( follytrgt )
@@ -523,7 +523,7 @@ if (GROWT_BUILD_CUCKOO)
 
   CuckooExecutable( CUCKOO  ins_test ins ins_full_cuckoo )
   CuckooExecutable( CUCKOO  mix_test mix mix_full_cuckoo )
-  CuckooExecutable( CUCKOO  con_test con con_full_cuckoo )
+  CuckooExecutable( CUCKOO  con_test conn con_full_cuckoo )
   CuckooExecutable( CUCKOO  agg_test agg agg_full_cuckoo )
   CuckooExecutable( CUCKOO  del_test del del_full_cuckoo )
   if (TBB_FOUND)
@@ -556,15 +556,15 @@ if (GROWT_BUILD_JUNCTION)
 
   JunctionExecutable( JUNCTION_LINEAR      ins_test ins ins_full_junction_linear )
   JunctionExecutable( JUNCTION_LINEAR      mix_test mix mix_full_junction_linear )
-  JunctionExecutable( JUNCTION_LINEAR      con_test con con_full_junction_linear )
+  JunctionExecutable( JUNCTION_LINEAR      con_test conn con_full_junction_linear )
   JunctionExecutable( JUNCTION_LINEAR      del_test del del_full_junction_linear )
   JunctionExecutable( JUNCTION_GRAMPA      ins_test ins ins_full_junction_grampa )
   JunctionExecutable( JUNCTION_GRAMPA      mix_test mix mix_full_junction_grampa )
-  JunctionExecutable( JUNCTION_GRAMPA      con_test con con_full_junction_grampa )
+  JunctionExecutable( JUNCTION_GRAMPA      con_test conn con_full_junction_grampa )
   JunctionExecutable( JUNCTION_GRAMPA      del_test del del_full_junction_grampa )
   JunctionExecutable( JUNCTION_LEAPFROG    ins_test ins ins_full_junction_leap )
   JunctionExecutable( JUNCTION_LEAPFROG    mix_test mix mix_full_junction_leap )
-  JunctionExecutable( JUNCTION_LEAPFROG    con_test con con_full_junction_leap )
+  JunctionExecutable( JUNCTION_LEAPFROG    con_test conn con_full_junction_leap )
   JunctionExecutable( JUNCTION_LEAPFROG    del_test del del_full_junction_leap )
 
   add_custom_target( junctiontrgt )
