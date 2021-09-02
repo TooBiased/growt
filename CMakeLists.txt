@@ -154,6 +154,10 @@ else()
 endif()
 # endif()
 
+add_executable(test example/sample_main.cpp)
+set_target_properties(test PROPERTIES COMPILE_FLAGS "${FLAGS}")
+target_link_libraries(test ${TEST_DEP_LIBRARIES} ${TBB_LIBRARIES})
+
 
 if (GROWT_ALLOCATOR STREQUAL NUMA_POOL)
   find_package(NUMA)
