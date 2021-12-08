@@ -79,6 +79,7 @@ public:
                 sref._mref.operator=(value);
                 return 0;
             }, *this, value);
+        return *this;
     }
     template<class F, class ... Args>
     inline void update   (const mapped_type& value, F f, Args&& ... args)

@@ -844,7 +844,7 @@ base_linear<C>::find(const key_type& k) const
     for (size_type i = _mapper.map(htemp); ; ++i)
     {
         auto temp = _mapper.remap(i);
-        auto curr = _table[temp].load;
+        auto curr = _table[temp].load();
         if (curr.is_empty())
             return cend();
         if (curr.compare_key(k, htemp))
