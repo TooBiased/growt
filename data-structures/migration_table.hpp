@@ -45,6 +45,7 @@ private:
     using this_type                 = migration_table<HashTable,
                                                       WorkerStrat,
                                                       ExclusionStrat>;
+protected:
     using migration_table_data_type = migration_table_data<this_type>;
     using base_table_type           = HashTable;
     using slot_config               = typename base_table_type::slot_config;
@@ -99,7 +100,7 @@ public:
 template<typename Parent>
 class migration_table_data
 {
-private:
+protected:
     // TYPEDEFS
     using parent_type     = Parent;
     using base_table_type = typename Parent::base_table_type;
@@ -130,7 +131,7 @@ public:
 
     size_type element_count_approx() { return _elements.load()-_dummies.load(); }
 
-private:
+protected:
     // DATA+FUNCTIONS FOR MIGRATION STRATEGIES
     mutable typename exclusion_strat::global_data_type _global_exclusion;
     mutable typename worker_strat::global_data_type    _global_worker;
@@ -150,10 +151,11 @@ class migration_table_handle
 {
 private:
     using this_type          = migration_table_handle<migration_table_data>;
+protected:
     using parent_type        = typename migration_table_data::parent_type;
 public:
     using base_table_type    = typename migration_table_data::base_table_type;
-private:
+protected:
     using worker_strat       = typename migration_table_data::worker_strat;
     using exclusion_strat    = typename migration_table_data::exclusion_strat;
     friend migration_table_data;
@@ -189,7 +191,7 @@ public:
     using const_local_iterator = void;
     using node_type            = void;
 
-private:
+protected:
     using base_table_iterator   = typename base_table_type::iterator;
     using base_table_insert_return_type = typename base_table_type::insert_return_intern;
     using base_table_citerator  = typename base_table_type::const_iterator;
@@ -270,7 +272,7 @@ public:
 
     size_type element_count_approx() { return _mt_data.element_count_approx(); }
 
-private:
+protected:
     // DATA+FUNCTIONS FOR MIGRATION STRATEGIES
     migration_table_data& _mt_data;
     size_type             _handle_id;
@@ -294,7 +296,7 @@ private:
     inline void         rls_table() const { _local_exclusion.rls_table(); }
     inline hash_ptr_reference get_table() const { return _local_exclusion.get_table(); }
 
-private:
+protected:
     template<typename Functor, typename ... Types>
     inline typename std::result_of<Functor(hash_ptr_reference, Types&& ...)>::type
     execute (Functor f, Types&& ... param)
@@ -337,7 +339,7 @@ private:
 public:
     void update_numbers();
 
-private:
+protected:
     void inc_inserted();
     void inc_deleted();
 

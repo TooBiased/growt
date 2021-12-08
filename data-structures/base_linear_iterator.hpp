@@ -276,6 +276,12 @@ public:
         return true;
     }
 
+    inline bool erase_if_unchanged()
+    {
+        static_assert(!is_const, "erase is called on a const iterator");
+        return _ptr->atomic_delete(_copy);
+    }
+
 private:
     slot_type         _copy;
     atomic_slot_type* _ptr;

@@ -101,6 +101,7 @@ class base_linear
 {
 private:
     using this_type          = base_linear<Config>;
+protected:
     using config_type        = Config;
     using allocator_type     = typename Config::allocator_type;
     using hash_fct_type      = typename Config::hash_fct_type;
@@ -155,7 +156,7 @@ public:
 
     using handle_type            = this_type&;
 
-private:
+protected:
     using insert_return_intern   = std::pair<iterator, ReturnCode>;
 
 public:
@@ -253,7 +254,7 @@ protected:
     //         return hashed;
     // }
 
-private:
+protected:
     insert_return_intern insert_intern(const slot_type& slot, size_type hash);
     ReturnCode           erase_intern (const key_type& k);
     ReturnCode           erase_if_intern (const key_type& k, const mapped_type& d);

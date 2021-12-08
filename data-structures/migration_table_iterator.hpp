@@ -320,6 +320,39 @@ public:
             *this);
     }
 
+    inline bool erase()
+    {
+        while (true)
+        {
+            auto res = _tab.cexecute(
+                [](hash_ptr_reference t, migration_table_iterator& sit) -> bool
+                {
+                    sit.base_refresh_ptr(t);
+                    sit._it.refresh();
+                    sit.erase_if_unchanged();
+                    return 0;
+                },
+                *this);
+        }
+        return true;
+    }
+
+    inline bool erase_if_unchanged()
+    {
+        auto res = _tab.cexecute(
+            [](hash_ptr_reference t, migration_table_iterator& sit) -> bool
+            {
+                auto val = sit._it._copy.get_key();
+                if (sit.base_refresh_ptr(t)
+                    && val != sit._it._copy.get_key())
+                    return false;
+
+                return sit._it.erase_if_unchanged();
+            },
+            *this);
+        return res;
+    }
+
 private:
     table_type&   _tab;
     size_t        _version;
