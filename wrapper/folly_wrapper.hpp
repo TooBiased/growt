@@ -13,9 +13,10 @@
 #ifndef FOLLY_WRAPPER
 #define FOLLY_WRAPPER
 
-//#include "/home/maier/PHD/HashTables/Implementation/Competitors/folly/install_4.9.2/include/folly/AtomicHashMap.h"
-#include <string>
+//#include
+//"/home/maier/PHD/HashTables/Implementation/Competitors/folly/install_4.9.2/include/folly/AtomicHashMap.h"
 #include <algorithm>
+#include <string>
 
 #include "folly/AtomicHashMap.h"
 
@@ -24,17 +25,16 @@
 
 using namespace growt;
 
-template<class Key, class Data, class Hasher, class Allocator>
+template <class Key, class Data, class Hasher, class Allocator>
 class folly_wrapper
 {
-private:
+  private:
     using internal_table_type = folly::AtomicHashMap<Key, Data, Hasher>;
 
     internal_table_type hash;
-    size_t capacity;
+    size_t              capacity;
 
-public:
-
+  public:
     using key_type           = Key;
     using mapped_type        = Data;
     using value_type         = typename std::pair<const key_type, mapped_type>;
@@ -44,26 +44,31 @@ public:
 
     static constexpr size_t next_cap(size_t i)
     {
-	    size_t curr = 4096;
-	    while (curr<i) curr<<=1;
-	    return curr << 1;
+        size_t curr = 4096;
+        while (curr < i) curr <<= 1;
+        return curr << 1;
     }
 
     folly_wrapper() = default;
     folly_wrapper(size_t capacity_)
-        : hash(next_cap(capacity_)), capacity(next_cap(capacity_)) {}
+        : hash(next_cap(capacity_)), capacity(next_cap(capacity_))
+    {
+    }
     folly_wrapper(const folly_wrapper&) = delete;
     folly_wrapper& operator=(const folly_wrapper&) = delete;
-    // I know this is really ugly, but it works for my benchmarks (all elements are forgotten)
+    // I know this is really ugly, but it works for my benchmarks (all elements
+    // are forgotten)
     folly_wrapper(folly_wrapper&& rhs)
         : hash(rhs.capacity), capacity(rhs.capacity)
-    { }
-    // I know this is even uglier, but it works for my benchmarks (all elements are forgotten)
+    {
+    }
+    // I know this is even uglier, but it works for my benchmarks (all elements
+    // are forgotten)
     folly_wrapper& operator=(folly_wrapper&& rhs)
     {
         capacity = rhs.capacity;
-        (& hash)->~internal_table_type();
-        new (& hash) internal_table_type(rhs.capacity);
+        (&hash)->~internal_table_type();
+        new (&hash) internal_table_type(rhs.capacity);
         return *this;
     }
 
@@ -74,54 +79,54 @@ public:
 
     inline insert_return_type insert(const key_type& k, const mapped_type& d);
 
-    template<class F, class ... Types>
-    inline insert_return_type update(const key_type& k,
-                                     F f, Types&& ... args);
+    template <class F, class... Types>
+    inline insert_return_type update(const key_type& k, F f, Types&&... args);
 
-    template<class F, class ... Types>
-    inline insert_return_type insert_or_update(const key_type& k,
-                                               const mapped_type& d,
-                                               F f, Types&& ... args);
-    template<class F, class ... Types>
-    inline insert_return_type update_unsafe(const key_type& k,
-                                            F f, Types&& ... args);
+    template <class F, class... Types>
+    inline insert_return_type
+    insert_or_update(const key_type& k, const mapped_type& d, F f,
+                     Types&&... args);
+    template <class F, class... Types>
+    inline insert_return_type
+    update_unsafe(const key_type& k, F f, Types&&... args);
 
-    template<class F, class ... Types>
-    inline insert_return_type insert_or_update_unsafe(const key_type& k,
-                                                      const mapped_type& d,
-                                                      F f, Types&& ... args);
+    template <class F, class... Types>
+    inline insert_return_type
+    insert_or_update_unsafe(const key_type& k, const mapped_type& d, F f,
+                            Types&&... args);
     inline size_t erase(const key_type& k);
 
-    inline iterator        end()         { return hash.end();  }
-    inline const_iterator  end()   const { return hash.cend(); }
-    inline const_iterator cend()   const { return hash.cend(); }
+    inline iterator       end() { return hash.end(); }
+    inline const_iterator end() const { return hash.cend(); }
+    inline const_iterator cend() const { return hash.cend(); }
 
-    inline iterator        begin()       { return hash.begin();  }
-    inline const_iterator  begin() const { return hash.cbegin(); }
+    inline iterator       begin() { return hash.begin(); }
+    inline const_iterator begin() const { return hash.cbegin(); }
     inline const_iterator cbegin() const { return hash.cbegin(); }
 };
 
 
-template <class Key, class Data, class HashFct, class Allocator, hmod ... Mods>
+template <class Key, class Data, class HashFct, class Allocator, hmod... Mods>
 class folly_config
 {
-public:
-    using key_type = Key;
-    using mapped_type = Data;
-    using hash_fct_type = HashFct;
+  public:
+    using key_type       = Key;
+    using mapped_type    = Data;
+    using hash_fct_type  = HashFct;
     using allocator_type = Allocator;
 
-    using mods = mod_aggregator<Mods ...>;
+    using mods = mod_aggregator<Mods...>;
 
     // Derived Types
     using value_type = std::pair<const key_type, mapped_type>;
 
-    static constexpr bool is_viable = !(mods::template is<hmod::ref_integrity>());
+    static constexpr bool is_viable =
+        !(mods::template is<hmod::ref_integrity>());
 
     static_assert(is_viable, "folly wrapper does not support the chosen flags");
 
-    using table_type = folly_wrapper<key_type, mapped_type,
-                                     hash_fct_type, allocator_type>;
+    using table_type =
+        folly_wrapper<key_type, mapped_type, hash_fct_type, allocator_type>;
 
     static std::string name() { return "folly"; }
 };
@@ -131,8 +136,8 @@ public:
 
 
 template <class K, class D, class HF, class AL>
-typename folly_wrapper<K,D,HF,AL>::iterator
-folly_wrapper<K,D,HF,AL>::find(const key_type& k)
+typename folly_wrapper<K, D, HF, AL>::iterator
+folly_wrapper<K, D, HF, AL>::find(const key_type& k)
 {
     return hash.find(k);
     // auto ret = hash.find(k);
@@ -141,19 +146,19 @@ folly_wrapper<K,D,HF,AL>::find(const key_type& k)
 }
 
 template <class K, class D, class HF, class AL>
-typename folly_wrapper<K,D,HF,AL>::insert_return_type
-folly_wrapper<K,D,HF,AL>::insert(const key_type& k, const mapped_type& d)
+typename folly_wrapper<K, D, HF, AL>::insert_return_type
+folly_wrapper<K, D, HF, AL>::insert(const key_type& k, const mapped_type& d)
 {
-    return hash.insert(k,d);
+    return hash.insert(k, d);
     // auto ret = hash.insert(std::make_pair(k,d));
     // if (ret.second) return ReturnCode::SUCCESS_IN;
     // else return ReturnCode::UNSUCCESS_ALREADY_USED;
 }
 
 template <class K, class D, class HF, class AL>
-template<class F, class ... Types>
-typename folly_wrapper<K,D,HF,AL>::insert_return_type
-folly_wrapper<K,D,HF,AL>::update(const key_type& k, F f, Types&& ... args)
+template <class F, class... Types>
+typename folly_wrapper<K, D, HF, AL>::insert_return_type
+folly_wrapper<K, D, HF, AL>::update(const key_type& k, F f, Types&&... args)
 {
     auto result = hash.find(k);
     if (result != hash.end())
@@ -164,14 +169,14 @@ folly_wrapper<K,D,HF,AL>::update(const key_type& k, F f, Types&& ... args)
 }
 
 template <class K, class D, class HF, class AL>
-template<class F, class ... Types>
-typename folly_wrapper<K,D,HF,AL>::insert_return_type
-folly_wrapper<K,D,HF,AL>::insert_or_update(const key_type& k,
-                                           const mapped_type& d,
-                                           F f, Types&& ... args)
+template <class F, class... Types>
+typename folly_wrapper<K, D, HF, AL>::insert_return_type
+folly_wrapper<K, D, HF, AL>::insert_or_update(const key_type&    k,
+                                              const mapped_type& d, F f,
+                                              Types&&... args)
 {
-    auto ret = hash.insert(std::make_pair(k,d));
-    if (! ret.second)
+    auto ret = hash.insert(std::make_pair(k, d));
+    if (!ret.second)
     {
         f.atomic(ret.first->second, std::forward<Types>(args)...);
     }
@@ -179,27 +184,26 @@ folly_wrapper<K,D,HF,AL>::insert_or_update(const key_type& k,
 }
 
 template <class K, class D, class HF, class AL>
-template<class F, class ... Types>
-typename folly_wrapper<K,D,HF,AL>::insert_return_type
-folly_wrapper<K,D,HF,AL>::update_unsafe(const key_type& k,
-                                        F f, Types&& ... args)
+template <class F, class... Types>
+typename folly_wrapper<K, D, HF, AL>::insert_return_type
+folly_wrapper<K, D, HF, AL>::update_unsafe(const key_type& k, F f,
+                                           Types&&... args)
 {
-    return update(k,f, std::forward<Types>(args)...);
+    return update(k, f, std::forward<Types>(args)...);
 }
 
 template <class K, class D, class HF, class AL>
-template<class F, class ... Types>
-typename folly_wrapper<K,D,HF,AL>::insert_return_type
-folly_wrapper<K,D,HF,AL>::insert_or_update_unsafe(const key_type& k,
-                                                  const mapped_type& d,
-                                                  F f, Types&& ... args)
+template <class F, class... Types>
+typename folly_wrapper<K, D, HF, AL>::insert_return_type
+folly_wrapper<K, D, HF, AL>::insert_or_update_unsafe(const key_type&    k,
+                                                     const mapped_type& d, F f,
+                                                     Types&&... args)
 {
-    return insert_or_update(k,d,f, std::forward<Types>(args)...);
+    return insert_or_update(k, d, f, std::forward<Types>(args)...);
 }
 
 template <class K, class D, class HF, class AL>
-size_t
-folly_wrapper<K,D,HF,AL>::erase(const key_type& k)
+size_t folly_wrapper<K, D, HF, AL>::erase(const key_type& k)
 {
     return hash.erase(k);
 }

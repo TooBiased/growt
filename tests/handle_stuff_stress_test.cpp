@@ -11,50 +11,46 @@
  * All rights reserved. Published under the BSD-2 license in the LICENSE file.
  ******************************************************************************/
 
-#include <random>
 #include <iostream>
+#include <random>
 
-#include "utils/default_hash.hpp"
-#include "utils/thread_coordination.hpp"
-#include "utils/pin_thread.hpp"
 #include "utils/command_line_parser.hpp"
+#include "utils/default_hash.hpp"
 #include "utils/output.hpp"
+#include "utils/pin_thread.hpp"
+#include "utils/thread_coordination.hpp"
 
 #include "tests/selection.hpp"
 
-using handle_type = typename HASHTYPE::handle_type;
+using handle_type           = typename HASHTYPE::handle_type;
 const static uint64_t range = (1ull << 63) - 1;
-namespace otm = utils_tm::out_tm;
-namespace ttm = utils_tm::thread_tm;
+namespace otm               = utils_tm::out_tm;
+namespace ttm               = utils_tm::thread_tm;
 
-using table_type = typename table_config<size_t,
-                                         size_t,
-                                         utils_tm::hash_tm::default_hash,
-                                         allocator_type>::table_type;
+using table_type =
+    typename table_config<size_t, size_t, utils_tm::hash_tm::default_hash,
+                          allocator_type>::table_type;
 
 alignas(64) static table_type hash_table = table_type(0);
 alignas(64) static std::atomic_size_t current;
 alignas(64) static std::atomic_size_t unfinished;
 
 
-template<class Hash>
-size_t prefill(Hash& hash, size_t thread_id, size_t n)
+template <class Hash> size_t prefill(Hash& hash, size_t thread_id, size_t n)
 {
     auto err = 0u;
 
-    std::uniform_int_distribution<uint64_t> dis(2,range);
-    std::mt19937_64 re(thread_id*10293903128401092ull);
+    std::uniform_int_distribution<uint64_t> dis(2, range);
+    std::mt19937_64 re(thread_id * 10293903128401092ull);
 
-    ttm::execute_parallel(current, n,
-        [&hash, &err, &dis, &re](size_t)
+    ttm::execute_parallel(current, n, [&hash, &err, &dis, &re](size_t) {
+        auto key = dis(re);
+        if (!hash.insert(key, 3).second)
         {
-            auto key = dis(re);
-            if (! hash.insert(key, 3).second)
-            {
-                // Insertion failed? Possibly already inserted.
-                ++err;
-            }
-        });
+            // Insertion failed? Possibly already inserted.
+            ++err;
+        }
+    });
 
     return err;
 }
@@ -63,17 +59,14 @@ size_t prefill(Hash& hash, size_t thread_id, size_t n)
 size_t many_moving_handles()
 {
     std::uniform_int_distribution<uint64_t> dis(2, range);
-    std::mt19937_64 re(rand());
+    std::mt19937_64                         re(rand());
 
-    size_t j = 0;
+    size_t      j = 0;
     handle_type h = hash_table.get_handle();
     while (unfinished.load(std::memory_order_acquire))
     {
         handle_type g = hash_table.get_handle();
-        for (size_t i=0; i<32; ++i)
-        {
-            g.insert(dis(re), 5);
-        }
+        for (size_t i = 0; i < 32; ++i) { g.insert(dis(re), 5); }
         h = std::move(g);
         ++j;
     }
@@ -83,16 +76,13 @@ size_t many_moving_handles()
 size_t calling_size_repeatedly()
 {
     std::uniform_int_distribution<uint64_t> dis(2, range);
-    std::mt19937_64 re(rand());
+    std::mt19937_64                         re(rand());
 
     handle_type h = hash_table.get_handle();
-    size_t j = 0;
+    size_t      j = 0;
     while (unfinished.load(std::memory_order_acquire))
     {
-        for(size_t i=0; i<32; ++i)
-        {
-            h.insert(dis(re), 6);
-        }
+        for (size_t i = 0; i < 32; ++i) { h.insert(dis(re), 6); }
 
         ++j;
     }
@@ -107,8 +97,7 @@ size_t close_thread()
     return 0;
 }
 
-template <class ThreadType>
-struct test
+template <class ThreadType> struct test
 {
     static int execute(ThreadType t)
     {
@@ -121,9 +110,11 @@ struct test
         }
 
         t.synchronized(
-            [] (bool m) { if (m) hash_table = table_type(10000000); return 0; },
-            ThreadType::is_main
-            );
+            [](bool m) {
+                if (m) hash_table = table_type(10000000);
+                return 0;
+            },
+            ThreadType::is_main);
         t.synchronize();
 
         handle_type hash = hash_table.get_handle();
@@ -135,10 +126,7 @@ struct test
 
         t.out << "start main test!" << std::endl;
 
-        if (t.id == 0)
-        {
-            close_thread();
-        }
+        if (t.id == 0) { close_thread(); }
         else if (t.id & 1)
         {
             many_moving_handles();
@@ -156,8 +144,8 @@ struct test
 int main(int argn, char** argc)
 {
     utils_tm::command_line_parser c{argn, argc};
-    size_t p   = c.int_arg("-p" , 4);
-    if (! c.report()) return 1;
+    size_t                        p = c.int_arg("-p", 4);
+    if (!c.report()) return 1;
 
     ttm::start_threads<test>(p);
 

@@ -12,11 +12,11 @@
 
 #include <random>
 
-#include "utils/default_hash.hpp"
-#include "utils/thread_coordination.hpp"
-#include "utils/pin_thread.hpp"
 #include "utils/command_line_parser.hpp"
+#include "utils/default_hash.hpp"
 #include "utils/output.hpp"
+#include "utils/pin_thread.hpp"
+#include "utils/thread_coordination.hpp"
 
 #include "tests/selection.hpp"
 
@@ -29,16 +29,16 @@
  *    (correctness test using the index)
  */
 
-const static uint64_t range     = (1ull << 62) -1;
+const static uint64_t range     = (1ull << 62) - 1;
 const static uint64_t read_flag = (1ull << 63);
-namespace otm = utils_tm::out_tm;
-namespace ttm = utils_tm::thread_tm;
+namespace otm                   = utils_tm::out_tm;
+namespace ttm                   = utils_tm::thread_tm;
 
-using mix_config = table_config<size_t, size_t,
-                                utils_tm::hash_tm::default_hash,allocator_type>;
+using mix_config = table_config<size_t, size_t, utils_tm::hash_tm::default_hash,
+                                allocator_type>;
 using table_type = typename mix_config::table_type;
 
-alignas(64) static table_type  hash_table = table_type(0);
+alignas(64) static table_type hash_table = table_type(0);
 alignas(64) static uint64_t* keys;
 alignas(64) static std::atomic_size_t current_block;
 alignas(64) static std::atomic_size_t errors;
@@ -48,19 +48,16 @@ alignas(64) static std::atomic_size_t unsucc_finds;
 int generate_insertions(size_t pre, size_t n, double wperc)
 {
     std::uniform_real_distribution<double>  write_dis(0, 1.0);
-    std::uniform_int_distribution<uint64_t> key_dis  (2,range);
+    std::uniform_int_distribution<uint64_t> key_dis(2, range);
 
-    ttm::execute_blockwise_parallel(current_block, pre+n,
-        [pre, wperc, &write_dis, &key_dis](size_t s, size_t e)
-        {
-            std::mt19937_64 re(s*10293903128401092ull);
+    ttm::execute_blockwise_parallel(
+        current_block, pre + n,
+        [pre, wperc, &write_dis, &key_dis](size_t s, size_t e) {
+            std::mt19937_64 re(s * 10293903128401092ull);
 
             for (size_t i = s; i < e; i++)
             {
-                if ( i < pre || write_dis(re) < wperc )
-                {
-                    keys[i] = key_dis(re);
-                }
+                if (i < pre || write_dis(re) < wperc) { keys[i] = key_dis(re); }
                 else
                 {
                     keys[i] = read_flag;
@@ -73,30 +70,30 @@ int generate_insertions(size_t pre, size_t n, double wperc)
 
 int generate_reads(size_t pre, size_t n, size_t window)
 {
-    ttm::execute_blockwise_parallel(current_block, pre+n,
-                               [pre, window](size_t s, size_t e)
-        {
-            std::mt19937_64 re(s*10293903128401092ull);
+    ttm::execute_blockwise_parallel(
+        current_block, pre + n, [pre, window](size_t s, size_t e) {
+            std::mt19937_64 re(s * 10293903128401092ull);
 
             for (size_t i = s; i < e; i++)
             {
-                if ( keys[i] & read_flag )
+                if (keys[i] & read_flag)
                 {
-                    auto right_bound = std::max(pre, i-window);
-                    std::uniform_int_distribution<size_t> write_dis(0,right_bound);
+                    auto right_bound = std::max(pre, i - window);
+                    std::uniform_int_distribution<size_t> write_dis(
+                        0, right_bound);
 
-                    size_t tries = 0;
-                    uint64_t key = 0;
-                    do
-                    {
+                    size_t   tries = 0;
+                    uint64_t key   = 0;
+                    do {
                         ++tries;
                         key = keys[write_dis(re)];
                         if (tries > 100)
                         {
-                            std::uniform_int_distribution<size_t> safe(0,pre-1);
+                            std::uniform_int_distribution<size_t> safe(0,
+                                                                       pre - 1);
                             key = keys[safe(re)];
                         }
-                    } while ( key & read_flag );
+                    } while (key & read_flag);
 
                     keys[i] |= key;
                 }
@@ -107,47 +104,44 @@ int generate_reads(size_t pre, size_t n, size_t window)
 }
 
 
-template <class Hash>
-int prefill(Hash& hash, size_t pre)
+template <class Hash> int prefill(Hash& hash, size_t pre)
 {
     auto err = 0u;
 
-    ttm::execute_parallel(current_block, pre,
-        [&hash, &err](size_t i)
-        {
-            auto key = keys[i];
-            auto temp = hash.insert(key, i+2);
-            if (! temp.second) { ++err; }
-        });
+    ttm::execute_parallel(current_block, pre, [&hash, &err](size_t i) {
+        auto key  = keys[i];
+        auto temp = hash.insert(key, i + 2);
+        if (!temp.second) { ++err; }
+    });
 
     errors.fetch_add(err, std::memory_order_relaxed);
     return 0;
 }
 
 
-template <class Hash>
-int mixed_test(Hash& hash, size_t end)
+template <class Hash> int mixed_test(Hash& hash, size_t end)
 {
     auto err       = 0u;
     auto not_found = 0u;
 
     ttm::execute_parallel(current_block, end,
-        [&hash, &err, &not_found](size_t i)
-        {
-            auto key = keys[i];
-            if (key & read_flag)
-            {
-                auto data = hash.find( key ^ read_flag );
-                if      (data == hash.end()) { ++not_found; }
-                else if ((*data).second > i+2) { ++err; }
-            }
-            else
-            {
-                auto temp = hash.insert(key, i+2);
-                if (! temp.second) { ++err;}
-            }
-
-        });
+                          [&hash, &err, &not_found](size_t i) {
+                              auto key = keys[i];
+                              if (key & read_flag)
+                              {
+                                  auto data = hash.find(key ^ read_flag);
+                                  if (data == hash.end()) { ++not_found; }
+                                  else if ((*data).second > i + 2)
+                                  {
+                                      ++err;
+                                  }
+                              }
+                              else
+                              {
+                                  auto temp = hash.insert(key, i + 2);
+                                  if (!temp.second) { ++err; }
+                              }
+                          });
 
     errors.fetch_add(err, std::memory_order_relaxed);
     unsucc_finds.fetch_add(not_found, std::memory_order_relaxed);
@@ -156,8 +150,7 @@ int mixed_test(Hash& hash, size_t end)
 
 
 
-template <class ThreadType>
-struct test_in_stages
+template <class ThreadType> struct test_in_stages
 {
     static int execute(ThreadType t, size_t n, size_t cap, size_t it,
                        size_t pre, size_t win, double wperc)
@@ -166,37 +159,35 @@ struct test_in_stages
 
         using handle_type = typename table_type::handle_type;
 
-        if (ThreadType::is_main)
-        {
-            keys = new uint64_t[pre+n];
-        }
+        if (ThreadType::is_main) { keys = new uint64_t[pre + n]; }
 
         // STAGE0 Create Random Keys for insertions
         {
-            if (ThreadType::is_main) current_block.store (0);
-            t.synchronized(generate_insertions, pre ,n, wperc);
+            if (ThreadType::is_main) current_block.store(0);
+            t.synchronized(generate_insertions, pre, n, wperc);
         }
 
         // STAGE0.1 Create Random Keys for reads (previously inserted keys
         {
-            if (ThreadType::is_main) current_block.store (pre);
+            if (ThreadType::is_main) current_block.store(pre);
 
-            t.synchronized(generate_reads, pre ,n, win);
+            t.synchronized(generate_reads, pre, n, win);
         }
 
         for (size_t i = 0; i < it; ++i)
         {
 
             // STAGE 0.011
-            t.synchronized([cap](bool m)
-                           { if (m) hash_table = table_type(cap); return 0; },
-                           ThreadType::is_main);
+            t.synchronized(
+                [cap](bool m) {
+                    if (m) hash_table = table_type(cap);
+                    return 0;
+                },
+                ThreadType::is_main);
 
-            t.out << otm::width(5)  << i
-                  << otm::width(5)  << t.p
-                  << otm::width(11) << n
-                  << otm::width(11) << cap
-                  << otm::width(8)  << wperc;
+            t.out << otm::width(5) << i << otm::width(5) << t.p
+                  << otm::width(11) << n << otm::width(11) << cap
+                  << otm::width(8) << wperc;
 
             t.synchronize();
 
@@ -213,11 +204,12 @@ struct test_in_stages
             {
                 if (ThreadType::is_main) current_block.store(pre);
 
-                auto duration = t.synchronized(mixed_test<handle_type>, hash, pre+n);
+                auto duration =
+                    t.synchronized(mixed_test<handle_type>, hash, pre + n);
 
-                t.out << otm::width(12) << duration.second/1000000.
-                      << otm::width(9) << unsucc_finds.load()
-                      << otm::width(9) << errors.load();
+                t.out << otm::width(12) << duration.second / 1000000.
+                      << otm::width(9) << unsucc_finds.load() << otm::width(9)
+                      << errors.load();
             }
 
             if (ThreadType::is_main)
@@ -229,10 +221,7 @@ struct test_in_stages
             t.out << std::endl;
         }
 
-        if (ThreadType::is_main)
-        {
-            delete[] keys;
-        }
+        if (ThreadType::is_main) { delete[] keys; }
 
 
         return 0;
@@ -243,26 +232,21 @@ struct test_in_stages
 int main(int argn, char** argc)
 {
     utils_tm::command_line_parser c{argn, argc};
-    size_t n     = c.int_arg("-n"  , 10000000);
-    size_t p     = c.int_arg("-p"  , 4);
-    size_t it    = c.int_arg("-it" , 5);
-    size_t pre   = c.int_arg("-pre", p*ttm::block_size);
-    size_t win   = c.int_arg("-win", pre);
-    double wperc = c.double_arg("-wperc", 0.5);
+    size_t                        n   = c.int_arg("-n", 10000000);
+    size_t                        p   = c.int_arg("-p", 4);
+    size_t                        it  = c.int_arg("-it", 5);
+    size_t                        pre = c.int_arg("-pre", p * ttm::block_size);
+    size_t                        win = c.int_arg("-win", pre);
+    double                        wperc = c.double_arg("-wperc", 0.5);
 
-    size_t cap   = c.int_arg("-c"  , pre+n*wperc);
-    if (! c.report()) return 1;
+    size_t cap = c.int_arg("-c", pre + n * wperc);
+    if (!c.report()) return 1;
 
-    otm::out() << otm::width(5)  << "#i"
-               << otm::width(5)  << "p"
-               << otm::width(11) << "n"
-               << otm::width(11) << "cap"
-               << otm::width(8)  << "w_per"
-               << otm::width(12) << "t_mix"
-               << otm::width(9)  << "unfound"
-               << otm::width(9)  << "errors"
-               << "    " << mix_config::name()
-               << std::endl;
+    otm::out() << otm::width(5) << "#i" << otm::width(5) << "p"
+               << otm::width(11) << "n" << otm::width(11) << "cap"
+               << otm::width(8) << "w_per" << otm::width(12) << "t_mix"
+               << otm::width(9) << "unfound" << otm::width(9) << "errors"
+               << "    " << mix_config::name() << std::endl;
 
 
     ttm::start_threads<test_in_stages>(p, n, cap, it, pre, win, wperc);

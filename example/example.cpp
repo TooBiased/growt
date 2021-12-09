@@ -1,10 +1,10 @@
 #include <atomic>
-#include <thread>
 #include <random>
+#include <thread>
 
-#include "utils/hash/murmur2_hash.hpp"
 #include "allocator/alignedallocator.hpp"
 #include "data-structures/hash_table_mods.hpp"
+#include "utils/hash/murmur2_hash.hpp"
 
 using hasher_type    = utils_tm::hash_tm::murmur2_hash;
 using allocator_type = growt::AlignedAllocator<>;
@@ -13,14 +13,12 @@ using allocator_type = growt::AlignedAllocator<>;
 // USING definitions.h (possibly slower compilation)
 #include "data-structures/table_config.hpp"
 
-using table_type = typename growt::table_config<size_t, size_t,
-                                                hasher_type,
-                                                allocator_type,
-                                                hmod::growable,
-                                                hmod::deletion>::table_type;
-    // check hash_table_mods.hpp for other possiblen hash table modificators
-    // e.g. hmod::circular_map     this config choses the appropriate hash table
-    // according to your needs.
+using table_type =
+    typename growt::table_config<size_t, size_t, hasher_type, allocator_type,
+                                 hmod::growable, hmod::deletion>::table_type;
+// check hash_table_mods.hpp for other possiblen hash table modificators
+// e.g. hmod::circular_map     this config choses the appropriate hash table
+// according to your needs.
 
 // insert all keys between 1 and n into table with <key=i, data=i>
 // print message if insert is not successful
@@ -31,7 +29,7 @@ void insertions(table_type& table, size_t n)
 
     for (size_t i = 1; i <= n; ++i)
     {
-        if (! handle.insert(i,i).second)
+        if (!handle.insert(i, i).second)
         {
             std::cout << "unsuccessful insert on key " << i << std::endl;
         }
@@ -55,14 +53,14 @@ void search_n_and_mean(table_type& table, size_t n)
 {
     auto handle = table.get_handle();
 
-    size_t count = 0;
-    size_t sum   = 0;
+    size_t      count = 0;
+    size_t      sum   = 0;
     hasher_type randomizer{};
 
     for (size_t i = 0; i < n; ++i)
     {
-        size_t key = (randomizer(i) % n) + 1;
-        auto temp = handle.find(key);
+        size_t key  = (randomizer(i) % n) + 1;
+        auto   temp = handle.find(key);
 
         if (temp != handle.end())
         {
@@ -72,27 +70,26 @@ void search_n_and_mean(table_type& table, size_t n)
     }
 
     std::cout << "found " << count << " elements "
-              << "with a mean of " << (double(sum)/double(count)) << std::endl;
+              << "with a mean of " << (double(sum) / double(count))
+              << std::endl;
 }
 
 // increases every second inserted number by 42
-// this keeps repeating updates until one was successful (waits till key was inserted)
+// this keeps repeating updates until one was successful (waits till key was
+// inserted)
 void update_every_scnd(table_type& table, size_t n)
 {
     auto handle = table.get_handle();
 
     size_t unsuccessful_updates = 0;
-    for (size_t i = 1; i < n; i+=2)
+    for (size_t i = 1; i < n; i += 2)
     {
-        auto ret = handle.update(i,
-                                [](size_t& lhs, size_t rhs)
-                                {
-                                    return lhs = lhs + rhs;
-                                }, 42);
-        if (! ret.second)
+        auto ret = handle.update(
+            i, [](size_t& lhs, size_t rhs) { return lhs = lhs + rhs; }, 42);
+        if (!ret.second)
         {
             ++unsuccessful_updates;
-            i-=2;
+            i -= 2;
         }
     }
 }
@@ -109,18 +106,18 @@ void check_update(table_type& table, size_t n)
         {
             if (i & 1) // was updated!
             {
-                if ((*temp).second != i+42)
+                if ((*temp).second != i + 42)
                 {
-                    std::cout << "Unexpected data at key "
-                              << i << " found " << (*temp).second << std::endl;
+                    std::cout << "Unexpected data at key " << i << " found "
+                              << (*temp).second << std::endl;
                 }
             }
             else // not updated!
             {
                 if ((*temp).second != i)
                 {
-                    std::cout << "Unexpected data at key "
-                              << i << " found " << (*temp).second << std::endl;
+                    std::cout << "Unexpected data at key " << i << " found "
+                              << (*temp).second << std::endl;
                 }
             }
         }
@@ -134,9 +131,10 @@ void check_update(table_type& table, size_t n)
 void check_function_compile(table_type& table)
 {
     auto handle = table.get_handle();
-    if (handle[11] != 53) std::cout << "[] operator returns "
-                                    << handle[11] << "expected 53!" << std::endl;
-    //else std::cout << "[] operator works" << std::endl;
+    if (handle[11] != 53)
+        std::cout << "[] operator returns " << handle[11] << "expected 53!"
+                  << std::endl;
+    // else std::cout << "[] operator works" << std::endl;
 
     /*
       begin
@@ -158,20 +156,19 @@ void check_function_compile(table_type& table)
 
       capacity
      */
-
 }
 
-int main (int, char**)
+int main(int, char**)
 {
 
     // set the capacity such that the table has to grow by a factor of 10
-    size_t n   = 1000000;
-    size_t cap =  100000;
+    size_t     n   = 1000000;
+    size_t     cap = 100000;
     table_type hashTable(cap);
 
-    std::thread in_thread  (insertions       , std::ref(hashTable), n);
-    std::thread wait_thread(wait_for_k       , std::ref(hashTable), n);
-    std::thread up_thread  (update_every_scnd, std::ref(hashTable), n);
+    std::thread in_thread(insertions, std::ref(hashTable), n);
+    std::thread wait_thread(wait_for_k, std::ref(hashTable), n);
+    std::thread up_thread(update_every_scnd, std::ref(hashTable), n);
     std::thread find_thread(search_n_and_mean, std::ref(hashTable), n);
     in_thread.join();
     wait_thread.join();
@@ -181,7 +178,7 @@ int main (int, char**)
 
 
     std::thread rfind_thread(search_n_and_mean, std::ref(hashTable), n);
-    std::thread check_thread(check_update     , std::ref(hashTable), n);
+    std::thread check_thread(check_update, std::ref(hashTable), n);
     rfind_thread.join();
     check_thread.join();
 

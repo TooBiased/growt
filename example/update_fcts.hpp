@@ -1,11 +1,13 @@
-#ifndef  UPDATE_FCTS_H
+#ifndef UPDATE_FCTS_H
 #define UPDATE_FCTS_H
 
 #include <cstdint>
 #include <type_traits>
 
-namespace growt{
-namespace example{
+namespace growt
+{
+namespace example
+{
 
 struct Increment
 {
@@ -13,12 +15,12 @@ struct Increment
 
     mapped_type operator()(mapped_type& lhs, const mapped_type& rhs) const
     {
-        return lhs+=rhs;
+        return lhs += rhs;
     }
 
     // an atomic implementation can improve the performance of updates in .sGrow
     // this will be detected automatically
-    mapped_type atomic    (mapped_type& lhs, const mapped_type& rhs) const
+    mapped_type atomic(mapped_type& lhs, const mapped_type& rhs) const
     {
         return __sync_fetch_and_add(&lhs, rhs);
     }
@@ -39,7 +41,7 @@ struct Overwrite
 
     // an atomic implementation can improve the performance of updates in .sGrow
     // this will be detected automatically
-    mapped_type atomic    (mapped_type& lhs, const mapped_type& rhs) const
+    mapped_type atomic(mapped_type& lhs, const mapped_type& rhs) const
     {
 
         lhs = rhs;
@@ -50,7 +52,7 @@ struct Overwrite
     using junction_compatible = std::true_type;
 };
 
-}
-}
+} // namespace example
+} // namespace growt
 
 #endif // UPDATE_FCTS_H

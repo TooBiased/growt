@@ -1,12 +1,12 @@
 #include <atomic>
-#include <thread>
-#include <random>
 #include <cmath>
+#include <random>
+#include <thread>
 
 
-#include "utils/hash/murmur2_hash.hpp"
 #include "allocator/alignedallocator.hpp"
 #include "data-structures/hash_table_mods.hpp"
+#include "utils/hash/murmur2_hash.hpp"
 
 using hasher_type    = utils_tm::hash_tm::murmur2_hash;
 using allocator_type = growt::AlignedAllocator<>;
@@ -15,18 +15,16 @@ using allocator_type = growt::AlignedAllocator<>;
 // USING definitions.h (possibly slower compilation)
 #include "data-structures/table_config.hpp"
 
-using table_type = typename growt::table_config<size_t, size_t,
-                                                hasher_type,
-                                                allocator_type,
-                                                hmod::growable,
-                                                hmod::deletion>::table_type;
-    // check hash_table_mods.hpp for other possiblen hash table modificators
-    // e.g. hmod::circular_map     this config choses the appropriate hash table
-    // according to your needs.
+using table_type =
+    typename growt::table_config<size_t, size_t, hasher_type, allocator_type,
+                                 hmod::growable, hmod::deletion>::table_type;
+// check hash_table_mods.hpp for other possiblen hash table modificators
+// e.g. hmod::circular_map     this config choses the appropriate hash table
+// according to your needs.
 
 
 
-static std::atomic_size_t aggregator_static {0};
+static std::atomic_size_t aggregator_static{0};
 static std::atomic_size_t aggregator_dynamic{0};
 
 
@@ -35,12 +33,12 @@ void insertions(table_type& table, size_t id, size_t n)
     // obtain a handle
     auto handle = table.get_handle();
 
-    auto start = 1+(id*n); // do not insert 0!
-    auto end   = (1+id)*n;
+    auto start = 1 + (id * n); // do not insert 0!
+    auto end   = (1 + id) * n;
 
     for (size_t i = start; i <= end; ++i)
     {
-        if (! handle.insert(i,i).second)
+        if (!handle.insert(i, i).second)
         {
             std::cout << "unsuccessful insert on key " << i << std::endl;
         }
@@ -52,11 +50,11 @@ void insertions(table_type& table, size_t id, size_t n)
 void static_load(table_type& table, size_t id, size_t p)
 {
     // obtain a handle
-    auto   handle = table.get_handle();
+    auto handle = table.get_handle();
 
-    size_t work_load       = std::ceil(double(handle.capacity()) / double(p));
+    size_t work_load = std::ceil(double(handle.capacity()) / double(p));
     // the last range might be smaller (iff p does not divide capacity evenly)
-    auto   static_range_it = handle.range(id*work_load, (id+1)*work_load);
+    auto static_range_it = handle.range(id * work_load, (id + 1) * work_load);
 
     size_t temp = 0;
 
@@ -73,14 +71,14 @@ void static_load(table_type& table, size_t id, size_t p)
 void dynamic_blockwise_load(table_type& table, size_t block_size)
 {
     // obtain a handle
-    auto   handle = table.get_handle();
+    auto handle = table.get_handle();
 
-    size_t capacity   = handle.capacity();
+    size_t capacity = handle.capacity();
 
     static std::atomic_size_t work_counter{0};
-    size_t curr_block = work_counter.fetch_add(block_size);
+    size_t                    curr_block = work_counter.fetch_add(block_size);
 
-    size_t temp       = 0;
+    size_t temp = 0;
     while (curr_block < capacity)
     {
         auto block_range_it = handle.range(curr_block, curr_block + block_size);
@@ -100,14 +98,14 @@ void dynamic_blockwise_load(table_type& table, size_t block_size)
 
 
 
-int main (int, char**)
+int main(int, char**)
 {
-    size_t  n   = 1000000;
-    size_t  cap =  100000;
+    size_t     n   = 1000000;
+    size_t     cap = 100000;
     table_type table(cap);
 
     size_t temp = 0;
-    for (size_t i = 1; i <= n*4; ++i) temp += i;
+    for (size_t i = 1; i <= n * 4; ++i) temp += i;
 
     std::cout << "expected result        - " << temp << std::endl;
 
@@ -132,7 +130,7 @@ int main (int, char**)
     s1.join();
     s2.join();
     s3.join();
-    std::cout << aggregator_static.load()  << std::endl;
+    std::cout << aggregator_static.load() << std::endl;
 
 
     std::cout << "dynamic_blockwise_load - " << std::flush;

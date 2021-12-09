@@ -54,18 +54,15 @@ using allocator_type = tbb::scalable_allocator<void>;
 // !!! OUR IMPLEMENTATIONS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #ifdef SEQUENTIAL
 #include "data-structures/seq_table_config.hpp"
-template <class Key, class Data, class HashFct, class Alloc,
-          hmod ... Mods>
-using table_config = growt::seq_table_config<Key, Data, HashFct, Alloc, Mods... >;
+template <class Key, class Data, class HashFct, class Alloc, hmod... Mods>
+using table_config =
+    growt::seq_table_config<Key, Data, HashFct, Alloc, Mods...>;
 #endif // SEQUENTIAL
 
 
 
-#if defined(FOLKLORE) ||                        \
-    defined(UAGROW)   ||                        \
-    defined(USGROW)   ||                        \
-    defined(PAGROW)   ||                        \
-    defined(PSGROW)
+#if defined(FOLKLORE) || defined(UAGROW) || defined(USGROW) || \
+    defined(PAGROW) || defined(PSGROW)
 #include "data-structures/table_config.hpp"
 #if defined(FOLKLORE)
 constexpr hmod dynamic = hmod::neutral;
@@ -75,49 +72,37 @@ constexpr hmod dynamic = hmod::growable;
 #if defined(PAGROW) || defined(PSGROW)
 constexpr hmod wstrat = hmod::pool;
 #else // UXGROW
-constexpr hmod wstrat = hmod::neutral;
+constexpr hmod wstrat  = hmod::neutral;
 #endif
 #if defined(USGROW) || defined(PSGROW)
 constexpr hmod estrat = hmod::sync;
 #else // XSGROW
-constexpr hmod estrat = hmod::neutral;
+constexpr hmod estrat  = hmod::neutral;
 #endif
 
 #if defined(CMAP)
 constexpr hmod cmap = hmod::circular_map;
 #else
-constexpr hmod cmap = hmod::neutral;
+constexpr hmod cmap    = hmod::neutral;
 #endif
 
 #if defined(CPROB)
 constexpr hmod cprob = hmod::circular_prob;
 #else
-constexpr hmod cprob = hmod::neutral;
+constexpr hmod cprob   = hmod::neutral;
 #endif
 
-template <class Key, class Data, class HashFct, class Alloc,
-          hmod ... Mods>
-using table_config = typename growt::table_config<Key,
-                                                  Data,
-                                                  HashFct,
-                                                  Alloc,
-                                                  dynamic,
-                                                  estrat,
-                                                  wstrat,
-                                                  cmap,
-                                                  cprob,
-                                                  Mods ...>;
+template <class Key, class Data, class HashFct, class Alloc, hmod... Mods>
+using table_config =
+    typename growt::table_config<Key, Data, HashFct, Alloc, dynamic, estrat,
+                                 wstrat, cmap, cprob, Mods...>;
 #endif
 
 
 
 // !!! THIRD PARTY IMPLEMENTATIONS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#if defined(FOLLY)             ||               \
-    defined(CUCKOO)            ||               \
-    defined(TBBHM)             ||               \
-    defined(TBBUM)             ||               \
-    defined(JUNCTION_LINEAR)   ||               \
-    defined(JUNCTION_LEAPFROG) ||               \
+#if defined(FOLLY) || defined(CUCKOO) || defined(TBBHM) || defined(TBBUM) || \
+    defined(JUNCTION_LINEAR) || defined(JUNCTION_LEAPFROG) ||                \
     defined(JUNCTION_GRAMPA)
 
 #if defined(FOLLY)
@@ -161,11 +146,6 @@ using table_config = typename growt::table_config<Key,
 #define CONFIG junction_config
 #endif
 
-template <class Key, class Data, class HashFct, class Alloc,
-          hmod ... Mods>
-using table_config = CONFIG<Key,
-                            Data,
-                            HashFct,
-                            Alloc,
-                            Mods ...>;
+template <class Key, class Data, class HashFct, class Alloc, hmod... Mods>
+using table_config = CONFIG<Key, Data, HashFct, Alloc, Mods...>;
 #endif

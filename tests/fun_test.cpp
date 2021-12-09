@@ -11,11 +11,11 @@
  ******************************************************************************/
 #include <random>
 
-#include "utils/default_hash.hpp"
-#include "utils/thread_coordination.hpp"
-#include "utils/pin_thread.hpp"
 #include "utils/command_line_parser.hpp"
+#include "utils/default_hash.hpp"
 #include "utils/output.hpp"
+#include "utils/pin_thread.hpp"
+#include "utils/thread_coordination.hpp"
 
 #include "data-structures/returnelement.hpp"
 
@@ -35,19 +35,20 @@
  * 3.  Update all n elements to value 5
  * 3.1 Check, that each value is now 5
  * 4.  insert or increment random keys between 2 and p+1
- * 4.1 sum all values of keys between 2 and p+1 to make sure no increment got lost
+ * 4.1 sum all values of keys between 2 and p+1 to make sure no increment got
+ * lost
  * 5.  remove n/2 elements (every second element)
  * 5.1 make sure, that removed elements cannot be found
  *
  * the expected output is a row of ones (no 0)
  */
 
-const static uint64_t range = (1ull << 62) -1;
-namespace otm = utils_tm::out_tm;
-namespace ttm = utils_tm::thread_tm;
+const static uint64_t range = (1ull << 62) - 1;
+namespace otm               = utils_tm::out_tm;
+namespace ttm               = utils_tm::thread_tm;
 
-using fun_config = table_config<size_t, size_t,
-                                utils_tm::hash_tm::default_hash,allocator_type>;
+using fun_config = table_config<size_t, size_t, utils_tm::hash_tm::default_hash,
+                                allocator_type>;
 using table_type = typename fun_config::table_type;
 
 alignas(64) static table_type hash_table = table_type(0);
@@ -57,17 +58,13 @@ alignas(64) static std::atomic_size_t errors;
 
 int generate_random(size_t n)
 {
-    std::uniform_int_distribution<uint64_t> dis(2,range);
+    std::uniform_int_distribution<uint64_t> dis(2, range);
 
-    ttm::execute_blockwise_parallel(current_block, n,
-        [&dis](size_t s, size_t e)
-        {
-            std::mt19937_64 re(s*10293903128401092ull);
+    ttm::execute_blockwise_parallel(
+        current_block, n, [&dis](size_t s, size_t e) {
+            std::mt19937_64 re(s * 10293903128401092ull);
 
-            for (size_t i = s; i < e; i++)
-            {
-                keys[i] = dis(re);
-            }
+            for (size_t i = s; i < e; i++) { keys[i] = dis(re); }
         });
 
     return 0;
@@ -75,28 +72,19 @@ int generate_random(size_t n)
 
 int set_up_hash(bool main, size_t n)
 {
-    if (main)
-    {
-        hash_table = table_type(n);
-    }
+    if (main) { hash_table = table_type(n); }
 
     return 0;
 }
 
-template <class Hash>
-int insert(Hash& hash, size_t n, size_t val)
+template <class Hash> int insert(Hash& hash, size_t n, size_t val)
 {
     auto err = 0u;
 
-    ttm::execute_parallel(current_block, n,
-        [&hash, &err, val](size_t i)
-        {
-            auto key = keys[i];
-            if (hash.insert(key, val).second)
-            {
-                ++ err;
-            }
-        });
+    ttm::execute_parallel(current_block, n, [&hash, &err, val](size_t i) {
+        auto key = keys[i];
+        if (hash.insert(key, val).second) { ++err; }
+    });
 
     errors.fetch_add(err, std::memory_order_relaxed);
     return 0;
@@ -104,25 +92,21 @@ int insert(Hash& hash, size_t n, size_t val)
 
 
 
-template <class Hash>
-int update(Hash& hash, size_t n, size_t val)
+template <class Hash> int update(Hash& hash, size_t n, size_t val)
 {
     auto err = 0u;
 
-    ttm::execute_parallel(current_block, n,
-        [&hash, &err, val](size_t i)
-        {
-            auto key = keys[i];
-            if (! hash.update(key, growt::example::Overwrite(),val).second) ++ err;
-        });
+    ttm::execute_parallel(current_block, n, [&hash, &err, val](size_t i) {
+        auto key = keys[i];
+        if (!hash.update(key, growt::example::Overwrite(), val).second) ++err;
+    });
 
     errors.fetch_add(err, std::memory_order_relaxed);
     return 0;
 }
 
 
-template <class Hash>
-int insert_or_increment(Hash& hash, size_t n, size_t p)
+template <class Hash> int insert_or_increment(Hash& hash, size_t n, size_t p)
 {
     auto err = 0u;
 
@@ -130,24 +114,22 @@ int insert_or_increment(Hash& hash, size_t n, size_t p)
     while (bitmask < p) bitmask <<= 1;
     --bitmask;
 
-    ttm::execute_parallel(current_block, n,
-        [&hash, &err, bitmask](size_t i)
+    ttm::execute_parallel(current_block, n, [&hash, &err, bitmask](size_t i) {
+        auto key = bitmask & __builtin_ia32_crc32di(34390210450981235ull,
+                                                    i * 12037459812355ull);
+        if (hash.insert_or_update(key + 2, 1, growt::example::Increment(), 1)
+                .first == hash.end())
         {
-            auto key = bitmask &
-                __builtin_ia32_crc32di(34390210450981235ull,i*12037459812355ull);
-            if (hash.insert_or_update(key+2, 1, growt::example::Increment(),1).first == hash.end())
-            {
-                ++ err;
-            }
-        });
+            ++err;
+        }
+    });
 
     errors.fetch_add(err, std::memory_order_relaxed);
     return 0;
 }
 
 
-template <class Hash>
-bool val_inc(Hash& hash, size_t n, size_t p)
+template <class Hash> bool val_inc(Hash& hash, size_t n, size_t p)
 {
     size_t bitmask = 1;
     while (bitmask < p) bitmask <<= 1;
@@ -155,69 +137,51 @@ bool val_inc(Hash& hash, size_t n, size_t p)
 
     size_t sum = 0;
 
-    for (size_t i = 2; i <= bitmask+2; ++i)
-    {
-        sum += (*hash.find(i)).second;
-    }
+    for (size_t i = 2; i <= bitmask + 2; ++i) { sum += (*hash.find(i)).second; }
 
     return sum == n;
 }
 
 
 
-template <class Hash>
-int remove(Hash& hash, size_t n)
+template <class Hash> int remove(Hash& hash, size_t n)
 {
     auto err = 0u;
 
-    ttm::execute_parallel(current_block, n>>1,
-        [&hash, &err](size_t i)
-        {
-            auto key = keys[i<<1];
-            if (! hash.erase(key) )
-            {
-                ++err;
-            }
-        });
+    ttm::execute_parallel(current_block, n >> 1, [&hash, &err](size_t i) {
+        auto key = keys[i << 1];
+        if (!hash.erase(key)) { ++err; }
+    });
 
     errors.fetch_add(err, std::memory_order_relaxed);
     return 0;
 }
 
-template <class Hash>
-int val_rem(Hash& hash, size_t n)
+template <class Hash> int val_rem(Hash& hash, size_t n)
 {
     auto err = 0u;
 
-    ttm::execute_parallel(current_block, n,
-        [&hash, &err](size_t i)
-        {
-            auto key  = keys[i];
-            auto data = hash.find(key);
-            if ( !(i & 1) && (data != hash.end()) ) ++err;
-            if (  (i & 1) && (data == hash.end()) ) ++err;
-        });
+    ttm::execute_parallel(current_block, n, [&hash, &err](size_t i) {
+        auto key  = keys[i];
+        auto data = hash.find(key);
+        if (!(i & 1) && (data != hash.end())) ++err;
+        if ((i & 1) && (data == hash.end())) ++err;
+    });
 
     errors.fetch_add(err, std::memory_order_relaxed);
     return 0;
 }
 
 
-template <class Hash>
-int find(Hash& hash, size_t n, size_t val)
+template <class Hash> int find(Hash& hash, size_t n, size_t val)
 {
     auto err = 0u;
 
-    ttm::execute_parallel(current_block, n,
-        [&hash, &err, val](size_t i)
-        {
-            auto key = keys[i];
+    ttm::execute_parallel(current_block, n, [&hash, &err, val](size_t i) {
+        auto key = keys[i];
 
-            if ((*hash.find(key)).second != val)
-            {
-                ++err;
-            }
-        });
+        if ((*hash.find(key)).second != val) { ++err; }
+    });
 
     errors.fetch_add(err, std::memory_order_relaxed);
     return 0;
@@ -230,8 +194,7 @@ void check_errors(size_t exp)
     return;
 }
 
-template <class ThreadType>
-struct test_in_stages
+template <class ThreadType> struct test_in_stages
 {
     static int test_in_stages(ThreadType t, size_t n, size_t it)
     {
@@ -240,33 +203,31 @@ struct test_in_stages
 
         using handle_type = table_type::handle_type;
 
-        if (ThreadType::is_main)
-        {
-            keys = new uint64_t[n];
-        }
+        if (ThreadType::is_main) { keys = new uint64_t[n]; }
 
         // STAGE 0 Create Random Keys
         {
-            if (ThreadType::is_main) current_block.store (0);
+            if (ThreadType::is_main) current_block.store(0);
 
-            t.synchronized(generate_random, ++stage, p-1, n);
+            t.synchronized(generate_random, ++stage, p - 1, n);
         }
 
-        for (size_t i = 0; i<it; ++i)
+        for (size_t i = 0; i < it; ++i)
         {
             // STAGE 0.1
-            t.synchronized(set_up_hash, ++stage, p-1, ThreadType::is_main, n);
+            t.synchronized(set_up_hash, ++stage, p - 1, ThreadType::is_main, n);
 
             // Needed for synchronization (main thread has finished set_up_hash)
             t.synchronize();
 
             handle_type hash = hash_table.get_handle();
-            //handle_type hash(hash_table); //= handle_type(*ht);//ht->gethandle_type(glob_registration);
+            // handle_type hash(hash_table); //=
+            // handle_type(*ht);//ht->gethandle_type(glob_registration);
 
             // STAGE 0.1 still empty
             {
                 if (ThreadType::is_main) current_block.store(0);
-                if (ThreadType::is_main) errors.store (0);
+                if (ThreadType::is_main) errors.store(0);
 
                 t.synchronized(find<handle_type>, hash, n, 0);
 
@@ -276,7 +237,7 @@ struct test_in_stages
             // STAGE 1   n Insertions successful
             {
                 if (ThreadType::is_main) current_block.store(0);
-                if (ThreadType::is_main) errors.store (0);
+                if (ThreadType::is_main) errors.store(0);
 
                 t.synchronized(insert<handle_type>, hash, n, 3);
             }
@@ -292,7 +253,7 @@ struct test_in_stages
             // STAGE 2   n Insertions unsuccessful
             {
                 if (ThreadType::is_main) current_block.store(0);
-                if (ThreadType::is_main) errors.store (0);
+                if (ThreadType::is_main) errors.store(0);
 
                 t.synchronized(insert<handle_type>, hash, n, 4);
 
@@ -303,8 +264,7 @@ struct test_in_stages
             {
                 if (ThreadType::is_main) current_block.store(0);
 
-                t.synchronized(find<handle_type>,
-                                         hash, n, 3);
+                t.synchronized(find<handle_type>, hash, n, 3);
 
                 if (ThreadType::is_main) check_errors(0);
             }
@@ -312,7 +272,7 @@ struct test_in_stages
             // STAGE 3   n updates
             {
                 if (ThreadType::is_main) current_block.store(0);
-                if (ThreadType::is_main) errors.store (0);
+                if (ThreadType::is_main) errors.store(0);
 
                 t.synchronized(update<handle_type>, hash, n, 5);
 
@@ -331,22 +291,22 @@ struct test_in_stages
             // STAGE 4   insert_or_increment
             {
                 if (ThreadType::is_main) current_block.store(0);
-                if (ThreadType::is_main) errors.store (0);
+                if (ThreadType::is_main) errors.store(0);
 
                 t.synchronized(insert_or_increment<handle_type>, hash, n, p);
             }
 
             // STAGE 4.1 validate
             {
-                if (ThreadType::is_main) t.out << otm::width(7)
-                                               << val_inc(hash, n, p);
+                if (ThreadType::is_main)
+                    t.out << otm::width(7) << val_inc(hash, n, p);
 
                 if (ThreadType::is_main) check_errors(0);
             }
 
             // STAGE 5   n/2 remove
             {
-                //ThreadType::out (5, 3);
+                // ThreadType::out (5, 3);
                 if (ThreadType::is_main) current_block.store(0);
 
                 t.synchronized(remove<handle_type>, hash, n);
@@ -354,7 +314,7 @@ struct test_in_stages
 
             // STAGE 5.1 validate remove
             {
-                //ThreadType::out (5.1, 3);
+                // ThreadType::out (5.1, 3);
                 if (ThreadType::is_main) current_block.store(0);
 
                 t.synchronized(val_rem<handle_type>, hash, n);
@@ -373,16 +333,15 @@ struct test_in_stages
 
         return 0;
     }
-
 };
 
 int main(int argn, char** argc)
 {
     utils_tm::command_line_parser c{argn, argc};
-    size_t p  = c.int_arg("-p", 4);
-    size_t n  = c.int_arg("-n", 1000000);
-    size_t it = c.int_arg("-it", 2);
-    if (! c.report()) return 1;
+    size_t                        p  = c.int_arg("-p", 4);
+    size_t                        n  = c.int_arg("-n", 1000000);
+    size_t                        it = c.int_arg("-it", 2);
+    if (!c.report()) return 1;
 
     otm::out() << "# testing " << fun_config::name() << std::endl;
 

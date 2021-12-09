@@ -12,10 +12,10 @@
 
 #pragma once
 
-#include <atomic>
-#include <thread>
-#include <string>
 #include "counting_wait.hpp"
+#include <atomic>
+#include <string>
+#include <thread>
 
 
 /*******************************************************************************
@@ -39,21 +39,20 @@
  *
  ******************************************************************************/
 
-namespace growt {
-
-template <class Parent>
-class wstrat_pool
+namespace growt
 {
-public:
 
+template <class Parent> class wstrat_pool
+{
+  public:
     // Globaly we have to store two "waiting objects" (futexes).
     // They are used to sleep until the next grow/nongrow phase (+wake up).
     class global_data_type
     {
-    public:
+      public:
         global_data_type() : _grow_wait(0), _user_wait(0) {}
-        global_data_type(const global_data_type &) = delete;
-        global_data_type & operator = (const global_data_type &) = delete;
+        global_data_type(const global_data_type&) = delete;
+        global_data_type& operator=(const global_data_type&) = delete;
 
         ~global_data_type() = default;
 
@@ -66,10 +65,8 @@ public:
     // wait for wakeup -> check if destroyed
     //                 -> check if growing -> help grow -> repeat
     template <class EStrat>
-    static void grow_thread_loop(EStrat& estrat,
-                                 global_data_type& global,
-                                 std::atomic_size_t& finished,
-                                 cpu_set_t* aff);
+    static void grow_thread_loop(EStrat& estrat, global_data_type& global,
+                                 std::atomic_size_t& finished, cpu_set_t* aff);
 
 
     // On init the growing thread is created, on deinit it is joined.
@@ -77,49 +74,43 @@ public:
     // which is automatically created by the thread-pool.
     class local_data_type
     {
-    public:
-        Parent           &_parent;
-        global_data_type    &_global;
-        std::thread      _grow_thread;
+      public:
+        Parent&                             _parent;
+        global_data_type&                   _global;
+        std::thread                         _grow_thread;
         std::unique_ptr<std::atomic_size_t> _finished;
 
-        local_data_type(Parent &parent);
+        local_data_type(Parent& parent);
         local_data_type(const local_data_type& source) = delete;
         local_data_type& operator=(const local_data_type& source) = delete;
         local_data_type(local_data_type&& rhs);
         local_data_type& operator=(local_data_type&& rhs);
-        ~local_data_type() { }
+        ~local_data_type() {}
 
         // creates and pins the thread
-        template<class EStrat>
-        inline void init(EStrat& estrat);
+        template <class EStrat> inline void init(EStrat& estrat);
 
         // sets a local destroy flag, and wakes up all growing threads
         // only the one local thread will be destroyed though. Since there is no
         // new table, no migration will be executed by the growing threads.
         inline void deinit();
 
-        template<class ESLocal>
+        template <class ESLocal>
         inline void execute_migration(ESLocal&, size_t epoch);
     };
 
-    static std::string name()
-    {
-        return "w_pool";
-    }
-
+    static std::string name() { return "w_pool"; }
 };
 
 
 // This is the function executed by the growing threads
 // wait for wakeup -> check if destroyed
 //                 -> check if growing -> help grow -> repeat
-template <class P> template <class EStrat>
-void
-wstrat_pool<P>::grow_thread_loop(EStrat& estrat,
-                                 global_data_type& global,
-                                 std::atomic_size_t& finished,
-                                 cpu_set_t* aff)
+template <class P>
+template <class EStrat>
+void wstrat_pool<P>::grow_thread_loop(EStrat& estrat, global_data_type& global,
+                                      std::atomic_size_t& finished,
+                                      cpu_set_t*          aff)
 {
     uint epoch = 0;
     pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), aff);
@@ -140,19 +131,19 @@ wstrat_pool<P>::grow_thread_loop(EStrat& estrat,
 
 
 template <class P>
-wstrat_pool<P>::local_data_type::local_data_type(P &parent)
-    : _parent(parent),
-      _global(parent._global_worker),
+wstrat_pool<P>::local_data_type::local_data_type(P& parent)
+    : _parent(parent), _global(parent._global_worker),
       _finished(new std::atomic_size_t(0))
-{ }
+{
+}
 
 
 template <class P>
 wstrat_pool<P>::local_data_type::local_data_type(local_data_type&& rhs)
     : _parent(rhs._parent), _global(rhs._global),
-      _grow_thread(std::move(rhs._grow_thread)),
-      _finished(std::move(_finished))
-{ }
+      _grow_thread(std::move(rhs._grow_thread)), _finished(std::move(_finished))
+{
+}
 
 
 template <class P>
@@ -168,26 +159,23 @@ wstrat_pool<P>::local_data_type::operator=(local_data_type&& rhs)
 
 
 // creates and pins the thread
-template <class P> template<class EStrat>
-void
-wstrat_pool<P>::local_data_type::init(EStrat& estrat)
+template <class P>
+template <class EStrat>
+void wstrat_pool<P>::local_data_type::init(EStrat& estrat)
 {
     cpu_set_t cpuset;
     pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
-    _grow_thread = std::thread(grow_thread_loop<EStrat>, std::ref(estrat),
-                               std::ref(_global),
-                               std::ref(*_finished),
-                               &cpuset);
+    _grow_thread =
+        std::thread(grow_thread_loop<EStrat>, std::ref(estrat),
+                    std::ref(_global), std::ref(*_finished), &cpuset);
 }
 
 
 // sets a local destroy flag, and wakes up all growing threads
 // only the one local thread will be destroyed though. Since there is no
 // new table, no migration will be executed by the growing threads.
-template <class P>
-void
-wstrat_pool<P>::local_data_type::deinit()
+template <class P> void wstrat_pool<P>::local_data_type::deinit()
 {
     if (_grow_thread.joinable())
     {
@@ -201,16 +189,15 @@ wstrat_pool<P>::local_data_type::deinit()
 }
 
 
-template <class P> template<class ESLocal>
-void
-wstrat_pool<P>::local_data_type::execute_migration(ESLocal&, size_t epoch)
+template <class P>
+template <class ESLocal>
+void wstrat_pool<P>::local_data_type::execute_migration(ESLocal&, size_t epoch)
 {
     // lets instead tell somebody else and ...
     // wait lazily until somebody did this zzzzZZZzz
-    if (_global._grow_wait.inc_if(epoch))
-        _global._grow_wait.wake();
+    if (_global._grow_wait.inc_if(epoch)) _global._grow_wait.wake();
 
     _global._user_wait.wait_if(epoch);
 }
 
-}
+} // namespace growt
