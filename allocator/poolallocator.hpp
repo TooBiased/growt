@@ -81,7 +81,7 @@ class BasePoolAllocator
     static const size_t default_pool_size; //(1024ull*1024ull*1024ull*16ull);
                                            ////16GiB TODO: CHANGE BACK
     static std::atomic_size_t initialized; //(0);// 0 uninitialized 1 currently
-                                           //initializing 2 initialized
+                                           // initializing 2 initialized
     static tbb::fixed_pool* pool;          //= nullptr;
     static char*            pool_buffer;   //= nullptr;
 

@@ -533,8 +533,6 @@ base_linear<C>::insert_intern(const slot_type& slot, size_type hash)
 {
     const key_type& key = slot.get_key_ref();
 
-    if (slot.is_marked()) std::cout << "inserting marked element" << std::endl;
-
     for (size_type i = _mapper.map(hash);; ++i) // i < htemp+MaDis
     {
         size_type temp = _mapper.remap(i);

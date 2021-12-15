@@ -573,7 +573,9 @@ migration_table_handle<migration_table_data>::insert_intern(slot_type& slot)
         std::make_pair(bend(), ReturnCode::ERROR);
     std::tie(v, result) = execute(
         [](hash_ptr_reference t,
-           slot_type& slot) -> std::pair<int, base_table_insert_return_type> {
+           slot_type&         slot)                              //
+        -> std::pair<int, base_table_insert_return_type> //
+        {
             auto hash = t->h(slot.get_key_ref());
             slot.set_fingerprint(hash);
             std::pair<int, base_table_insert_return_type> result =
