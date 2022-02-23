@@ -56,7 +56,8 @@ template <class table_type>
 size_t blockwise_migrate(table_type source, table_type target);
 
 
-template <class Parent> class estrat_async
+template <class Parent>
+class estrat_async
 {
   private:
     using this_type   = estrat_async<Parent>;
@@ -108,9 +109,9 @@ template <class Parent> class estrat_async
         global_data_type(size_t capacity)
             : _epoch(0), _table(nullptr), _n_helper(0), _rec_manager()
         {
-            // doing this here seems bad but we'll see
-            auto temp = new rtm::counted_object<_growable_table_type>(capacity);
-            _table.store(temp, std::memory_order_relaxed);
+            auto temp_rec_handle = _rec_manager.get_handle();
+            auto temp_ptr        = temp_rec_handle.create_pointer(capacity);
+            _table.store(temp_ptr, std::memory_order_relaxed);
         }
         global_data_type(const global_data_type& source) = delete;
         global_data_type& operator=(const global_data_type& source) = delete;
@@ -124,8 +125,9 @@ template <class Parent> class estrat_async
 
             // this is an unsafe deletion of a protected thing it should work
             // fine
-            delete static_cast<rtm::counted_object<_growable_table_type>*>(
-                _table.load());
+            auto temp_rec_handle = _rec_manager.get_handle();
+            auto temp_ptr        = _table.exchange(nullptr);
+            temp_rec_handle.delete_raw(temp_ptr);
         }
 
       private:
@@ -192,7 +194,8 @@ template <class Parent> class estrat_async
 };
 
 
-template <class P> void estrat_async<P>::local_data_type::init()
+template <class P>
+void estrat_async<P>::local_data_type::init()
 {
     _table = _rec_handle.protect(_global._table);
     while (_table->_version != _global._epoch.load(std::memory_order_relaxed))
@@ -234,13 +237,15 @@ void estrat_async<P>::local_data_type::grow([[maybe_unused]] int version)
 }
 
 
-template <class P> void estrat_async<P>::local_data_type::help_grow(int version)
+template <class P>
+void estrat_async<P>::local_data_type::help_grow(int version)
 {
     _worker_strat.execute_migration(*this, version); //_epoch);
     end_grow();
 }
 
-template <class P> size_t estrat_async<P>::local_data_type::migrate()
+template <class P>
+size_t estrat_async<P>::local_data_type::migrate()
 {
     // enter_migration(): nhelper ++
     _global._n_helper.fetch_add(1, std::memory_order_acq_rel);
@@ -302,7 +307,8 @@ estrat_async<P>::local_data_type::blockwise_migrate(base_table_type* source,
     return n;
 }
 
-template <class P> void estrat_async<P>::local_data_type::load()
+template <class P>
+void estrat_async<P>::local_data_type::load()
 {
     if (_table) _rec_handle.unprotect(_table);
     _table = _rec_handle.protect(_global._table);
@@ -312,7 +318,8 @@ template <class P> void estrat_async<P>::local_data_type::load()
     _epoch = _table->_version;
 }
 
-template <class P> void estrat_async<P>::local_data_type::end_grow()
+template <class P>
+void estrat_async<P>::local_data_type::end_grow()
 {
     // wait for other helpers
     while (_global._n_helper.load(std::memory_order_acquire)) {}
