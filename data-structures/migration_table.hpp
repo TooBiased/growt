@@ -33,12 +33,17 @@ namespace growt
 {
 
 // FORWARD DECLARATION OF THE HANDLE CLASS
-template <class> class migration_table_handle;
+template <class>
+class migration_table_handle;
 // AND THE STATIONARY DATA OBJECT (GLOBAL OBJECT ON HEAP)
-template <class> class migration_table_data;
+template <class>
+class migration_table_data;
 
-template <class HashTable, template <class> class WorkerStrat,
-          template <class> class ExclusionStrat>
+template <class HashTable,
+          template <class>
+          class WorkerStrat,
+          template <class>
+          class ExclusionStrat>
 class migration_table
 {
   private:
@@ -93,7 +98,8 @@ class migration_table
 
 
 // GLOBAL TABLE OBJECT (THIS CANNOT BE USED WITHOUT CREATING A HANDLE)
-template <typename Parent> class migration_table_data
+template <typename Parent>
+class migration_table_data
 {
   protected:
     // TYPEDEFS
@@ -147,7 +153,8 @@ template <typename Parent> class migration_table_data
 
 
 // HANDLE OBJECTS EVERY THREAD HAS TO CREATE ONE HANDLE (THEY CANNOT BE SHARED)
-template <class migration_table_data> class migration_table_handle
+template <class migration_table_data>
+class migration_table_handle
 {
   private:
     using this_type = migration_table_handle<migration_table_data>;
@@ -228,10 +235,11 @@ template <class migration_table_data> class migration_table_handle
 
     insert_return_type insert(const key_type& k, const mapped_type& d);
     insert_return_type insert(const value_type& e);
-    template <class... Args> insert_return_type emplace(Args&&... args);
-    size_type                                   erase(const key_type& k);
-    iterator                                    find(const key_type& k);
-    const_iterator                              find(const key_type& k) const;
+    template <class... Args>
+    insert_return_type emplace(Args&&... args);
+    size_type          erase(const key_type& k);
+    iterator           find(const key_type& k);
+    const_iterator     find(const key_type& k) const;
 
     insert_return_type insert_or_assign(const key_type& k, const mapped_type& d)
     {
@@ -252,25 +260,35 @@ template <class migration_table_data> class migration_table_handle
     insert_return_type update(const key_type& k, F f, Types&&... args);
 
     template <class F, class... Types>
+    insert_return_type
+    update_with_backoff(const key_type& k, F f, B b, Types&&... args);
+
+
+    template <class F, class... Types>
     insert_return_type update_unsafe(const key_type& k, F f, Types&&... args);
 
 
     template <class F, class... Types>
-    insert_return_type insert_or_update(const key_type& k, const mapped_type& d,
-                                        F f, Types&&... args);
+    insert_return_type insert_or_update(const key_type&    k,
+                                        const mapped_type& d,
+                                        F                  f,
+                                        Types&&... args);
 
     template <class F, class... Types>
     insert_return_type
     emplace_or_update(key_type&& k, mapped_type&& d, F f, Types&&... args);
 
     template <class F, class... Types>
-    insert_return_type
-    insert_or_update_unsafe(const key_type& k, const mapped_type& d, F f,
-                            Types&&... args);
+    insert_return_type insert_or_update_unsafe(const key_type&    k,
+                                               const mapped_type& d,
+                                               F                  f,
+                                               Types&&... args);
 
     template <class F, class... Types>
-    insert_return_type emplace_or_update_unsafe(key_type&& k, mapped_type&& d,
-                                                F f, Types&&... args);
+    insert_return_type emplace_or_update_unsafe(key_type&&    k,
+                                                mapped_type&& d,
+                                                F             f,
+                                                Types&&... args);
 
     size_type erase_if(const key_type& k, const mapped_type& d);
 
@@ -286,12 +304,16 @@ template <class migration_table_data> class migration_table_handle
 
     inline insert_return_type insert_intern(slot_type& slot);
     template <class F, class... Types>
+
     inline insert_return_type
     insert_or_update_intern(slot_type& slot, F f, Types&&... args);
     template <class F, class... Types>
+
     inline insert_return_type
     insert_or_update_unsafe_intern(slot_type& slot, F f, Types&&... args);
+
     inline void grow(int version) const { _local_exclusion.grow(version); }
+
     inline void help_grow(int version) const
     {
         _local_exclusion.help_grow(version);
@@ -339,7 +361,8 @@ template <class migration_table_data> class migration_table_handle
     }
 
     inline insert_return_type make_insert_ret(const base_table_iterator& bit,
-                                              size_t version, bool inserted)
+                                              size_t version,
+                                              bool   inserted)
     {
         return std::make_pair(iterator(bit, version, *this), inserted);
     }
@@ -609,7 +632,8 @@ migration_table_handle<migration_table_data>::insert_intern(slot_type& slot)
 template <class migration_table_data>
 template <class F, class... Types>
 inline typename migration_table_handle<migration_table_data>::insert_return_type
-migration_table_handle<migration_table_data>::update(const key_type& k, F f,
+migration_table_handle<migration_table_data>::update(const key_type& k,
+                                                     F               f,
                                                      Types&&... args)
 {
     int                           v = -1;
@@ -636,6 +660,53 @@ migration_table_handle<migration_table_data>::update(const key_type& k, F f,
     case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
         // std::cout << "!" << std::flush;
         return make_insert_ret(result.first, v, false);
+    case ReturnCode::UNSUCCESS_FULL:
+    case ReturnCode::TSX_UNSUCCESS_FULL:
+        grow(v); // usually impossible as this collides with NOT_FOUND
+        return update(k, f, std::forward<Types>(args)...);
+    case ReturnCode::UNSUCCESS_INVALID:
+    case ReturnCode::TSX_UNSUCCESS_INVALID:
+        help_grow(v);
+        return update(k, f, std::forward<Types>(args)...);
+    default:
+        return make_insert_ret(bend(), v, false);
+    }
+}
+
+template <class migration_table_data>
+template <class F, class B, class... Types>
+inline typename migration_table_handle<migration_table_data>::insert_return_type
+migration_table_handle<migration_table_data>::update_with_backoff(
+    const key_type& k, F f, Types&&... args)
+{
+    int                           v = -1;
+    base_table_insert_return_type result =
+        std::make_pair(bend(), ReturnCode::ERROR);
+
+    std::tie(v, result) = execute(
+        [](hash_ptr_reference t, const key_type& k, F f, B b,
+           Types&&... args)                              //
+        -> std::pair<int, base_table_insert_return_type> //
+        {
+            std::pair<int, base_table_insert_return_type> result =
+                std::make_pair(t->_version,
+                               t->update_with_backoff_intern(
+                                   k, f, std::forward<Types>(args)...));
+            return result;
+        },
+        k, f, b, std::forward<Types>(args)...);
+
+    switch (result.second)
+    {
+    case ReturnCode::SUCCESS_UP:
+    case ReturnCode::TSX_SUCCESS_UP:
+        return make_insert_ret(result.first, v, true);
+    case ReturnCode::UNSUCCESS_NOT_FOUND:
+    case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
+        // std::cout << "!" << std::flush;
+        return make_insert_ret(result.first, v, false);
+    case ReturnCode::UNSUCCESS_BACKOFF:
+        return make_insert_ret(result.first, v, successful(rcode));
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow(v); // usually impossible as this collides with NOT_FOUND

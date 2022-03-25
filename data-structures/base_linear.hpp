@@ -33,9 +33,11 @@ namespace growt
 {
 
 
-template <class Slot, class HashFct = utils_tm::hash_tm::default_hash,
-          class Alloc    = std::allocator<typename Slot::atomic_slot_type>,
-          bool CyclicMap = false, bool CyclicProb = true,
+template <class Slot,
+          class HashFct     = utils_tm::hash_tm::default_hash,
+          class Alloc       = std::allocator<typename Slot::atomic_slot_type>,
+          bool CyclicMap    = false,
+          bool CyclicProb   = true,
           bool NeedsCleanup = true>
 class base_linear_config
 {
@@ -95,7 +97,8 @@ class base_linear_config
     };
 };
 
-template <class Config> class base_linear
+template <class Config>
+class base_linear
 {
   private:
     using this_type = base_linear<Config>;
@@ -105,13 +108,20 @@ template <class Config> class base_linear
     using allocator_type = typename Config::allocator_type;
     using hash_fct_type  = typename Config::hash_fct_type;
 
-    template <class> friend class migration_table_handle;
-    template <class, bool> friend class migration_table_iterator;
-    template <class, bool> friend class migration_table_mapped_reference;
-    template <class> friend class estrat_async;
-    template <class> friend class estrat_sync;
-    template <class> friend class wstrat_user;
-    template <class> friend class wstrat_pool;
+    template <class>
+    friend class migration_table_handle;
+    template <class, bool>
+    friend class migration_table_iterator;
+    template <class, bool>
+    friend class migration_table_mapped_reference;
+    template <class>
+    friend class estrat_async;
+    template <class>
+    friend class estrat_sync;
+    template <class>
+    friend class wstrat_user;
+    template <class>
+    friend class wstrat_pool;
 
     // _parallel_init = false does not work with the asynchroneous variant
     static constexpr bool _parallel_init = true;
@@ -181,10 +191,11 @@ template <class Config> class base_linear
 
     insert_return_type insert(const key_type& k, const mapped_type& d);
     insert_return_type insert(const value_type& e);
-    template <class... Args> insert_return_type emplace(Args&&... args);
-    size_type                                   erase(const key_type& k);
-    iterator                                    find(const key_type& k);
-    const_iterator                              find(const key_type& k) const;
+    template <class... Args>
+    insert_return_type emplace(Args&&... args);
+    size_type          erase(const key_type& k);
+    iterator           find(const key_type& k);
+    const_iterator     find(const key_type& k) const;
 
     inline insert_return_type
     insert_or_assign(const key_type& k, const mapped_type& d)
@@ -200,26 +211,34 @@ template <class Config> class base_linear
     template <class F, class... Types>
     insert_return_type update(const key_type& k, F f, Types&&... args);
 
+    template <class F, class B, class... Types>
+    insert_return_type
+    update_with_backoff(const key_type& k, F f, B b, Types&&... args);
+
     template <class F, class... Types>
     insert_return_type update_unsafe(const key_type& k, F f, Types&&... args);
 
-
     template <class F, class... Types>
-    insert_return_type insert_or_update(const key_type& k, const mapped_type& d,
-                                        F f, Types&&... args);
+    insert_return_type insert_or_update(const key_type&    k,
+                                        const mapped_type& d,
+                                        F                  f,
+                                        Types&&... args);
 
     template <class F, class... Types>
     insert_return_type
     emplace_or_update(key_type&& k, mapped_type&& d, F f, Types&&... args);
 
     template <class F, class... Types>
-    insert_return_type
-    insert_or_update_unsafe(const key_type& k, const mapped_type& d, F f,
-                            Types&&... args);
+    insert_return_type insert_or_update_unsafe(const key_type&    k,
+                                               const mapped_type& d,
+                                               F                  f,
+                                               Types&&... args);
 
     template <class F, class... Types>
-    insert_return_type emplace_or_update_unsafe(key_type&& k, mapped_type&& d,
-                                                F f, Types&&... args);
+    insert_return_type emplace_or_update_unsafe(key_type&&    k,
+                                                mapped_type&& d,
+                                                F             f,
+                                                Types&&... args);
 
     size_type erase_if(const key_type& k, const mapped_type& d);
 
@@ -263,20 +282,26 @@ template <class Config> class base_linear
     template <class F, class... Types>
     insert_return_intern update_intern(const key_type& k, F f, Types&&... args);
 
+    template <class F, class B, class... Types>
+    insert_return_intern
+    update_with_backoff_intern(const key_type& k, F f, B b, Types&&... args);
+
     template <class F, class... Types>
     insert_return_intern
     update_unsafe_intern(const key_type& k, F f, Types&&... args);
 
 
     template <class F, class... Types>
-    insert_return_intern
-    insert_or_update_intern(const slot_type& slot, size_type hash, F f,
-                            Types&&... args);
+    insert_return_intern insert_or_update_intern(const slot_type& slot,
+                                                 size_type        hash,
+                                                 F                f,
+                                                 Types&&... args);
 
     template <class F, class... Types>
-    insert_return_intern
-    insert_or_update_unsafe_intern(const slot_type& slot, size_type hash, F f,
-                                   Types&&... args);
+    insert_return_intern insert_or_update_unsafe_intern(const slot_type& slot,
+                                                        size_type        hash,
+                                                        F                f,
+                                                        Types&&... args);
 
 
 
@@ -305,9 +330,9 @@ template <class Config> class base_linear
         return std::make_pair(it, succ);
     }
 
-    inline insert_return_intern
-    make_insert_ret(const slot_type& slot, atomic_slot_type* ptr,
-                    ReturnCode code)
+    inline insert_return_intern make_insert_ret(const slot_type&  slot,
+                                                atomic_slot_type* ptr,
+                                                ReturnCode        code)
     {
         return std::make_pair(make_iterator(slot, ptr), code);
     }
@@ -412,7 +437,8 @@ base_linear<C>::base_linear(mapper_type mapper_, size_type version_)
     }
 }
 
-template <class C> base_linear<C>::~base_linear()
+template <class C>
+base_linear<C>::~base_linear()
 {
     // std::cout << "~base_linear" << std::endl;
     if constexpr (config_type::cleanup) slot_cleanup();
@@ -614,6 +640,49 @@ base_linear<C>::update_intern(const key_type& k, F f, Types&&... args)
 }
 
 template <class C>
+template <class F, class B, class... Types>
+inline typename base_linear<C>::insert_return_intern
+base_linear<C>::update_with_backoff_intern(const key_type& k,
+                                           F               f,
+                                           B               b,
+                                           Types&&... args)
+{
+    size_type htemp = h(k);
+
+    for (size_type i = _mapper.map(htemp);; ++i) // i < htemp+MaDis
+    {
+        size_type temp = _mapper.remap(i);
+        auto      curr = _table[temp].load();
+        if (curr.is_marked())
+        {
+            return make_insert_ret(end(), ReturnCode::UNSUCCESS_INVALID);
+        }
+        else if (curr.is_empty())
+        {
+            return make_insert_ret(end(), ReturnCode::UNSUCCESS_NOT_FOUND);
+        }
+        else if (curr.compare_key(k, htemp))
+        {
+            slot_type data = slot_config::get_empty();
+            bool      succ;
+            std::tie(data, succ) = _table[temp].atomic_update(
+                curr, f, std::forward<Types>(args)...);
+            if (succ)
+                return make_insert_ret(data, &_table[temp],
+                                       ReturnCode::SUCCESS_UP);
+            if (!b(std::forward<Types>(args)...))
+                return make_insert_ret(end(), ReturnCode::UNSUCCESS_BACKOFF);
+            i--;
+        }
+        else if (curr.is_deleted())
+        {
+            // do something appropriate
+        }
+    }
+    return make_insert_ret(end(), ReturnCode::UNSUCCESS_NOT_FOUND);
+}
+
+template <class C>
 template <class F, class... Types>
 inline typename base_linear<C>::insert_return_intern
 base_linear<C>::update_unsafe_intern(const key_type& k, F f, Types&&... args)
@@ -655,8 +724,10 @@ base_linear<C>::update_unsafe_intern(const key_type& k, F f, Types&&... args)
 template <class C>
 template <class F, class... Types>
 inline typename base_linear<C>::insert_return_intern
-base_linear<C>::insert_or_update_intern(const slot_type& slot, size_type hash,
-                                        F f, Types&&... args)
+base_linear<C>::insert_or_update_intern(const slot_type& slot,
+                                        size_type        hash,
+                                        F                f,
+                                        Types&&... args)
 {
     const key_type& key = slot.get_key_ref();
 
@@ -705,7 +776,8 @@ template <class C>
 template <class F, class... Types>
 inline typename base_linear<C>::insert_return_intern
 base_linear<C>::insert_or_update_unsafe_intern(const slot_type& slot,
-                                               size_type hash, F f,
+                                               size_type        hash,
+                                               F                f,
                                                Types&&... args)
 {
     const key_type& key = slot.get_key_ref();
@@ -919,6 +991,20 @@ base_linear<C>::update(const key_type& k, F f, Types&&... args)
 }
 
 template <class C>
+template <class F, class B, class... Types>
+inline typename base_linear<C>::insert_return_type
+base_linear<C>::update_with_backoff(const key_type& k,
+                                    F               f,
+                                    B               b,
+                                    Types&&... args)
+{
+    auto [it, rcode] =
+        update_with_backoff_intern(k, f, b, std::forward<Types>(args)...);
+    return std::make_pair(it, successful(rcode));
+}
+
+
+template <class C>
 template <class F, class... Types>
 inline typename base_linear<C>::insert_return_type
 base_linear<C>::update_unsafe(const key_type& k, F f, Types&&... args)
@@ -930,7 +1016,9 @@ base_linear<C>::update_unsafe(const key_type& k, F f, Types&&... args)
 template <class C>
 template <class F, class... Types>
 inline typename base_linear<C>::insert_return_type
-base_linear<C>::insert_or_update(const key_type& k, const mapped_type& d, F f,
+base_linear<C>::insert_or_update(const key_type&    k,
+                                 const mapped_type& d,
+                                 F                  f,
                                  Types&&... args)
 {
     auto hash = h(k);
@@ -947,7 +1035,9 @@ base_linear<C>::insert_or_update(const key_type& k, const mapped_type& d, F f,
 template <class C>
 template <class F, class... Types>
 inline typename base_linear<C>::insert_return_type
-base_linear<C>::emplace_or_update(key_type&& k, mapped_type&& d, F f,
+base_linear<C>::emplace_or_update(key_type&&    k,
+                                  mapped_type&& d,
+                                  F             f,
                                   Types&&... args)
 {
     auto hash = h(k);
@@ -964,8 +1054,10 @@ base_linear<C>::emplace_or_update(key_type&& k, mapped_type&& d, F f,
 template <class C>
 template <class F, class... Types>
 inline typename base_linear<C>::insert_return_type
-base_linear<C>::insert_or_update_unsafe(const key_type& k, const mapped_type& d,
-                                        F f, Types&&... args)
+base_linear<C>::insert_or_update_unsafe(const key_type&    k,
+                                        const mapped_type& d,
+                                        F                  f,
+                                        Types&&... args)
 {
     auto hash        = h(k);
     auto slot        = slot_type(k, d, hash);
@@ -981,7 +1073,9 @@ base_linear<C>::insert_or_update_unsafe(const key_type& k, const mapped_type& d,
 template <class C>
 template <class F, class... Types>
 inline typename base_linear<C>::insert_return_type
-base_linear<C>::emplace_or_update_unsafe(key_type&& k, mapped_type&& d, F f,
+base_linear<C>::emplace_or_update_unsafe(key_type&&    k,
+                                         mapped_type&& d,
+                                         F             f,
                                          Types&&... args)
 {
     auto hash        = h(k);
@@ -1158,7 +1252,8 @@ inline void base_linear<C>::initialize(size_t start, size_t end)
     }
 }
 
-template <class C> inline void base_linear<C>::initialize(size_t idx)
+template <class C>
+inline void base_linear<C>::initialize(size_t idx)
 {
     if constexpr (!_parallel_init) return;
     if constexpr (mapper_type::cyclic_mapping)
@@ -1180,7 +1275,8 @@ template <class C> inline void base_linear<C>::initialize(size_t idx)
     }
 }
 
-template <class C> inline void base_linear<C>::insert_unsafe(const slot_type& e)
+template <class C>
+inline void base_linear<C>::insert_unsafe(const slot_type& e)
 {
     const key_type k = e.get_key();
 

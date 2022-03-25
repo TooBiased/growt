@@ -22,7 +22,8 @@ enum class ReturnCode
 {
     // bit pattern:  1 = success ;   2 = not found key ;   4 = found key
     //               8 = insert  ;  16 = update        ;  32 = delete
-    //              64 = full    ; 128 = invalid cell  ; 256 = TSX
+    //              64 = full    ; 128 = invalid cell  ; 256 = backoff
+    //            1024 = TSX
 
     ERROR = 0,
 
@@ -34,17 +35,18 @@ enum class ReturnCode
     UNSUCCESS_ALREADY_USED = 4,
     UNSUCCESS_FULL         = 64,
     UNSUCCESS_INVALID      = 128,
+    UNSUCCESS_BACKOFF      = 256,
 
-    TSX_SUCCESS_IN  = 265, // success+insert+TSX
-    TSX_SUCCESS_UP  = 273, // success+update+TSX
-    TSX_SUCCESS_DEL = 289, // success+delete+TSX
+    TSX_SUCCESS_IN  = 1033, // success+insert+TSX
+    TSX_SUCCESS_UP  = 1041, // success+update+TSX
+    TSX_SUCCESS_DEL = 1057, // success+delete+TSX
 
-    TSX_UNSUCCESS_NOT_FOUND    = 258, // not found   +TSX
-    TSX_UNSUCCESS_ALREADY_USED = 260, // already used+TSX
-    TSX_UNSUCCESS_FULL         = 320, // full        +TSX
-    TSX_UNSUCCESS_INVALID      = 384, // invalid     +TSX
+    TSX_UNSUCCESS_NOT_FOUND    = 1026, // not found   +TSX
+    TSX_UNSUCCESS_ALREADY_USED = 1028, // already used+TSX
+    TSX_UNSUCCESS_FULL         = 1088, // full        +TSX
+    TSX_UNSUCCESS_INVALID      = 1152, // invalid     +TSX
 
-    TSX_ABORT = 256 // TSX+ERROR
+    TSX_ABORT = 1024 // TSX+ERROR
 };
 
 inline bool successful(ReturnCode ec) { return (static_cast<uint>(ec) & 1u); }
