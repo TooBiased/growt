@@ -259,7 +259,7 @@ class migration_table_handle
     template <class F, class... Types>
     insert_return_type update(const key_type& k, F f, Types&&... args);
 
-    template <class F, class... Types>
+    template <class F, class B, class... Types>
     insert_return_type
     update_with_backoff(const key_type& k, F f, B b, Types&&... args);
 
@@ -677,7 +677,7 @@ template <class migration_table_data>
 template <class F, class B, class... Types>
 inline typename migration_table_handle<migration_table_data>::insert_return_type
 migration_table_handle<migration_table_data>::update_with_backoff(
-    const key_type& k, F f, Types&&... args)
+    const key_type& k, F f, B b, Types&&... args)
 {
     int                           v = -1;
     base_table_insert_return_type result =
@@ -691,7 +691,7 @@ migration_table_handle<migration_table_data>::update_with_backoff(
             std::pair<int, base_table_insert_return_type> result =
                 std::make_pair(t->_version,
                                t->update_with_backoff_intern(
-                                   k, f, std::forward<Types>(args)...));
+                                   k, f, b, std::forward<Types>(args)...));
             return result;
         },
         k, f, b, std::forward<Types>(args)...);
@@ -706,7 +706,7 @@ migration_table_handle<migration_table_data>::update_with_backoff(
         // std::cout << "!" << std::flush;
         return make_insert_ret(result.first, v, false);
     case ReturnCode::UNSUCCESS_BACKOFF:
-        return make_insert_ret(result.first, v, successful(rcode));
+        return make_insert_ret(result.first, v, successful(result.second));
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow(v); // usually impossible as this collides with NOT_FOUND
