@@ -710,11 +710,11 @@ migration_table_handle<migration_table_data>::update_with_backoff(
     case ReturnCode::UNSUCCESS_FULL:
     case ReturnCode::TSX_UNSUCCESS_FULL:
         grow(v); // usually impossible as this collides with NOT_FOUND
-        return update(k, f, std::forward<Types>(args)...);
+        return update_with_backoff(k, f, b, std::forward<Types>(args)...);
     case ReturnCode::UNSUCCESS_INVALID:
     case ReturnCode::TSX_UNSUCCESS_INVALID:
         help_grow(v);
-        return update(k, f, std::forward<Types>(args)...);
+        return update_with_backoff(k, f, b, std::forward<Types>(args)...);
     default:
         return make_insert_ret(bend(), v, false);
     }
