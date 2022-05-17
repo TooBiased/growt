@@ -17,7 +17,8 @@
 namespace growt
 {
 
-template <class, bool> class migration_table_reference;
+template <class, bool>
+class migration_table_reference;
 
 template <class Table, bool is_const = false>
 class migration_table_mapped_reference
@@ -46,11 +47,13 @@ class migration_table_mapped_reference
 
     using hash_ptr_reference = typename table_type::hash_ptr_reference;
 
-    template <class, bool> friend class migration_table_reference;
+    template <class, bool>
+    friend class migration_table_reference;
 
   public:
-    migration_table_mapped_reference(base_mapped_reference mref, size_t ver,
-                                     table_type& table)
+    migration_table_mapped_reference(base_mapped_reference mref,
+                                     size_t                ver,
+                                     table_type&           table)
         : _tab(table), _version(ver), _mref(mref)
     {
     }
@@ -129,7 +132,8 @@ class migration_table_mapped_reference
     }
 };
 
-template <class Table, bool is_const = false> class migration_table_reference
+template <class Table, bool is_const = false>
+class migration_table_reference
 {
   private:
     static_assert(std::is_same<typename Table::reference,
@@ -146,7 +150,8 @@ template <class Table, bool is_const = false> class migration_table_reference
     using key_type       = typename table_type::key_type;
     using mapped_type    = typename table_type::mapped_type;
     using base_reference = typename std::conditional<
-        is_const, typename table_type::base_table_type::const_reference,
+        is_const,
+        typename table_type::base_table_type::const_reference,
         typename table_type::base_table_type::reference>::type;
 
     using hash_ptr_reference = typename table_type::hash_ptr_reference;
@@ -166,7 +171,8 @@ template <class Table, bool is_const = false> class migration_table_reference
     // Functions necessary for concurrency *************************************
     inline void refresh() { second.refresh(); }
 
-    template <class F> inline void update(const mapped_type& value, F f)
+    template <class F>
+    inline void update(const mapped_type& value, F f)
     {
         static_assert(!is_const, "update called on a const_reference");
         second.update(value, f);
@@ -182,8 +188,8 @@ template <class Table, bool is_const = false> class migration_table_reference
     inline operator value_type() const { return value_type(second.ref); }
 
   public:
-    const key_type& first;
     mapped_ref      second;
+    const key_type& first;
     // const mapped_type& second;
 };
 
@@ -191,7 +197,8 @@ template <class Table, bool is_const = false> class migration_table_reference
 
 
 
-template <class Table, bool is_const = false> class migration_table_iterator
+template <class Table, bool is_const = false>
+class migration_table_iterator
 {
   private:
     static_assert(std::is_same<typename Table::iterator,
@@ -223,19 +230,20 @@ template <class Table, bool is_const = false> class migration_table_iterator
     static constexpr bool allows_referential_integrity =
         table_type::allows_referential_integrity;
 
-    using maybe_const_mapped_reference =
-        typename std::conditional<is_const, const mapped_type&,
-                                  mapped_type&>::type;
+    using maybe_const_mapped_reference = typename std::
+        conditional<is_const, const mapped_type&, mapped_type&>::type;
 
   public:
     using difference_type = std::ptrdiff_t;
     using value_type      = typename base_iterator::value_type;
     using reference       = typename std::conditional<
-        allows_referential_integrity, value_type&,
+        allows_referential_integrity,
+        value_type&,
         migration_table_reference<Table, is_const>>::type;
 
     using mapped_reference = typename std::conditional<
-        allows_referential_integrity, maybe_const_mapped_reference,
+        allows_referential_integrity,
+        maybe_const_mapped_reference,
         migration_table_mapped_reference<Table, is_const>>::type;
 
     using pointer           = value_type*;
@@ -253,8 +261,9 @@ template <class Table, bool is_const = false> class migration_table_iterator
 
 
     // Constructors ************************************************************
-    migration_table_iterator(base_iterator it, size_t version,
-                             table_type& table)
+    migration_table_iterator(base_iterator it,
+                             size_t        version,
+                             table_type&   table)
         : _tab(table), _version(version), _it(it)
     {
     }
