@@ -162,8 +162,8 @@ class migration_table_reference
     using value_type = typename base_reference::value_type;
 
     migration_table_reference(base_reference ref, size_t ver, table_type& table)
-        : first(second._mref._copy.get_key_ref()),
-          second(ref.second, ver, table)
+        : second(ref.second, ver, table),
+          first(second._mref._copy.get_key_ref())
     {
     }
 
