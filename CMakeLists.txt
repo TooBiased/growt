@@ -332,6 +332,10 @@ GrowTExecutable( PSGROW agg_test agg agg_full_psGrowT )
 # target_compile_definitions(del_full_uaGrowT PRIVATE
 #   -D CMAP)
 
+GrowTExecutable( FOLKLORE ins32_test  ins32  ins32_none_folklore )
+GrowTExecutable( UAGROW   ins32_test  ins32  ins32_full_uaGrowT )
+
+
 if (GROWT_BUILD_MEMORY_TEST)
   GrowTExecutable( FOLKLORE ins_test mem mem_none_folklore )
   target_compile_definitions(mem_none_folklore PRIVATE -D GROWT_RSS_MODE)

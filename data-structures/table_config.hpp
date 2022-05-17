@@ -5,6 +5,7 @@
 
 #include "data-structures/element_types/complex_slot.hpp"
 #include "data-structures/element_types/simple_slot.hpp"
+#include "data-structures/element_types/single_word_slot.hpp"
 
 #include "data-structures/strategies/estrat_async.hpp"
 #include "data-structures/strategies/estrat_sync.hpp"
@@ -18,17 +19,34 @@
 namespace growt
 {
 
-
-template <bool B> struct slot_config
+enum class slot_type_enum
 {
-    template <class K, class M, bool NM> using templ = complex_slot<K, M, NM>;
+    complex_slot     = 1,
+    simple_slot      = 2,
+    single_word_slot = 3
 };
 
-template <> struct slot_config<false>
+template <size_t, size_t, bool>
+struct slot_config
 {
-    template <class K, class M, bool NM> using templ = simple_slot<K, M, NM>;
+    template <class K, class M, bool NM>
+    using templ = complex_slot<K, M, NM>;
 };
 
+template <>
+struct slot_config<16, 8, false>
+{
+    template <class K, class M, bool NM>
+    using templ = simple_slot<K, M, NM>;
+};
+
+
+template <>
+struct slot_config<8, 4, false>
+{
+    template <class K, class M, bool NM>
+    using templ = single_word_slot<K, M, NM>;
+};
 
 template <class Key, class Data, class HashFct, class Allocator, hmod... Mods>
 class table_config
@@ -48,10 +66,9 @@ class table_config
 
     static constexpr bool needs_marking = mods::template is<hmod::growable>() &&
                                           !(mods::template is<hmod::sync>());
-    static constexpr bool needs_complex_slot =
-        !(sizeof(value_type) == 16 && sizeof(key_type) == 8 &&
-          !(mods::template is<hmod::ref_integrity>() &&
-            mods::template is<hmod::growable>()));
+    static constexpr bool needs_growing_with_ref_integrity =
+        mods::template is<hmod::ref_integrity>() &&
+        mods::template is<hmod::growable>();
     static constexpr bool needs_migration =
         mods::template is<hmod::growable>() ||
         mods::template is<hmod::deletion>();
@@ -62,9 +79,13 @@ class table_config
     //                                                      templ<K,M,NM>;
 
     using base_table_config = base_linear_config<
-        typename slot_config<needs_complex_slot>::template templ<
-            key_type, mapped_type, needs_marking>,
-        HashFct, Allocator, mods::template is<hmod::circular_map>(),
+        typename slot_config<sizeof(value_type),
+                             sizeof(key_type),
+                             needs_growing_with_ref_integrity>::
+            template templ<key_type, mapped_type, needs_marking>,
+        HashFct,
+        Allocator,
+        mods::template is<hmod::circular_map>(),
         mods::template is<hmod::circular_prob>(),
         !mods::template is<hmod::growable>()>;
 
@@ -73,11 +94,13 @@ class table_config
     template <class P>
     using workerstrat =
         typename std::conditional<!mods::template is<hmod::pool>(),
-                                  wstrat_user<P>, wstrat_pool<P> >::type;
+                                  wstrat_user<P>,
+                                  wstrat_pool<P> >::type;
     template <class P>
     using exclstrat =
         typename std::conditional<!mods::template is<hmod::sync>(),
-                                  estrat_async<P>, estrat_sync<P> >::type;
+                                  estrat_async<P>,
+                                  estrat_sync<P> >::type;
 
 
 
