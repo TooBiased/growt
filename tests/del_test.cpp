@@ -38,8 +38,11 @@ const static uint64_t range = (1ull << 62) - 1;
 namespace otm               = utils_tm::out_tm;
 namespace ttm               = utils_tm::thread_tm;
 
-using del_config = table_config<size_t, size_t, utils_tm::hash_tm::default_hash,
-                                allocator_type, hmod::deletion>;
+using del_config = table_config<size_t,
+                                size_t,
+                                utils_tm::hash_tm::default_hash,
+                                allocator_type,
+                                hmod::deletion>;
 using table_type = typename del_config::table_type;
 
 
@@ -64,16 +67,22 @@ int generate_keys(size_t end)
     return 0;
 }
 
-template <class Hash> int prefill(Hash& hash, size_t pre) { return 0; }
-
-
-template <class Hash> int del_test(Hash& hash, size_t end, size_t size)
+template <class Hash>
+int prefill(Hash& hash, size_t pre)
 {
     return 0;
 }
 
 
-template <class Hash> int validate(Hash& hash, size_t end)
+template <class Hash>
+int del_test(Hash& hash, size_t end, size_t size)
+{
+    return 0;
+}
+
+
+template <class Hash>
+int validate(Hash& hash, size_t end)
 {
     auto found = 0u;
 
@@ -87,7 +96,8 @@ template <class Hash> int validate(Hash& hash, size_t end)
     return 0;
 }
 
-template <class ThreadType> struct test_in_stages
+template <class ThreadType>
+struct test_in_stages
 {
     static int execute(ThreadType t, size_t n, size_t cap, size_t it, size_t ws)
     {
@@ -123,7 +133,8 @@ template <class ThreadType> struct test_in_stages
 
             auto last_block_index  = 0;
             auto local_buffer_size = ws / t.p + ((t.id < (ws % t.p)) ? 1 : 0);
-            auto buffer = circular_buffer<size_t>{local_buffer_size + 1};
+            auto buffer =
+                utils_tm::circular_buffer<size_t>{local_buffer_size + 1};
 
             // STAGE0.1 prefill table with one block per thread
             {
