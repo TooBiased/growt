@@ -47,10 +47,10 @@ option(GROWT_BUILD_TBB
   "(optional) builds tests for tbb hash map and unordered map (using wrappers)!" OFF)
 option(GROWT_BUILD_JUNCTION
   "(optional) builds tests for junction tables (Linear, Grampa, Leapfrog)!" OFF)
-
 option(GROWT_BUILD_MEMORY_TEST
   "(optional) builds tests that output memory (i.e. residential set size)" OFF)
-
+set(GROWT_USE_SCALABLE_ALLOCATORS_WHERE_APPROPRIATE
+  "(optional) text test and complex table use TBB::scalable allocator by default" ON)
 
 set(GROWT_ALLOCATOR ALIGNED CACHE STRING
   "Specifies the used allocator (only relevant for our tables)!")
@@ -76,10 +76,9 @@ endif()
 ###TEMPORARY (CURRENTLY NOT USED)
 set (GROWT_MAX_FILL 0.6)
 
-
 set (OLD_FLAGS ${CMAKE_CXX_FLAGS})
 
-set (FLAGS "-std=c++17 -msse4.2 -mcx16 -Wall -Wextra")
+set (FLAGS "-std=c++20 -msse4.2 -mcx16 -Wall -Wextra")
 
 if (GROWT_BUILD_MODE STREQUAL DEBUG)
 set (FLAGS "${FLAGS} -g3 -ggdb -O0")
@@ -90,11 +89,6 @@ endif()
 if (GROWT_BUILD_MODE STREQUAL REL_W_SYMBOLS)
 set (FLAGS "${FLAGS} -g3 -ggdb -march=native -O3")
 endif()
-# if (GROWT_BUILD_MODE STREQUAL SANITIZE)
-# set (FLAGS "${FLAGS} -g -ggdb -march=native -O3 -fsanitize=address")
-# set (TEST_DEP_LIBRARIES -lasan ${TEST_DEP_LIBRARIES})
-# endif()
-
 
 include_directories(.)
 
@@ -120,18 +114,19 @@ add_executable(range_example example/range_example.cpp)
 set_target_properties(range_example PROPERTIES COMPILE_FLAGS "${FLAGS}")
 target_link_libraries(range_example ${TEST_DEP_LIBRARIES})
 
-
-# if necessary find tbb
-# if (USE_TBB_MEMPOOL OR GROWT_BUILD_TBB)
+message(STATUS "Looking for Intel TBB.")
 find_package(TBB)
-
 if (NOT TBB_FOUND)
-  message("Intel TBB not found. "
+  message(STATUS "Looking for Intel TBB -- not found. "
     "memPool cannot be used and TBB-Tests cannot be created!")
   set(GROWT_BUILD_TBB OFF)
   if (USE_TBB_MEMPOOL)
     message(STATUS "Switch to aligned alloc!")
     set(GROWT_ALLOCATOR ALIGNED)
+  endif()
+  if (GROWT_USE_SCALABLE_ALLOCATORS_WHERE_APPROPRIATE)
+    message(STATUS "Switch string and complex_slot allocators to default!")
+    set(GROWT_USE_SCALABLE_ALLOCATORS_WHERE_APPROPRIATE OFF)
   endif()
 elseif(TBB_INTERFACE_VERSION LESS 8000)
   message("Intel TBB ${TBB_INTERFACE_VERSION} is too old. "
@@ -141,15 +136,14 @@ elseif(TBB_INTERFACE_VERSION LESS 8000)
     message(STATUS "Switch to aligned alloc!")
     set(GROWT_ALLOCATOR ALIGNED)
   endif()
-else()
-  include_directories(STATUS ${TBB_INCLUDE_DIRS})
-  link_directories(${TBB_LIBRARY_DIRS})
-  if (USE_TBB_MEMPOOL)
-    set(ALLOC_LIB ${TBB_LIBRARIES})
   endif()
+  if (GROWT_USE_SCALABLE_ALLOCATORS_WHERE_APPROPRIATE)
+    message(STATUS "Switch string and complex_slot allocators to default!")
+    set(GROWT_USE_SCALABLE_ALLOCATORS_WHERE_APPROPRIATE OFF)
+  endif()
+else()
+  message(STATUS "Looking for Intel TBB. -- found")
 endif()
-# endif()
-
 
 if (GROWT_ALLOCATOR STREQUAL NUMA_POOL)
   find_package(NUMA)
@@ -299,15 +293,15 @@ GrowTExecutable( USGROW functionality fun functionality_usGrowT )
 GrowTExecutable( PAGROW functionality fun functionality_paGrowT )
 GrowTExecutable( PSGROW functionality fun functionality_psGrowT )
 
-GrowTExecutable( FOLKLORE ins_test  ins  ins_none_folklore )
-GrowTExecutable( FOLKLORE mix_test  mix  mix_none_folklore )
-GrowTExecutable( FOLKLORE con_test  con  con_none_folklore )
-GrowTExecutable( FOLKLORE agg_test  agg  agg_none_folklore )
+GrowTExecutable( FOLKLORE ins_test ins ins_none_folklore )
+GrowTExecutable( FOLKLORE mix_test mix mix_none_folklore )
+GrowTExecutable( FOLKLORE con_test con con_none_folklore )
+GrowTExecutable( FOLKLORE agg_test agg agg_none_folklore )
 
-GrowTExecutable( SEQUENTIAL ins_test  seq  ins_full_sequential )
-GrowTExecutable( SEQUENTIAL mix_test  seq  mix_full_sequential )
-GrowTExecutable( SEQUENTIAL con_test  seq  con_full_sequential )
-GrowTExecutable( SEQUENTIAL agg_test  seq  agg_full_sequential )
+GrowTExecutable( SEQUENTIAL ins_test seq ins_full_sequential )
+GrowTExecutable( SEQUENTIAL mix_test seq mix_full_sequential )
+GrowTExecutable( SEQUENTIAL con_test seq con_full_sequential )
+GrowTExecutable( SEQUENTIAL agg_test seq agg_full_sequential )
 
 GrowTExecutable( UAGROW ins_test ins ins_full_uaGrowT )
 GrowTExecutable( USGROW ins_test ins ins_full_usGrowT )
@@ -423,16 +417,40 @@ if (TBB_FOUND)
   GrowTExecutable( USGROW text_test text text_full_usGrowT )
   GrowTExecutable( PAGROW text_test text text_full_paGrowT )
   GrowTExecutable( PSGROW text_test text text_full_psGrowT )
-  target_link_libraries(text_none_folklore ${TBB_LIBRARIES})
-  target_link_libraries(text_full_sequential ${TBB_LIBRARIES})
-  target_link_libraries(text_full_uaGrowT ${TBB_LIBRARIES})
-  target_link_libraries(text_full_usGrowT ${TBB_LIBRARIES})
-  target_link_libraries(text_full_paGrowT ${TBB_LIBRARIES})
-  target_link_libraries(text_full_psGrowT ${TBB_LIBRARIES})
-  target_link_libraries(functionality_uaGrowT ${TBB_LIBRARIES})
-  target_link_libraries(functionality_usGrowT ${TBB_LIBRARIES})
-  target_link_libraries(functionality_paGrowT ${TBB_LIBRARIES})
-  target_link_libraries(functionality_psGrowT ${TBB_LIBRARIES})
+  # target_link_libraries(text_none_folklore ${TBB_LIBRARIES})
+  # target_link_libraries(text_full_sequential ${TBB_LIBRARIES})
+  # target_link_libraries(text_full_uaGrowT ${TBB_LIBRARIES})
+  # target_link_libraries(text_full_usGrowT ${TBB_LIBRARIES})
+  # target_link_libraries(text_full_paGrowT ${TBB_LIBRARIES})
+  # target_link_libraries(text_full_psGrowT ${TBB_LIBRARIES})
+  # target_link_libraries(functionality_uaGrowT ${TBB_LIBRARIES})
+  # target_link_libraries(functionality_usGrowT ${TBB_LIBRARIES})
+  # target_link_libraries(functionality_paGrowT ${TBB_LIBRARIES})
+  # target_link_libraries(functionality_psGrowT ${TBB_LIBRARIES})
+
+  endif()
+  if (GROWT_USE_SCALABLE_ALLOCATORS_WHERE_APPROPRIATE)
+    target_compile_definitions(text_none_folklore    PRIVATE -D TBB_AS_DEFAULT)
+    target_compile_definitions(text_full_sequential  PRIVATE -D TBB_AS_DEFAULT)
+    target_compile_definitions(text_full_uaGrowT     PRIVATE -D TBB_AS_DEFAULT)
+    target_compile_definitions(text_full_usGrowT     PRIVATE -D TBB_AS_DEFAULT)
+    target_compile_definitions(text_full_paGrowT     PRIVATE -D TBB_AS_DEFAULT)
+    target_compile_definitions(text_full_psGrowT     PRIVATE -D TBB_AS_DEFAULT)
+    target_compile_definitions(functionality_uaGrowT PRIVATE -D TBB_AS_DEFAULT)
+    target_compile_definitions(functionality_usGrowT PRIVATE -D TBB_AS_DEFAULT)
+    target_compile_definitions(functionality_paGrowT PRIVATE -D TBB_AS_DEFAULT)
+    target_compile_definitions(functionality_psGrowT PRIVATE -D TBB_AS_DEFAULT)
+    target_link_libraries(text_none_folklore    PRIVATE TBB::tbbmalloc)
+    target_link_libraries(text_full_sequential  PRIVATE TBB::tbbmalloc)
+    target_link_libraries(text_full_uaGrowT     PRIVATE TBB::tbbmalloc)
+    target_link_libraries(text_full_usGrowT     PRIVATE TBB::tbbmalloc)
+    target_link_libraries(text_full_paGrowT     PRIVATE TBB::tbbmalloc)
+    target_link_libraries(text_full_psGrowT     PRIVATE TBB::tbbmalloc)
+    target_link_libraries(functionality_uaGrowT PRIVATE TBB::tbbmalloc)
+    target_link_libraries(functionality_usGrowT PRIVATE TBB::tbbmalloc)
+    target_link_libraries(functionality_paGrowT PRIVATE TBB::tbbmalloc)
+    target_link_libraries(functionality_psGrowT PRIVATE TBB::tbbmalloc)
+  endif()
 
 
   add_custom_target( text )
@@ -452,7 +470,7 @@ if (GROWT_BUILD_TBB)
       -D ${variant}
       -D ${GROWT_HASHFCT}
       -D ${GROWT_ALLOCATOR})
-    target_link_libraries( ${name} ${TEST_DEP_LIBRARIES} ${TBB_LIBRARIES} )
+    target_link_libraries( ${name} ${TEST_DEP_LIBRARIES} PRIVATE TBB::tbb )
   endfunction( TBBExecutable )
 
   TBBExecutable( TBBHM  ins_test ins ins_full_TBBhm )
@@ -466,8 +484,8 @@ if (GROWT_BUILD_TBB)
 
   TBBExecutable( TBBUM  text_test text text_full_TBBum )
   TBBExecutable( TBBHM  text_test text text_full_TBBhm )
-  target_link_libraries(text_full_TBBum ${TBB_LIBRARIES})
-  target_link_libraries(text_full_TBBhm ${TBB_LIBRARIES})
+  target_link_libraries(text_full_TBBum PRIVATE TBB::tbb PRIVATE TBB::tbbmalloc)
+  target_link_libraries(text_full_TBBhm PRIVATE TBB::tbb PRIVATE TBB::tbbmalloc)
 
   add_custom_target( tbb )
   add_dependencies( tbb
@@ -532,7 +550,7 @@ if (GROWT_BUILD_CUCKOO)
   CuckooExecutable( CUCKOO  del_test del del_full_cuckoo )
   if (TBB_FOUND)
     CuckooExecutable( CUCKOO  text_test text text_full_cuckoo )
-    target_link_libraries(text_full_cuckoo ${TBB_LIBRARIES})
+    target_link_libraries(text_full_cuckoo PRIVATE TBB::tbb)
   endif()
 
   add_custom_target( cuckoo )

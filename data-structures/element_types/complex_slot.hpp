@@ -1,10 +1,9 @@
 #pragma once
 
 #include <atomic>
+#include <memory>
 #include <string>
 #include <tuple>
-
-#include "tbb/scalable_allocator.h"
 
 #include "utils/debug.hpp"
 namespace debug = utils_tm::debug_tm;
@@ -14,7 +13,17 @@ namespace debug = utils_tm::debug_tm;
 namespace growt
 {
 
-template <bool default_true> struct ptr_splitter
+#ifdef TBB_AS_DEFAULT
+#include "tbb/scalable_allocator.h"
+using default_allocator = tbb::scalable_allocator<void>;
+#else
+using default_allocator = std::allocator<void>;
+#endif
+
+
+
+template <bool default_true>
+struct ptr_splitter
 {
     bool     mark : 1;
     uint64_t fingerprint : 15;
@@ -25,7 +34,8 @@ template <bool default_true> struct ptr_splitter
     void set_unmark() { mark = false; }
 };
 
-template <> struct ptr_splitter<false>
+template <>
+struct ptr_splitter<false>
 {
     static constexpr bool mark = false;
     uint64_t              fingerprint : 16;
@@ -35,8 +45,10 @@ template <> struct ptr_splitter<false>
     void set_unmark() {}
 };
 
-template <class Key, class Data, bool markable,
-          class Allocator = tbb::scalable_allocator<void>>
+template <class Key,
+          class Data,
+          bool markable,
+          class Allocator = default_allocator>
 class complex_slot
 {
     using ptr_split = ptr_splitter<markable>;
@@ -58,11 +70,11 @@ class complex_slot
     }
 
   public:
-    using key_type    = Key;
-    using mapped_type = Data;
-    using value_type  = std::pair<const key_type, mapped_type>;
-    using allocator_type =
-        typename Allocator::template rebind<value_type>::other;
+    using key_type       = Key;
+    using mapped_type    = Data;
+    using value_type     = std::pair<const key_type, mapped_type>;
+    using allocator_type = typename std::allocator_traits<
+        Allocator>::template rebind_alloc<value_type>;
 
     static constexpr bool allows_marking               = markable;
     static constexpr bool allows_deletions             = false;
@@ -86,14 +98,15 @@ class complex_slot
         slot_type(const value_type& pair, size_t hash);
         slot_type(key_type&& k, mapped_type&& d, size_t hash);
         slot_type(value_type&& pair, size_t hash);
-        template <class... Args> slot_type(Args&&... args);
+        template <class... Args>
+        slot_type(Args&&... args);
         slot_type(ptr_union source);
 
-        slot_type(const slot_type& source) = default;
-        slot_type(slot_type&& source)      = default;
+        slot_type(const slot_type& source)            = default;
+        slot_type(slot_type&& source)                 = default;
         slot_type& operator=(const slot_type& source) = default;
-        slot_type& operator=(slot_type&& source) = default;
-        ~slot_type()                             = default;
+        slot_type& operator=(slot_type&& source)      = default;
+        ~slot_type()                                  = default;
 
         inline key_type          get_key() const;
         inline const key_type&   get_key_ref() const;
@@ -127,7 +140,7 @@ class complex_slot
         atomic_slot_type& operator=(const atomic_slot_type& source);
         atomic_slot_type(const slot_type& source);
         atomic_slot_type& operator=(const slot_type& source);
-        ~atomic_slot_type()       = default;
+        ~atomic_slot_type() = default;
 
         slot_type load() const;
         void      non_atomic_set(const slot_type& source);
@@ -159,12 +172,12 @@ class complex_slot
     static value_type* allocate()
     {
         // return static_cast<value_type*>(malloc(sizeof(value_type)));
-        return allocator.allocate(1);
+        return std::allocator_traits<allocator_type>::allocate(allocator, 1);
     }
     static void deallocate(value_type* ptr)
     {
         // free(ptr);
-        allocator.deallocate(ptr, 1);
+        std::allocator_traits<allocator_type>::deallocate(allocator, ptr, 1);
     }
 
     static std::string name() { return "complex_slot"; }
@@ -207,8 +220,9 @@ complex_slot<K, D, m, A>::slot_type::slot_type(const value_type& pair,
 }
 
 template <class K, class D, bool m, class A>
-complex_slot<K, D, m, A>::slot_type::slot_type(key_type&& k, mapped_type&& d,
-                                               size_t hash)
+complex_slot<K, D, m, A>::slot_type::slot_type(key_type&&    k,
+                                               mapped_type&& d,
+                                               size_t        hash)
     : _mfptr(ptr_union{0})
 {
     auto ptr = allocate();
@@ -500,13 +514,16 @@ bool complex_slot<K, D, m, A>::atomic_slot_type::atomic_mark(
 namespace _complex_atomic_helper
 {
 // TESTS IF A GIVEN OBJECT HAS A FUNCTION NAMED atomic
-template <typename TFunctor> class _has_atomic_type
+template <typename TFunctor>
+class _has_atomic_type
 {
     using one = char;
     using two = long;
 
-    template <class C> static one test(decltype(&C::atomic));
-    template <class C> static two test(...);
+    template <class C>
+    static one test(decltype(&C::atomic));
+    template <class C>
+    static two test(...);
 
   public:
     enum
@@ -516,13 +533,16 @@ template <typename TFunctor> class _has_atomic_type
 };
 
 // USED IF f.atomic(...) EXISTS
-template <class SlotType, bool TTrue> class _atomic_helper_type
+template <class SlotType, bool TTrue>
+class _atomic_helper_type
 {
   public:
     template <class F, class... Types>
     inline static std::pair<typename SlotType::slot_type, bool>
     execute([[maybe_unused]] typename SlotType::atomic_slot_type* that,
-            typename SlotType::slot_type& curr, F f, Types... args)
+            typename SlotType::slot_type&                         curr,
+            F                                                     f,
+            Types... args)
     {
         // UGLY (Same as non_atomic_update)
         // typename SlotType::slot_type slot = that->load();
@@ -534,13 +554,16 @@ template <class SlotType, bool TTrue> class _atomic_helper_type
 };
 
 // USED OTHERWISE
-template <class SlotType> class _atomic_helper_type<SlotType, false>
+template <class SlotType>
+class _atomic_helper_type<SlotType, false>
 {
   public:
     template <class F, class... Types>
     inline static std::pair<typename SlotType::slot_type, bool>
     execute(typename SlotType::atomic_slot_type* that,
-            typename SlotType::slot_type& expected, F f, Types... args)
+            typename SlotType::slot_type&        expected,
+            F                                    f,
+            Types... args)
     {
         using mapped_type = typename SlotType::mapped_type;
         static_assert(sizeof(mapped_type) == sizeof(std::atomic<mapped_type>),
@@ -573,7 +596,8 @@ template <class K, class D, bool m, class A>
 template <class F, class... Types>
 std::pair<typename complex_slot<K, D, m, A>::slot_type, bool>
 complex_slot<K, D, m, A>::atomic_slot_type::atomic_update(slot_type& expected,
-                                                          F f, Types&&... args)
+                                                          F          f,
+                                                          Types&&... args)
 {
     return _complex_atomic_helper::_atomic_helper_type<
         complex_slot, _complex_atomic_helper::_has_atomic_type<F>::value>::

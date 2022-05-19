@@ -170,7 +170,7 @@ class base_linear
     base_linear(size_type size_ = 1 << 18);
     base_linear(mapper_type mapper_, size_type version_);
 
-    base_linear(const base_linear&) = delete;
+    base_linear(const base_linear&)            = delete;
     base_linear& operator=(const base_linear&) = delete;
 
     // Obviously move-constructor and move-assignment are not thread safe
@@ -832,10 +832,7 @@ inline ReturnCode base_linear<C>::erase_intern(const key_type& k)
         size_type temp = _mapper.remap(i);
         auto      curr = _table[temp].load();
         if (curr.is_marked()) { return ReturnCode::UNSUCCESS_INVALID; }
-        else if (curr.is_empty())
-        {
-            return ReturnCode::UNSUCCESS_NOT_FOUND;
-        }
+        else if (curr.is_empty()) { return ReturnCode::UNSUCCESS_NOT_FOUND; }
         else if (curr.compare_key(k, htemp))
         {
             if (_table[temp].atomic_delete(curr))
@@ -863,10 +860,7 @@ base_linear<C>::erase_if_intern(const key_type& k, const mapped_type& d)
         size_type temp = _mapper.remap(i);
         auto      curr = _table[temp].load();
         if (curr.is_marked()) { return ReturnCode::UNSUCCESS_INVALID; }
-        else if (curr.is_empty())
-        {
-            return ReturnCode::UNSUCCESS_NOT_FOUND;
-        }
+        else if (curr.is_empty()) { return ReturnCode::UNSUCCESS_NOT_FOUND; }
         else if (curr.compare_key(k, htemp))
         {
             if (curr.get_mapped() != d) return ReturnCode::UNSUCCESS_NOT_FOUND;
@@ -1407,10 +1401,7 @@ base_linear_config<S, H, A, CM, CP, CU>::mapper_type::resize(size_t inserted,
 
     size_t temp = 0;
     if constexpr (cyclic_mapping) { temp = addressable_slots(); }
-    else
-    {
-        temp = (fill_rate > 0.3) ? 1 : 0;
-    }
+    else { temp = (fill_rate > 0.3) ? 1 : 0; }
 
     return mapper_type(nsize, temp);
 }

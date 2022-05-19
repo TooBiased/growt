@@ -14,7 +14,6 @@
 #include <iostream>
 #include <string>
 
-#include "tbb/scalable_allocator.h"
 
 #ifdef MALLOC_COUNT
 #include "malloc_count.h"
@@ -44,12 +43,19 @@ namespace otm = utils_tm::out_tm;
 namespace ttm = utils_tm::thread_tm;
 namespace dtm = utils_tm::debug_tm;
 
-using scalable_string = std::basic_string<char, std::char_traits<char>,
-                                          tbb::scalable_allocator<char>>;
-using text_config =
-    table_config<scalable_string, size_t, utils_tm::hash_tm::default_hash,
-                 allocator_type>;
-using table_type = typename text_config::table_type;
+#ifdef TBB_AS_DEFAULT
+#include "tbb/scalable_allocator.h"
+using scalable_string = std::
+    basic_string<char, std::char_traits<char>, tbb::scalable_allocator<char>>;
+#else
+using scalable_string = std::string;
+#endif
+
+using text_config = table_config<scalable_string,
+                                 size_t,
+                                 utils_tm::hash_tm::default_hash,
+                                 allocator_type>;
+using table_type  = typename text_config::table_type;
 
 
 alignas(64) static table_type hash_table = table_type(0);
@@ -142,7 +148,8 @@ int push_file(Hash& hash, std::ifstream& in_stream, [[maybe_unused]] size_t id)
     return 0;
 }
 
-template <class ThreadType> struct test_in_stages
+template <class ThreadType>
+struct test_in_stages
 {
     static int execute(ThreadType t, size_t cap, size_t it, std::string file)
     {
