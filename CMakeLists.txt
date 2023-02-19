@@ -104,7 +104,7 @@ endif()
 # find pthread
 find_package(Threads REQUIRED)
 set(TEST_DEP_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${TEST_DEP_LIBRARIES})
-
+#
 # COMPILE THE EXAMPLE CODE (example/example.cpp)
 add_executable(example example/example.cpp)
 set_target_properties(example PROPERTIES COMPILE_FLAGS "${FLAGS}")
@@ -409,7 +409,7 @@ add_dependencies( del
   del_full_uaGrowT    del_full_usGrowT
   del_full_uaGrowT    del_full_usGrowT)
 
-if (TBB_FOUND)
+if (GROWT_BUILD_TBB AND TBB_FOUND)
   GrowTExecutable( FOLKLORE text_test text text_none_folklore )
   GrowTExecutable( SEQUENTIAL text_test text text_full_sequential )
   GrowTExecutable( UAGROW text_test text text_full_uaGrowT )
