@@ -10,7 +10,7 @@
 # All rights reserved. Published under the BSD-2 license in the LICENSE file.
 ################################################################################
 
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required (VERSION 3.0)
 
 # custom cmake scripts
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/misc/cmake)
@@ -135,7 +135,6 @@ elseif(TBB_INTERFACE_VERSION LESS 8000)
   if (USE_TBB_MEMPOOL)
     message(STATUS "Switch to aligned alloc!")
     set(GROWT_ALLOCATOR ALIGNED)
-  endif()
   endif()
   if (GROWT_USE_SCALABLE_ALLOCATORS_WHERE_APPROPRIATE)
     message(STATUS "Switch string and complex_slot allocators to default!")
@@ -273,7 +272,7 @@ function( GrowTExecutable variant cpp directory name )
     -D ${GROWT_HASHFCT}
     -D ${GROWT_ALLOCATOR}
     -D GROWT_USE_CONFIG)
-  target_link_libraries(${name} ${TEST_DEP_LIBRARIES} ${ALLOC_LIB})
+  target_link_libraries(${name} PRIVATE ${TEST_DEP_LIBRARIES} ${ALLOC_LIB})
 endfunction( GrowTExecutable )
 
 function( GrowXExecutable variant cpp directory name )
@@ -285,7 +284,7 @@ function( GrowXExecutable variant cpp directory name )
     -D ${GROWT_HASHFCT}
     -D ${GROWT_ALLOCATOR}
     -D GROWT_USE_CONFIG)
-  target_link_libraries(${name} ${TEST_DEP_LIBRARIES} ${ALLOC_LIB})
+  target_link_libraries(${name} PRIVATE ${TEST_DEP_LIBRARIES} ${ALLOC_LIB})
 endfunction( GrowXExecutable )
 
 GrowTExecutable( UAGROW functionality fun functionality_uaGrowT )
@@ -428,7 +427,6 @@ if (TBB_FOUND)
   # target_link_libraries(functionality_paGrowT ${TBB_LIBRARIES})
   # target_link_libraries(functionality_psGrowT ${TBB_LIBRARIES})
 
-  endif()
   if (GROWT_USE_SCALABLE_ALLOCATORS_WHERE_APPROPRIATE)
     target_compile_definitions(text_none_folklore    PRIVATE -D TBB_AS_DEFAULT)
     target_compile_definitions(text_full_sequential  PRIVATE -D TBB_AS_DEFAULT)
