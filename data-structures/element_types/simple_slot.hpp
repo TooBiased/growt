@@ -416,7 +416,7 @@ template <class SlotType> class _atomic_helper_type<SlotType, false>
         auto expmapped = expected.get_mapped();
         auto newmapped = expmapped;
         f(newmapped, std::forward<Types>(args)...);
-        bool succ = atomapped.compare_exchange_strong(
+        bool succ = atomapped->compare_exchange_strong(
             expmapped, newmapped, std::memory_order_relaxed);
         return std::make_pair(succ ? newmapped : expmapped, succ);
     }
