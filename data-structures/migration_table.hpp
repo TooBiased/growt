@@ -25,9 +25,9 @@
 #include <string>
 
 
-#include "data-structures/migration_table_iterator.hpp"
-#include "data-structures/returnelement.hpp"
-#include "example/update_fcts.hpp"
+#include "../data-structures/migration_table_iterator.hpp"
+#include "../data-structures/returnelement.hpp"
+#include "../example/update_fcts.hpp"
 
 namespace growt
 {

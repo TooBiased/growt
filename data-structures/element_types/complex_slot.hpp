@@ -5,10 +5,10 @@
 #include <string>
 #include <tuple>
 
-#include "utils/debug.hpp"
+#include "../../utils/debug.hpp"
 namespace debug = utils_tm::debug_tm;
 
-#include "data-structures/returnelement.hpp"
+#include "../returnelement.hpp"
 
 namespace growt
 {
@@ -183,7 +183,7 @@ class complex_slot
     static std::string name() { return "complex_slot"; }
 
   private:
-    static allocator_type allocator;
+    inline static allocator_type allocator;
 };
 
 
@@ -270,7 +270,7 @@ typename complex_slot<K, D, m, A>::key_type
 complex_slot<K, D, m, A>::slot_type::get_key() const
 {
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
-    if (!ptr)
+    if (!ptr || _mfptr.full == 1ull << 48)
     {
         debug::if_debug("getting key from empty slot");
         return key_type();
@@ -283,7 +283,7 @@ const typename complex_slot<K, D, m, A>::key_type&
 complex_slot<K, D, m, A>::slot_type::get_key_ref() const
 {
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
-    if (!ptr) { debug::if_debug("getting key from empty slot"); }
+    if (!ptr || _mfptr.full == 1ull << 48) { debug::if_debug("getting key from empty slot"); }
     return ptr->first;
 }
 
@@ -292,7 +292,7 @@ typename complex_slot<K, D, m, A>::mapped_type
 complex_slot<K, D, m, A>::slot_type::get_mapped() const
 {
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
-    if (!ptr)
+    if (!ptr || _mfptr.full == 1ull << 48)
     {
         debug::if_debug("getting mapped from empty slot");
         return mapped_type();
@@ -305,7 +305,7 @@ const typename complex_slot<K, D, m, A>::value_type*
 complex_slot<K, D, m, A>::slot_type::get_pointer() const
 {
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
-    if (!ptr) { debug::if_debug("getting pointer from an empty slot"); }
+    if (!ptr || _mfptr.full == 1ull << 48) { debug::if_debug("getting pointer from an empty slot"); }
     return ptr;
 }
 
@@ -314,7 +314,7 @@ typename complex_slot<K, D, m, A>::value_type*
 complex_slot<K, D, m, A>::slot_type::get_pointer()
 {
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
-    if (!ptr) { debug::if_debug("getting key from empty slot"); }
+    if (!ptr || _mfptr.full == 1ull << 48) { debug::if_debug("getting key from empty slot"); }
     return ptr;
 }
 
@@ -351,7 +351,7 @@ bool complex_slot<K, D, m, A>::slot_type::compare_key(const key_type& k,
 {
     if (fingerprint(hash) != _mfptr.split.fingerprint) return false;
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
-    if (ptr == nullptr)
+    if (ptr == nullptr || _mfptr.full == 1ull << 48)
     {
         // debug::if_debug("comparison with an empty slot");
         return false;
@@ -364,7 +364,7 @@ template <class K, class D, bool m, class A>
 complex_slot<K, D, m, A>::slot_type::operator value_type() const
 {
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
-    if (ptr == nullptr)
+    if (ptr == nullptr || _mfptr.full == 1ull << 48)
     {
         debug::if_debug("getting value_type from empty slot");
     }
@@ -415,7 +415,7 @@ template <class K, class D, bool m, class A>
 void complex_slot<K, D, m, A>::slot_type::cleanup()
 {
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
-    if (!ptr)
+    if (!ptr || _mfptr.full == 1ull << 48)
     {
         // debug::if_debug("cleanup on empty slot");
         return;
@@ -491,7 +491,7 @@ bool complex_slot<K, D, m, A>::atomic_slot_type::atomic_delete(
     slot_type& expected)
 {
     return _aptr.compare_exchange_strong(expected._mfptr.full,
-                                         get_deleted._mfptr.full,
+                                         get_deleted()._mfptr.full,
                                          std::memory_order_relaxed);
 }
 

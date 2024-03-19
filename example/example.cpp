@@ -2,16 +2,16 @@
 #include <random>
 #include <thread>
 
-#include "allocator/alignedallocator.hpp"
-#include "data-structures/hash_table_mods.hpp"
-#include "utils/hash/murmur2_hash.hpp"
+#include "../allocator/alignedallocator.hpp"
+#include "../data-structures/hash_table_mods.hpp"
+#include "../utils/hash/murmur2_hash.hpp"
 
 using hasher_type    = utils_tm::hash_tm::murmur2_hash;
 using allocator_type = growt::AlignedAllocator<>;
 
 //////////////////////////////////////////////////////////////
 // USING definitions.h (possibly slower compilation)
-#include "data-structures/table_config.hpp"
+#include "../data-structures/table_config.hpp"
 
 using table_type =
     typename growt::table_config<size_t, size_t, hasher_type, allocator_type,

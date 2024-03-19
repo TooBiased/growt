@@ -219,7 +219,7 @@ typename seq_complex_slot<K, D>::key_type
 seq_complex_slot<K, D>::slot_type::get_key() const
 {
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
-    if (!ptr)
+    if (!ptr || _mfptr.full == 1ull << 48)
     {
         debug::if_debug("getting key from empty slot");
         return key_type();
@@ -232,7 +232,7 @@ const typename seq_complex_slot<K, D>::key_type&
 seq_complex_slot<K, D>::slot_type::get_key_ref() const
 {
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
-    if (!ptr) { debug::if_debug("getting key from empty slot"); }
+    if (!ptr || _mfptr.full == 1ull << 48) { debug::if_debug("getting key from empty slot"); }
     return ptr->first;
 }
 
@@ -241,7 +241,7 @@ typename seq_complex_slot<K, D>::mapped_type
 seq_complex_slot<K, D>::slot_type::get_mapped() const
 {
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
-    if (!ptr)
+    if (!ptr || _mfptr.full == 1ull << 48)
     {
         debug::if_debug("getting mapped from empty slot");
         return mapped_type();
@@ -369,7 +369,7 @@ bool seq_complex_slot<K, D>::slot_type::operator!=(const slot_type& r) const
 template <class K, class D> void seq_complex_slot<K, D>::slot_type::cleanup()
 {
     auto ptr = reinterpret_cast<value_type*>(_mfptr.split.pointer);
-    if (!ptr) { return; }
+    if (!ptr || _mfptr.full == 1ull << 48) { return; }
     seq_complex_slot::deallocate(ptr);
 }
 
