@@ -491,7 +491,7 @@ bool complex_slot<K, D, m, A>::atomic_slot_type::atomic_delete(
     slot_type& expected)
 {
     return _aptr.compare_exchange_strong(expected._mfptr.full,
-                                         get_deleted._mfptr.full,
+                                         get_deleted()._mfptr.full,
                                          std::memory_order_relaxed);
 }
 
