@@ -183,7 +183,7 @@ class complex_slot
     static std::string name() { return "complex_slot"; }
 
   private:
-    static allocator_type allocator;
+    inline static allocator_type allocator;
 };
 
 
@@ -491,7 +491,7 @@ bool complex_slot<K, D, m, A>::atomic_slot_type::atomic_delete(
     slot_type& expected)
 {
     return _aptr.compare_exchange_strong(expected._mfptr.full,
-                                         get_deleted._mfptr.full,
+                                         get_deleted()._mfptr.full,
                                          std::memory_order_relaxed);
 }
 
