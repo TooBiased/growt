@@ -21,13 +21,13 @@
 #include <stdlib.h>
 #include <string>
 
-#include "utils/default_hash.hpp"
+#include "../utils/default_hash.hpp"
 // #include "utils/output.hpp"
 // namespace otm = utils_tm::out_tm;
 
-#include "data-structures/base_linear_iterator.hpp"
-#include "data-structures/returnelement.hpp"
-#include "example/update_fcts.hpp"
+#include "../data-structures/base_linear_iterator.hpp"
+#include "../data-structures/returnelement.hpp"
+#include "../example/update_fcts.hpp"
 
 namespace growt
 {
