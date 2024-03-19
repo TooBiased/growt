@@ -10,11 +10,11 @@
 
 #include <atomic>
 
-#include "utils/concurrency/memory_order.hpp"
-#include "utils/debug.hpp"
+#include "../../utils/concurrency/memory_order.hpp"
+#include "../../utils/debug.hpp"
 namespace debug = utils_tm::debug_tm;
 
-#include "data-structures/returnelement.hpp"
+#include "../../data-structures/returnelement.hpp"
 
 namespace growt
 {
