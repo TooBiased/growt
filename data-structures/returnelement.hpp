@@ -23,7 +23,6 @@ enum class ReturnCode
     // bit pattern:  1 = success ;   2 = not found key ;   4 = found key
     //               8 = insert  ;  16 = update        ;  32 = delete
     //              64 = full    ; 128 = invalid cell  ; 256 = backoff
-    //            1024 = TSX
 
     ERROR = 0,
 
@@ -35,45 +34,9 @@ enum class ReturnCode
     UNSUCCESS_ALREADY_USED = 4,
     UNSUCCESS_FULL         = 64,
     UNSUCCESS_INVALID      = 128,
-    UNSUCCESS_BACKOFF      = 256,
-
-    TSX_SUCCESS_IN  = 1033, // success+insert+TSX
-    TSX_SUCCESS_UP  = 1041, // success+update+TSX
-    TSX_SUCCESS_DEL = 1057, // success+delete+TSX
-
-    TSX_UNSUCCESS_NOT_FOUND    = 1026, // not found   +TSX
-    TSX_UNSUCCESS_ALREADY_USED = 1028, // already used+TSX
-    TSX_UNSUCCESS_FULL         = 1088, // full        +TSX
-    TSX_UNSUCCESS_INVALID      = 1152, // invalid     +TSX
-
-    TSX_ABORT = 1024 // TSX+ERROR
+    UNSUCCESS_BACKOFF      = 256
 };
 
 inline bool successful(ReturnCode ec) { return (static_cast<uint>(ec) & 1u); }
-
-
-// class ReturnElement
-// {
-// public:
-//     using Key  = uint64_t;
-//     using Data = uint64_t;
-
-//     ReturnElement() : first(0), second(0) { }
-//     ReturnElement(Key k, Data d) : first(k), second(d) { }
-
-//     static ReturnElement getEmpty() { return ReturnElement( 0, 0 ); }
-
-//     Key  first;
-//     Data second;
-
-//     bool isValid()  const { return first != 0; }
-
-//     operator bool() const
-//     {   return first != 0;   }
-//     operator std::tuple<Key&, Data&> ()
-//     {   return std::tuple<Key&, Data&>{ first, second };   }
-
-// private:
-// };
 
 } // namespace growt

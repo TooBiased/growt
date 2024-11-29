@@ -13,14 +13,7 @@ namespace debug = utils_tm::debug_tm;
 namespace growt
 {
 
-#ifdef TBB_AS_DEFAULT
-#include "tbb/scalable_allocator.h"
-using default_allocator = tbb::scalable_allocator<void>;
-#else
-using default_allocator = std::allocator<void>;
-#endif
-
-
+using default_allocator = std::allocator<char>;
 
 template <bool default_true>
 struct ptr_splitter

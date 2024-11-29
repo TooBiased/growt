@@ -610,18 +610,14 @@ migration_table_handle<migration_table_data>::insert_intern(slot_type& slot)
     switch (result.second)
     {
     case ReturnCode::SUCCESS_IN:
-    case ReturnCode::TSX_SUCCESS_IN:
         inc_inserted();
         return make_insert_ret(result.first, v, true);
     case ReturnCode::UNSUCCESS_ALREADY_USED:
-    case ReturnCode::TSX_UNSUCCESS_ALREADY_USED:
         return make_insert_ret(result.first, v, false);
     case ReturnCode::UNSUCCESS_FULL:
-    case ReturnCode::TSX_UNSUCCESS_FULL:
         grow(v);
         return insert_intern(slot);
     case ReturnCode::UNSUCCESS_INVALID:
-    case ReturnCode::TSX_UNSUCCESS_INVALID:
         help_grow(v);
         return insert_intern(slot);
     default:
@@ -654,18 +650,14 @@ migration_table_handle<migration_table_data>::update(const key_type& k,
     switch (result.second)
     {
     case ReturnCode::SUCCESS_UP:
-    case ReturnCode::TSX_SUCCESS_UP:
         return make_insert_ret(result.first, v, true);
     case ReturnCode::UNSUCCESS_NOT_FOUND:
-    case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
         // std::cout << "!" << std::flush;
         return make_insert_ret(result.first, v, false);
     case ReturnCode::UNSUCCESS_FULL:
-    case ReturnCode::TSX_UNSUCCESS_FULL:
         grow(v); // usually impossible as this collides with NOT_FOUND
         return update(k, f, std::forward<Types>(args)...);
     case ReturnCode::UNSUCCESS_INVALID:
-    case ReturnCode::TSX_UNSUCCESS_INVALID:
         help_grow(v);
         return update(k, f, std::forward<Types>(args)...);
     default:
@@ -699,20 +691,16 @@ migration_table_handle<migration_table_data>::update_with_backoff(
     switch (result.second)
     {
     case ReturnCode::SUCCESS_UP:
-    case ReturnCode::TSX_SUCCESS_UP:
         return make_insert_ret(result.first, v, true);
     case ReturnCode::UNSUCCESS_NOT_FOUND:
-    case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
         // std::cout << "!" << std::flush;
         return make_insert_ret(result.first, v, false);
     case ReturnCode::UNSUCCESS_BACKOFF:
         return make_insert_ret(result.first, v, successful(result.second));
     case ReturnCode::UNSUCCESS_FULL:
-    case ReturnCode::TSX_UNSUCCESS_FULL:
         grow(v); // usually impossible as this collides with NOT_FOUND
         return update_with_backoff(k, f, b, std::forward<Types>(args)...);
     case ReturnCode::UNSUCCESS_INVALID:
-    case ReturnCode::TSX_UNSUCCESS_INVALID:
         help_grow(v);
         return update_with_backoff(k, f, b, std::forward<Types>(args)...);
     default:
@@ -745,17 +733,13 @@ migration_table_handle<migration_table_data>::update_unsafe(const key_type& k,
     switch (result.second)
     {
     case ReturnCode::SUCCESS_UP:
-    case ReturnCode::TSX_SUCCESS_UP:
         return make_insert_ret(result.first, v, true);
     case ReturnCode::UNSUCCESS_NOT_FOUND:
-    case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
         return make_insert_ret(result.first, v, false);
     case ReturnCode::UNSUCCESS_FULL:
-    case ReturnCode::TSX_UNSUCCESS_FULL:
         grow(v);
         return update_unsafe(k, f, std::forward<Types>(args)...);
     case ReturnCode::UNSUCCESS_INVALID:
-    case ReturnCode::TSX_UNSUCCESS_INVALID:
         help_grow(v);
         return update_unsafe(k, f, std::forward<Types>(args)...);
     default:
@@ -823,18 +807,14 @@ migration_table_handle<migration_table_data>::insert_or_update_intern(
     switch (result.second)
     {
     case ReturnCode::SUCCESS_IN:
-    case ReturnCode::TSX_SUCCESS_IN:
         inc_inserted();
         return make_insert_ret(result.first, v, true);
     case ReturnCode::SUCCESS_UP:
-    case ReturnCode::TSX_SUCCESS_UP:
         return make_insert_ret(result.first, v, false);
     case ReturnCode::UNSUCCESS_FULL:
-    case ReturnCode::TSX_UNSUCCESS_FULL:
         grow(v);
         return insert_or_update_intern(slot, f, std::forward<Types>(args)...);
     case ReturnCode::UNSUCCESS_INVALID:
-    case ReturnCode::TSX_UNSUCCESS_INVALID:
         help_grow(v);
         return insert_or_update_intern(slot, f, std::forward<Types>(args)...);
     default:
@@ -900,19 +880,15 @@ migration_table_handle<migration_table_data>::insert_or_update_unsafe_intern(
     switch (result.second)
     {
     case ReturnCode::SUCCESS_IN:
-    case ReturnCode::TSX_SUCCESS_IN:
         inc_inserted();
         return make_insert_ret(result.first, v, true);
     case ReturnCode::SUCCESS_UP:
-    case ReturnCode::TSX_SUCCESS_UP:
         return make_insert_ret(result.first, v, false);
     case ReturnCode::UNSUCCESS_FULL:
-    case ReturnCode::TSX_UNSUCCESS_FULL:
         grow(v);
         return insert_or_update_unsafe_intern(slot, f,
                                               std::forward<Types>(args)...);
     case ReturnCode::UNSUCCESS_INVALID:
-    case ReturnCode::TSX_UNSUCCESS_INVALID:
         help_grow(v);
         return insert_or_update_unsafe_intern(slot, f,
                                               std::forward<Types>(args)...);
@@ -973,16 +949,10 @@ migration_table_handle<migration_table_data>::erase(const key_type& k)
     case ReturnCode::SUCCESS_DEL:
         inc_deleted();
         return 1;
-    case ReturnCode::TSX_SUCCESS_DEL:
-        inc_deleted(); // TSX DELETION COULD BE USED TO AVOID DUMMIES =>
-                       // dec_inserted()
-        return 1;
     case ReturnCode::UNSUCCESS_INVALID:
-    case ReturnCode::TSX_UNSUCCESS_INVALID:
         help_grow(v);
         return erase(k);
     case ReturnCode::UNSUCCESS_NOT_FOUND:
-    case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
         return 0;
     default:
         return 0;
@@ -1010,16 +980,10 @@ migration_table_handle<migration_table_data>::erase_if(const key_type&    k,
     case ReturnCode::SUCCESS_DEL:
         inc_deleted();
         return 1;
-    case ReturnCode::TSX_SUCCESS_DEL:
-        inc_deleted(); // TSX DELETION COULD BE USED TO AVOID DUMMIES =>
-                       // dec_inserted()
-        return 1;
     case ReturnCode::UNSUCCESS_INVALID:
-    case ReturnCode::TSX_UNSUCCESS_INVALID:
         help_grow(v);
         return erase_if(k, d);
     case ReturnCode::UNSUCCESS_NOT_FOUND:
-    case ReturnCode::TSX_UNSUCCESS_NOT_FOUND:
         return 0;
     default:
         return 0;
