@@ -111,7 +111,6 @@ class migration_table_data
 
     friend worker_strat;
     friend exclusion_strat;
-
   public:
     using size_type   = size_t;
     using handle_type = typename Parent::handle_type;
@@ -121,7 +120,7 @@ class migration_table_data
 
     migration_table_data(size_type size_)
         : _global_exclusion(std::max(size_, size_type(1) << 15)),
-          _global_worker(), // handle_ptr(64),
+          _global_worker(),
           _elements(0), _dummies(0), _grow_count(0)
     {
     }
@@ -249,10 +248,6 @@ class migration_table_handle
     mapped_reference operator[](const key_type& k)
     {
         auto temp = insert(k, mapped_type());
-        // if ((*temp.first).first != k)
-        //     std::cout << "key is wrong on operator[] access" << std::endl;
-        // dtm::if_debug("insert unsuccessful on operator[] access", temp.first
-        // == end());
         return (*temp.first).second;
     }
 
@@ -470,8 +465,6 @@ migration_table_handle<migration_table_data>::migration_table_handle(
     : _mt_data(data), _local_worker(data),
       _local_exclusion(data, _local_worker), _counts()
 {
-    // handle_id = _mt_data.handle_ptr.push_back(this);
-
     // INITIALIZE STRATEGY DEPENDENT DATA MEMBERS
     _local_exclusion.init();
     _local_worker.init(_local_exclusion);
@@ -483,8 +476,6 @@ migration_table_handle<migration_table_data>::migration_table_handle(
     : _mt_data(*(parent._mt_data)), _local_worker(*(parent._mt_data)),
       _local_exclusion(*(parent._mt_data), _local_worker), _counts()
 {
-    // handle_id = _mt_data.handle_ptr.push_back(this);
-
     // INITIALIZE STRATEGY DEPENDENT DATA MEMBERS
     _local_exclusion.init();
     _local_worker.init(_local_exclusion);
@@ -501,8 +492,6 @@ migration_table_handle<migration_table_data>::migration_table_handle(
       _counts(std::move(source._counts))
 {
     source._counts = local_count();
-    //_mt_data.handle_ptr.update(_handle_id, this);
-    // source._handle_id = std::numeric_limits<size_t>::max();
 }
 
 template <class migration_table_data>
@@ -522,16 +511,7 @@ migration_table_handle<migration_table_data>::operator=(
 template <class migration_table_data>
 migration_table_handle<migration_table_data>::~migration_table_handle()
 {
-
-    // if (_handle_id < std::numeric_limits<size_t>::max())
-    // {
-    //     _mt_data.handle_ptr.remove(_handle_id);
-    // }
-
-    // if (_counts._version >= 0)
-    {
-        update_numbers();
-    }
+    update_numbers();
 
     _local_worker.deinit();
     _local_exclusion.deinit();
@@ -652,7 +632,6 @@ migration_table_handle<migration_table_data>::update(const key_type& k,
     case ReturnCode::SUCCESS_UP:
         return make_insert_ret(result.first, v, true);
     case ReturnCode::UNSUCCESS_NOT_FOUND:
-        // std::cout << "!" << std::flush;
         return make_insert_ret(result.first, v, false);
     case ReturnCode::UNSUCCESS_FULL:
         grow(v); // usually impossible as this collides with NOT_FOUND
@@ -693,7 +672,6 @@ migration_table_handle<migration_table_data>::update_with_backoff(
     case ReturnCode::SUCCESS_UP:
         return make_insert_ret(result.first, v, true);
     case ReturnCode::UNSUCCESS_NOT_FOUND:
-        // std::cout << "!" << std::flush;
         return make_insert_ret(result.first, v, false);
     case ReturnCode::UNSUCCESS_BACKOFF:
         return make_insert_ret(result.first, v, successful(result.second));

@@ -19,10 +19,8 @@
 #include "data-structures/hash_table_mods.hpp"
 
 
-#ifdef ALIGNED
 #include "allocator/alignedallocator.hpp"
 using allocator_type = growt::AlignedAllocator<>;
-#endif
 
 // !!! OUR IMPLEMENTATIONS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #ifdef SEQUENTIAL
@@ -66,7 +64,14 @@ constexpr hmod cprob   = hmod::neutral;
 #endif
 
 template <class Key, class Data, class HashFct, class Alloc, hmod... Mods>
-using table_config =
-    typename growt::table_config<Key, Data, HashFct, Alloc, dynamic, estrat,
-                                 wstrat, cmap, cprob, Mods...>;
+using table_config = typename growt::table_config<Key,
+                                                  Data,
+                                                  HashFct,
+                                                  Alloc,
+                                                  dynamic,
+                                                  estrat,
+                                                  wstrat,
+                                                  cmap,
+                                                  cprob,
+                                                  Mods...>;
 #endif

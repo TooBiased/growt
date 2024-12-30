@@ -13,9 +13,12 @@ using allocator_type = growt::AlignedAllocator<>;
 // USING definitions.h (possibly slower compilation)
 #include "data-structures/table_config.hpp"
 
-using table_type =
-    typename growt::table_config<size_t, size_t, hasher_type, allocator_type,
-                                 hmod::growable, hmod::deletion>::table_type;
+using table_type = typename growt::table_config<size_t,
+                                                size_t,
+                                                hasher_type,
+                                                allocator_type,
+                                                hmod::growable,
+                                                hmod::deletion>::table_type;
 // check hash_table_mods.hpp for other possiblen hash table modificators
 // e.g. hmod::circular_map     this config choses the appropriate hash table
 // according to your needs.
@@ -121,10 +124,7 @@ void check_update(table_type& table, size_t n)
                 }
             }
         }
-        else
-        {
-            std::cout << "Key " << i << " not found!" << std::endl;
-        }
+        else { std::cout << "Key " << i << " not found!" << std::endl; }
     }
 }
 
@@ -183,7 +183,7 @@ int main(int, char**)
     check_thread.join();
 
     check_function_compile(hashTable);
-    std::cout << "Second Round Done|" << std::endl;
+    std::cout << "Second Round Done!" << std::endl;
 
     return 0;
 }

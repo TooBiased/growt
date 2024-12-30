@@ -13,6 +13,7 @@
 
 #pragma once
 
+#include "utils/default_hash.hpp"
 #include <atomic>
 #include <functional>
 #include <iostream>
@@ -20,10 +21,6 @@
 #include <stdexcept>
 #include <stdlib.h>
 #include <string>
-
-#include "utils/default_hash.hpp"
-// #include "utils/output.hpp"
-// namespace otm = utils_tm::out_tm;
 
 #include "data-structures/base_linear_iterator.hpp"
 #include "data-structures/returnelement.hpp"
@@ -245,18 +242,12 @@ class base_linear
     size_type migrate(this_type& target, size_type s, size_type e);
 
   protected:
-    atomic_slot_type* _table;
-    // std::atomic_int*   _init_table;
+    atomic_slot_type*  _table;
     mapper_type        _mapper;
     size_type          _version;
     std::atomic_size_t _current_copy_block;
     hash_fct_type      _hash;
     allocator_type     _allocator;
-
-
-    // size_type   _capacity;
-    // size_type   _bitmask;
-    // size_type   _right_shift;
 
     static_assert(std::is_same<typename allocator_type::value_type,
                                atomic_slot_type>::value,
@@ -397,15 +388,10 @@ template <class C>
 base_linear<C>::base_linear(size_type capacity_)
     : _mapper(capacity_), _version(0), _current_copy_block(0)
 {
-    // _table =
-    // static_cast<atomic_slot_type*>(malloc(sizeof(atomic_slot_type)*_mapper.capacity+1000));
     auto nslots = _mapper.total_slots();
     _table      = _allocator.allocate(nslots);
 
     if (!_table) std::bad_alloc();
-
-    // otm::buffered_out() << "(allocated ver 0 ptr " << _table << ")" <<
-    // std::endl;
 
     std::fill(_table, _table + nslots, slot_config::get_empty());
 }
@@ -415,14 +401,9 @@ template <class C>
 base_linear<C>::base_linear(mapper_type mapper_, size_type version_)
     : _mapper(mapper_), _version(version_), _current_copy_block(0)
 {
-    // _table =
-    // static_cast<atomic_slot_type*>(malloc(sizeof(atomic_slot_type)*_mapper.capacity+1000));
     _table = _allocator.allocate(_mapper.total_slots());
 
     if (!_table) std::bad_alloc();
-
-    // otm::buffered_out() << "(allocated ver " << version_ << " ptr " << _table
-    // << ")" << std::endl;
 
     /* The table is initialized in parallel, during the migration */
     if constexpr (!_parallel_init)
@@ -440,12 +421,7 @@ base_linear<C>::base_linear(mapper_type mapper_, size_type version_)
 template <class C>
 base_linear<C>::~base_linear()
 {
-    // std::cout << "~base_linear" << std::endl;
     if constexpr (config_type::cleanup) slot_cleanup();
-
-    // otm::buffered_out() << "(deallocate ver " << _version << " ptr " <<
-    // _table << ")" << std::endl;
-
     if (_table) _allocator.deallocate(_table, _mapper.total_slots());
 }
 
@@ -592,11 +568,6 @@ base_linear<C>::insert_intern(const slot_type& slot, size_type hash)
         {
             // do something appropriate
         }
-        // else if (curr.get_mapped() != 666)
-        // {
-        //     otm::buffered_out() << "unexpected element in insert at:" << temp
-        //     << std::endl;
-        // }
     }
     return make_insert_ret(end(), ReturnCode::UNSUCCESS_FULL);
 }
@@ -1138,7 +1109,6 @@ base_linear<C>::migrate(this_type& target, size_type s, size_type e)
 
     if (i >= long(e)) return 0;
 
-    // if (!s && i) std::cout << "bla" << std::endl;
     // std::fill(target._table+(i<<shift), target._table+(e<<shift),
     // slot_config::get_empty());
     target.initialize(i, e);
@@ -1156,8 +1126,6 @@ base_linear<C>::migrate(this_type& target, size_type s, size_type e)
         {
             if (!curr.is_deleted())
             {
-                // if (curr.get_mapped() == 15926) std::cout << "moving first"
-                // << std::endl;
                 target.insert_unsafe(curr);
                 ++n;
             }
@@ -1222,7 +1190,6 @@ base_linear<C>::migrate(this_type& target, size_type s, size_type e)
     //     }
     // }
 
-    // std::cout << "migrated one block" << std::endl;
     return n;
 }
 
@@ -1273,9 +1240,6 @@ template <class C>
 inline void base_linear<C>::insert_unsafe(const slot_type& e)
 {
     const key_type k = e.get_key();
-
-    // if (e.get_mapped() != 666)
-    //     otm::buffered_out() << "unsafe inserting weird element" << std::endl;
 
     size_type htemp = h(k);
     for (size_type i = _mapper.map(htemp);; ++i)
