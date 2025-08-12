@@ -65,7 +65,7 @@ class migration_table_mapped_reference
         _tab.execute(
             [&](hash_ptr_reference t, this_type& sref) -> int {
                 base_refresh_ptr(t);
-                sref.ref.refresh();
+                sref._mref.refresh();
                 return 0;
             },
             *this);
@@ -96,7 +96,7 @@ class migration_table_mapped_reference
             [](hash_ptr_reference t, this_type& sref, const mapped_type& value,
                F f, Args&&... args) -> int {
                 sref.base_refresh_ptr(t);
-                sref.ref.update(f, std::forward<Args>(args)...);
+                sref._mref.update(f, std::forward<Args>(args)...);
                 return 0;
             },
             *this, value, f, std::forward<Args>(args)...);
@@ -185,7 +185,7 @@ class migration_table_reference
     }
 
     // inline operator pair_type()  const { return pair_type (second.ref); }
-    inline operator value_type() const { return value_type(second.ref); }
+    inline operator value_type() const { return value_type(second._mref); }
 
   public:
     mapped_ref      second;
