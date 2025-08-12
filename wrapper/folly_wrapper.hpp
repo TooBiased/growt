@@ -20,8 +20,8 @@
 
 #include "folly/AtomicHashMap.h"
 
-#include "data-structures/hash_table_mods.hpp"
-#include "data-structures/returnelement.hpp"
+#include "../data-structures/hash_table_mods.hpp"
+#include "../data-structures/returnelement.hpp"
 
 using namespace growt;
 

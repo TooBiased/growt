@@ -10,10 +10,10 @@
 
 #include <atomic>
 
-#include "utils/debug.hpp"
+#include "../../utils/debug.hpp"
 namespace debug = utils_tm::debug_tm;
 
-#include "data-structures/returnelement.hpp"
+#include "../returnelement.hpp"
 
 namespace growt
 {

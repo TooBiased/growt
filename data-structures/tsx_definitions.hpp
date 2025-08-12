@@ -13,17 +13,17 @@ q /*****************************************************************************
 #ifndef TSXDEFINITIONS_H
 #define TSXDEFINITIONS_H
 
-#include "data-structures/seqcircular.hpp"
+#include "../data-structures/seqcircular.hpp"
 
-#include "data-structures/element_types/markable_element.hpp"
-#include "data-structures/element_types/simple_element.hpp"
-#include "data-structures/growtable.hpp"
-#include "data-structures/strategy/estrat_async.hpp"
-#include "data-structures/strategy/estrat_sync.hpp"
-#include "data-structures/strategy/estrat_sync_alt.hpp"
-#include "data-structures/strategy/wstrat_pool.hpp"
-#include "data-structures/strategy/wstrat_user.hpp"
-#include "data-structures/tsxcircular.hpp"
+#include "../data-structures/element_types/markable_element.hpp"
+#include "../data-structures/element_types/simple_element.hpp"
+#include "../data-structures/growtable.hpp"
+#include "../data-structures/strategy/estrat_async.hpp"
+#include "../data-structures/strategy/estrat_sync.hpp"
+#include "../data-structures/strategy/estrat_sync_alt.hpp"
+#include "../data-structures/strategy/wstrat_pool.hpp"
+#include "../data-structures/strategy/wstrat_user.hpp"
+#include "../data-structures/tsxcircular.hpp"
 
     namespace growt
 {

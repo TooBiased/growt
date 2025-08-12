@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "data-structures/base_linear.hpp"
-#include "utils/default_hash.hpp"
+#include "../data-structures/base_linear.hpp"
+#include "../utils/default_hash.hpp"
 
 namespace growt
 {
