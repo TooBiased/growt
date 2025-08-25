@@ -24,8 +24,8 @@
 //#include <rtm.h>
 #include <immintrin.h>
 
-#include "data-structures/returnelement.hpp"
-#include "data-structures/tsx_iterator.hpp"
+#include "../data-structures/returnelement.hpp"
+#include "../data-structures/tsx_iterator.hpp"
 #include "example/update_fcts.hpp"
 
 namespace growt

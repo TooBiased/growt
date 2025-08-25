@@ -14,18 +14,18 @@
 #include <random>
 
 
-#include "utils/command_line_parser.hpp"
-#include "utils/default_hash.hpp"
-#include "utils/output.hpp"
-#include "utils/pin_thread.hpp"
-#include "utils/thread_coordination.hpp"
-#include "utils/zipf_keygen.hpp"
+#include "../utils/command_line_parser.hpp"
+#include "../utils/default_hash.hpp"
+#include "../utils/output.hpp"
+#include "../utils/pin_thread.hpp"
+#include "../utils/thread_coordination.hpp"
+#include "../utils/zipf_keygen.hpp"
 
-#include "data-structures/returnelement.hpp"
+#include "../data-structures/returnelement.hpp"
 
-#include "example/update_fcts.hpp"
+#include "../example/update_fcts.hpp"
 
-#include "tests/selection.hpp"
+#include "selection.hpp"
 
 /*
  * This Test is meant to test the tables performance on uniform random inputs.

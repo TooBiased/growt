@@ -90,8 +90,6 @@ if (GROWT_BUILD_MODE STREQUAL REL_W_SYMBOLS)
 set (FLAGS "${FLAGS} -g3 -ggdb -march=native -O3")
 endif()
 
-include_directories(.)
-
 if (GROWT_ALLOCATOR STREQUAL POOL OR
     GROWT_ALLOCATOR STREQUAL NUMA_POOL OR
     GROWT_ALLOCATOR STREQUAL HTLB_POOL OR
@@ -258,7 +256,6 @@ if (GROWT_HASHFCT STREQUAL MURMUR3)
 endif()
 
 configure_file ("misc/growt_config.h.in" "${PROJECT_BINARY_DIR}/growt_config.h")
-include_directories(${PROJECT_BINARY_DIR})
 
 #add_executable(malloc malloc_count.c)
 

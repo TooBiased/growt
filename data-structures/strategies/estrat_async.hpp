@@ -16,9 +16,9 @@
 #include <mutex>
 #include <string>
 
-#include "utils/debug.hpp"
+#include "../../utils/debug.hpp"
 namespace dtm = utils_tm::debug_tm;
-#include "utils/memory_reclamation/counting_reclamation.hpp"
+#include "../../utils/memory_reclamation/counting_reclamation.hpp"
 namespace rtm = utils_tm::reclamation_tm;
 
 /*******************************************************************************

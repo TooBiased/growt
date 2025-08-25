@@ -2,10 +2,10 @@
 
 #include <string>
 
-#include "data-structures/element_types/seq_complex_slot.hpp"
-#include "data-structures/element_types/seq_simple_slot.hpp"
-#include "data-structures/hash_table_mods.hpp"
-#include "data-structures/seq_linear.hpp"
+#include "../data-structures/element_types/seq_complex_slot.hpp"
+#include "../data-structures/element_types/seq_simple_slot.hpp"
+#include "../data-structures/hash_table_mods.hpp"
+#include "../data-structures/seq_linear.hpp"
 
 namespace growt
 {

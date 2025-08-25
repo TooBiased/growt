@@ -34,15 +34,15 @@ static constexpr bool rss_mode = false;
 constexpr size_t      get_rss() { return 0; }
 #endif
 
-#include "utils/command_line_parser.hpp"
-#include "utils/default_hash.hpp"
-#include "utils/output.hpp"
-#include "utils/pin_thread.hpp"
-#include "utils/thread_coordination.hpp"
+#include "../utils/command_line_parser.hpp"
+#include "../utils/default_hash.hpp"
+#include "../utils/output.hpp"
+#include "../utils/pin_thread.hpp"
+#include "../utils/thread_coordination.hpp"
 #define DEBUG
-#include "utils/debug.hpp"
+#include "../utils/debug.hpp"
 
-#include "tests/selection.hpp"
+#include "../tests/selection.hpp"
 
 /*
  * This Test is meant to test the tables performance on uniform random inputs.

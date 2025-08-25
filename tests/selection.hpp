@@ -16,31 +16,31 @@
 // THIS HEADER USES DEFINES TO SELECT THE CORRECT
 // HASHTABLE AT COMPILE TIME
 
-#include "data-structures/hash_table_mods.hpp"
+#include "../data-structures/hash_table_mods.hpp"
 
 
 #ifdef ALIGNED
-#include "allocator/alignedallocator.hpp"
+#include "../allocator/alignedallocator.hpp"
 using allocator_type = growt::AlignedAllocator<>;
 #endif
 
 #ifdef POOL
-#include "allocator/poolallocator.hpp"
+#include "../allocator/poolallocator.hpp"
 using allocator_type = growt::PoolAllocator<>;
 #endif
 
 #ifdef NUMA_POOL
-#include "allocator/numapoolallocator.hpp"
+#include "../allocator/numapoolallocator.hpp"
 using allocator_type = growt::NUMAPoolAllocator<>;
 #endif
 
 #ifdef HTLB_POOL
-#include "allocator/poolallocator.hpp"
+#include "../allocator/poolallocator.hpp"
 using allocator_type = growt::HTLBPoolAllocator<>;
 #endif
 
 #ifdef TBB_ALIGNED
-#include "tbb/scalable_allocator.h"
+#include "../tbb/scalable_allocator.h"
 using allocator_type = tbb::scalable_allocator<void>;
 #endif
 
@@ -53,7 +53,7 @@ using allocator_type = tbb::scalable_allocator<void>;
 
 // !!! OUR IMPLEMENTATIONS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #ifdef SEQUENTIAL
-#include "data-structures/seq_table_config.hpp"
+#include "../data-structures/seq_table_config.hpp"
 template <class Key, class Data, class HashFct, class Alloc, hmod... Mods>
 using table_config =
     growt::seq_table_config<Key, Data, HashFct, Alloc, Mods...>;
@@ -63,7 +63,7 @@ using table_config =
 
 #if defined(FOLKLORE) || defined(UAGROW) || defined(USGROW) || \
     defined(PAGROW) || defined(PSGROW)
-#include "data-structures/table_config.hpp"
+#include "../data-structures/table_config.hpp"
 #if defined(FOLKLORE)
 constexpr hmod dynamic = hmod::neutral;
 #else

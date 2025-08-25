@@ -3,18 +3,18 @@
 #include <sstream>
 #include <type_traits>
 
-#include "data-structures/element_types/complex_slot.hpp"
-#include "data-structures/element_types/simple_slot.hpp"
-#include "data-structures/element_types/single_word_slot.hpp"
+#include "element_types/complex_slot.hpp"
+#include "element_types/simple_slot.hpp"
+#include "element_types/single_word_slot.hpp"
 
-#include "data-structures/strategies/estrat_async.hpp"
-#include "data-structures/strategies/estrat_sync.hpp"
-#include "data-structures/strategies/wstrat_pool.hpp"
-#include "data-structures/strategies/wstrat_user.hpp"
+#include "strategies/estrat_async.hpp"
+#include "strategies/estrat_sync.hpp"
+#include "strategies/wstrat_pool.hpp"
+#include "strategies/wstrat_user.hpp"
 
-#include "data-structures/base_linear.hpp"
-#include "data-structures/hash_table_mods.hpp"
-#include "data-structures/migration_table.hpp"
+#include "base_linear.hpp"
+#include "hash_table_mods.hpp"
+#include "migration_table.hpp"
 
 namespace growt
 {

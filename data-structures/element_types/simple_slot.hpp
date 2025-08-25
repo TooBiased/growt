@@ -10,7 +10,7 @@
 
 #include <atomic>
 
-#include "utils/debug.hpp"
+#include "../../utils/debug.hpp"
 namespace debug = utils_tm::debug_tm;
 
 #ifndef ICPC
@@ -20,7 +20,7 @@ using int128_t = __int128;
 using int128_t = __int128_t;
 #endif
 
-#include "data-structures/returnelement.hpp"
+#include "../../data-structures/returnelement.hpp"
 
 namespace growt
 {

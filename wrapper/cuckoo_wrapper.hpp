@@ -17,8 +17,8 @@
 
 #include <libcuckoo/cuckoohash_map.hh>
 
-#include "data-structures/hash_table_mods.hpp"
-#include "data-structures/returnelement.hpp"
+#include "../data-structures/hash_table_mods.hpp"
+#include "../data-structures/returnelement.hpp"
 #include "wrapper/stupid_iterator.hpp"
 
 using namespace growt;

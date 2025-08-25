@@ -18,8 +18,8 @@
 #include <string>
 #include <tbb/concurrent_hash_map.h>
 
-#include "data-structures/hash_table_mods.hpp"
-#include "data-structures/returnelement.hpp"
+#include "../data-structures/hash_table_mods.hpp"
+#include "../data-structures/returnelement.hpp"
 #include "wrapper/stupid_iterator.hpp"
 
 using namespace growt;
